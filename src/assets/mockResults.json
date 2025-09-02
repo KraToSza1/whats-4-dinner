@@ -1,0 +1,20 @@
+[
+  {
+    "id": 715538,
+    "title": "Garlic Chicken Rice Bowl (demo)",
+    "image": "https://images.unsplash.com/photo-1604908812124-22989bf03d65?q=80&w=800&auto=format&fit=crop",
+    "imageType": "jpg",
+    "likes": 0,
+    "usedIngredientCount": 1,
+    "missedIngredientCount": 2
+  },
+  {
+    "id": 641803,
+    "title": "Simple Tomato Pasta (demo)",
+    "image": "https://images.unsplash.com/photo-1523986371872-9d3ba2e2a389?q=80&w=800&auto=format&fit=crop",
+    "imageType": "jpg",
+    "likes": 0,
+    "usedIngredientCount": 1,
+    "missedIngredientCount": 2
+  }
+]
