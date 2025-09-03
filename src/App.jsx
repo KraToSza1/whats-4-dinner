@@ -14,7 +14,7 @@ const explainHttpError = (status) => {
     case 401:
       return "Invalid API key. Check VITE_SPOONACULAR_KEY in your .env.local.";
     case 402:
-      return "Daily API quota reached. Showing demo recipes instead.";
+      return "Daily API quota reached on Spoonacular.";
     case 404:
       return "Endpoint not found. The Spoonacular URL may be wrong.";
     case 429:
@@ -44,30 +44,6 @@ const notifyUser = (message) => {
   }
 };
 
-// Simple built-in demo results used when the API quota is hit (402)
-const DEMO_RECIPES = [
-  {
-    id: 1000001,
-    title: "Garlic Chicken Rice Bowl (demo)",
-    image:
-      "https://images.unsplash.com/photo-1604908812124-22989bf03d65?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    id: 1000002,
-    title: "Simple Tomato Pasta (demo)",
-    image:
-      "https://images.unsplash.com/photo-1523986371872-9d3ba2e2a389?q=80&w=800&auto=format&fit=crop",
-  },
-  {
-    id: 1000003,
-    title: "Crispy Tofu & Broccoli (demo)",
-    image:
-      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=800&auto=format&fit=crop",
-  },
-];
-
-/* --------------------------------- App ----------------------------------- */
-
 const App = () => {
   const [recipes, setRecipes] = useState([]);
   const [favorites, setFavorites] = useState(() => {
@@ -93,6 +69,12 @@ const App = () => {
     }
   }, []);
 
+  // 🔎 ENV KEY DEBUG: confirm Vite loaded your .env.local
+  useEffect(() => {
+    const k = import.meta.env.VITE_SPOONACULAR_KEY || "";
+    console.log("[env] VITE_SPOONACULAR_KEY present?", Boolean(k), (k || "").slice(0, 4) + "****");
+  }, []);
+
   // Cross-tab favorites sync
   useEffect(() => {
     const onStorage = (e) => {
@@ -104,7 +86,7 @@ const App = () => {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  // Main search function (with robust error handling & fallback)
+  // Main search function (with robust error handling)
   const fetchRecipes = useCallback(async (rawIngredients) => {
     const ingredients = normalizeIngredients(rawIngredients);
     if (!ingredients) {
@@ -141,27 +123,16 @@ const App = () => {
       console.log("received items:", Array.isArray(data) ? data.length : 0);
       console.groupEnd();
 
-      // Non-OK HTTP? Show message; if 402 (quota) use demo items
       if (!res.ok) {
         const msg = explainHttpError(res.status);
         console.error("[FETCH] error:", msg, "| body:", bodyText);
-
-        if (res.status === 402) {
-          setRecipes(DEMO_RECIPES);
-          setError("Daily API quota reached. Showing demo recipes.");
-          setLoading(false);
-          return;
-        }
-
         setError(msg);
-        setLoading(false);
+        setRecipes([]);
         return;
       }
 
-      // OK but empty/invalid
       if (!Array.isArray(data) || data.length === 0) {
         setError("No recipes found. Try different ingredients.");
-        setLoading(false);
         return;
       }
 
