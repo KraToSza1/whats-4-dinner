@@ -1,12 +1,65 @@
-# React + Vite
+# What's 4 Dinner — Dev & Deploy
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Local development
 
-Currently, two official plugins are available:
+```bash
+npm install
+# To use the serverless proxy locally
+VITE_USE_PROXY=1 npm run dev
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Open the Vite URL (e.g. http://localhost:5173).
 
-## Expanding the ESLint configuration
+## Serverless proxy (production-safe API)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+This repo includes Vercel serverless functions under `api/` that proxy Spoonacular and add a simple TTL cache. Your API key never touches the browser.
+
+Endpoints:
+- `GET /api/spoonacular/search?q=&includeIngredients=&diet=&intolerances=&number=&maxReadyTime=`
+- `GET /api/spoonacular/info?id=123`
+
+Environment variables (Vercel → Project Settings → Environment Variables):
+- `SPOONACULAR_KEY`: your Spoonacular API key
+- `CACHE_TTL_MS` (optional): cache TTL in ms, default 21600000 (6h)
+
+## Deploy to Vercel
+1. Push this repo to GitHub.
+2. Create a new Vercel Project and import the repo.
+3. Add the env vars above and deploy.
+4. Frontend will automatically use the proxy in production.
+
+Notes:
+- The proxy uses in-memory cache per function instance. For global cache (cheaper), swap the in-memory Map for Redis (e.g., Upstash/Vercel KV).
+- Client still has a localStorage cache for snappy UX.
+
+## Authentication Setup
+
+**Important:** To enable Google and Apple Sign-In, you need to configure OAuth providers in Supabase.
+
+See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for detailed instructions on:
+- Enabling Google OAuth
+- Enabling Apple OAuth
+- Google Cloud Console setup
+- Troubleshooting
+
+The magic link (email) authentication works without any additional setup.
+
+## Env vars (copy into Vercel → Settings → Environment Variables)
+
+- Spoonacular
+  - `SPOONACULAR_KEY`
+  - `CACHE_TTL_MS` (optional)
+- Supabase
+  - `SUPABASE_URL`
+  - `SUPABASE_ANON_KEY`
+  - `SUPABASE_SERVICE_ROLE_KEY` (serverless only, for Stripe webhook upsert)
+- Stripe
+  - `STRIPE_SECRET_KEY`
+  - `STRIPE_PRICE_ID` (recurring price)
+  - `STRIPE_WEBHOOK_SECRET` (from Vercel/Stripe webhook setup)
+- Upstash Redis (optional, enables global cache)
+  - `UPSTASH_REDIS_REST_URL`
+  - `UPSTASH_REDIS_REST_TOKEN`
+
+SEO files:
+- Add `public/robots.txt` and `public/sitemap.xml` for indexing (pending).
