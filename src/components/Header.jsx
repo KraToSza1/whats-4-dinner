@@ -18,6 +18,21 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
     const [proOpen, setProOpen] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
     const userEmail = typeof user === "object" && user?.email ? user.email : null;
+
+    const scrollToCalorieTracker = () => {
+        // Try multiple times in case component hasn't rendered yet
+        let attempts = 0;
+        const tryScroll = () => {
+            const calorieSection = document.getElementById("calorie-tracker-section");
+            if (calorieSection) {
+                calorieSection.scrollIntoView({ behavior: "smooth", block: "start" });
+            } else if (attempts < 10) {
+                attempts++;
+                setTimeout(tryScroll, 100);
+            }
+        };
+        tryScroll();
+    };
     return (
         <>
         <motion.header
@@ -70,9 +85,19 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => {
-                            const favoritesSection = document.getElementById("favorites-section");
-                            if (favoritesSection) {
-                                favoritesSection.scrollIntoView({ behavior: "smooth" });
+                            if (window.location.pathname !== '/') {
+                                navigate('/');
+                                setTimeout(() => {
+                                    const favoritesSection = document.getElementById("favorites-section");
+                                    if (favoritesSection) {
+                                        favoritesSection.scrollIntoView({ behavior: "smooth" });
+                                    }
+                                }, 100);
+                            } else {
+                                const favoritesSection = document.getElementById("favorites-section");
+                                if (favoritesSection) {
+                                    favoritesSection.scrollIntoView({ behavior: "smooth" });
+                                }
                             }
                         }}
                         className="relative px-2 sm:px-3 py-1.5 rounded-md text-xs sm:text-sm bg-rose-600 hover:bg-rose-700 text-white whitespace-nowrap inline-flex items-center gap-2"
@@ -92,6 +117,27 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                                 </motion.span>
                             )}
                         </AnimatePresence>
+                    </motion.button>
+
+                    {/* Calorie Tracker button */}
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                            if (window.location.pathname !== '/') {
+                                navigate('/');
+                                setTimeout(() => {
+                                    scrollToCalorieTracker();
+                                }, 300);
+                            } else {
+                                scrollToCalorieTracker();
+                            }
+                        }}
+                        className="relative px-2 sm:px-3 py-1.5 rounded-md text-xs sm:text-sm bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white whitespace-nowrap inline-flex items-center gap-2"
+                        title="View calorie tracker"
+                    >
+                        <span className="text-base sm:text-lg">📊</span>
+                        <span className="hidden sm:inline">Calories</span>
                     </motion.button>
 
                     {/* Menu Button */}
@@ -219,6 +265,36 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                                             </svg>
                                             <span className="font-semibold text-purple-600 dark:text-purple-400">Meal Planner</span>
                                         </button>
+
+                                        {/* Family Plan */}
+                                        <button
+                                            onClick={() => {
+                                                setShowMenu(false);
+                                                navigate("/family-plan");
+                                            }}
+                                            className="w-full px-4 py-2 text-left text-sm hover:bg-pink-50 dark:hover:bg-pink-900/20 flex items-center gap-3 transition-all"
+                                        >
+                                            <svg className="w-5 h-5 text-pink-600 dark:text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                            </svg>
+                                            <span className="font-semibold text-pink-600 dark:text-pink-400">Family Plan</span>
+                                        </button>
+
+                                        {/* Profile */}
+                                        {user && (
+                                            <button
+                                                onClick={() => {
+                                                    setShowMenu(false);
+                                                    navigate("/profile");
+                                                }}
+                                                className="w-full px-4 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors"
+                                            >
+                                                <svg className="w-5 h-5 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                </svg>
+                                                <span className="font-medium">Profile & Settings</span>
+                                            </button>
+                                        )}
 
                                         <div className="border-t border-slate-200 dark:border-slate-700 my-1" />
 

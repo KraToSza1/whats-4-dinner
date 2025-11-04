@@ -7,11 +7,17 @@ import SearchForm from "./components/SearchForm.jsx";
 import RecipeCard from "./components/RecipeCard.jsx";
 import RecipePage from "./pages/RecipePage.jsx";
 import MealPlanner from "./pages/MealPlanner.jsx";
+import Profile from "./pages/Profile.jsx";
+import FamilyPlan from "./pages/FamilyPlan.jsx";
+import Help from "./pages/Help.jsx";
+import Terms from "./pages/Terms.jsx";
+import Privacy from "./pages/Privacy.jsx";
 
 import Filters from "./components/Filters.jsx";
 import PantryChips from "./components/PantryChips.jsx";
 import GroceryDrawer from "./components/GroceryDrawer.jsx";
 import DailyRecipe from "./components/DailyRecipe.jsx";
+import CalorieTracker from "./components/CalorieTracker.jsx";
 import { RecipeCardSkeletons } from "./components/LoadingSkeleton.jsx";
 import PullToRefresh from "./components/PullToRefresh.jsx";
 import BackToTop from "./components/BackToTop.jsx";
@@ -224,6 +230,11 @@ const App = () => {
                                         {/* Divider */}
                                         <div className="border-b border-slate-200 dark:border-slate-800 mb-6" />
 
+                                        {/* Calorie Tracker */}
+                                        <div className="mb-6">
+                                            <CalorieTracker />
+                                        </div>
+
                                         {/* NEW: Filters + Pantry chips */}
                                     <Filters
                                         diet={diet}
@@ -337,6 +348,11 @@ const App = () => {
                         />
                         <Route path="/recipe/:id" element={<RecipePage />} />
                         <Route path="/meal-planner" element={<MealPlanner />} />
+                        <Route path="/profile" element={<Profile />} />
+                        <Route path="/family-plan" element={<FamilyPlan />} />
+                        <Route path="/help" element={<Help />} />
+                        <Route path="/terms" element={<Terms />} />
+                        <Route path="/privacy" element={<Privacy />} />
                     </Routes>
 
                     {/* Floating grocery list drawer */}

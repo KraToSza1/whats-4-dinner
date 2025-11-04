@@ -11,6 +11,7 @@ import SmartSwaps from "../components/SmartSwaps.jsx";
 import { convertIngredient } from "../utils/unitConverter.js";
 import { RecipePageSkeleton } from "../components/LoadingSkeleton.jsx";
 import { triggerHaptic } from "../utils/haptics.js";
+import { addMealToTracker } from "../components/CalorieTracker.jsx";
 
 export default function RecipePage() {
     const { id } = useParams();
@@ -514,6 +515,22 @@ export default function RecipePage() {
                             >
                                 Add all to List
                             </motion.button>
+                            {nutrient("Calories") && (
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    className="px-3 py-1.5 rounded-md bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+                                    onClick={() => {
+                                        const calories = Math.round(nutrient("Calories") * (targetServings / originalServings));
+                                        addMealToTracker(recipe.id, title, calories);
+                                        triggerHaptic("success");
+                                        alert(`Added ${calories} calories to your tracker! 🎯`);
+                                    }}
+                                    title="Add to calorie tracker"
+                                >
+                                    📊 Add to Tracker
+                                </motion.button>
+                            )}
                         </div>
                     </div>
 

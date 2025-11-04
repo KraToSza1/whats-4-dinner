@@ -34,15 +34,23 @@ Notes:
 
 ## Authentication Setup
 
-**Important:** To enable Google and Apple Sign-In, you need to configure OAuth providers in Supabase.
+**💰 Cost Guide:** See [AUTH_COST_GUIDE.md](./AUTH_COST_GUIDE.md) for a complete breakdown of what's free and what costs money.
 
+### Quick Summary:
+- ✅ **Email Magic Link** - FREE (already working)
+- ✅ **Google OAuth** - FREE (5-minute setup, see below)
+- ❌ **Apple Sign In** - $99/year (hidden until you have revenue)
+
+### Free Setup (Recommended):
+1. **Google OAuth** - See [GOOGLE_AUTH_STEP_BY_STEP.md](./GOOGLE_AUTH_STEP_BY_STEP.md) for complete step-by-step instructions (100% free, no credit card needed)
+   - Or use [QUICK_START_GOOGLE_AUTH.md](./QUICK_START_GOOGLE_AUTH.md) for a quick checklist
+2. **Email Magic Link** - Already working, no setup needed
+
+### Detailed Setup:
 See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for detailed instructions on:
-- Enabling Google OAuth
-- Enabling Apple OAuth
+- Enabling Google OAuth in Supabase
 - Google Cloud Console setup
-- Troubleshooting
-
-The magic link (email) authentication works without any additional setup.
+- Troubleshooting OAuth errors
 
 ## Env vars (copy into Vercel → Settings → Environment Variables)
 

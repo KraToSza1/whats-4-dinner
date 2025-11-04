@@ -45,14 +45,24 @@ export default function AuthModal({ open, onClose }) {
 
     const signInWith = async (provider) => {
         setError("");
+        setLoading(true);
         try {
             const { error: err } = await supabase.auth.signInWithOAuth({
                 provider,
                 options: { redirectTo },
             });
-            if (err) throw err;
+            if (err) {
+                if (err.message?.includes("provider is not enabled")) {
+                    setError(`Please enable ${provider} in your Supabase dashboard. See GOOGLE_OAUTH_SETUP.md for free setup instructions.`);
+                } else {
+                    setError(err.message || "OAuth failed");
+                }
+                setLoading(false);
+            }
+            // Note: On success, user will be redirected, so we don't need to setLoading(false)
         } catch (err) {
             setError(err.message || "OAuth failed");
+            setLoading(false);
         }
     };
 
@@ -188,6 +198,8 @@ export default function AuthModal({ open, onClose }) {
                                 </svg>
                                 <span className="font-semibold group-hover:text-blue-400 transition-colors">Google</span>
                             </motion.button>
+                            {/* Apple Sign In - Hidden until user has revenue (requires $99/year Apple Developer Account) */}
+                            {/* Uncomment when ready:
                             <motion.button
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
@@ -199,6 +211,7 @@ export default function AuthModal({ open, onClose }) {
                                 </svg>
                                 <span className="font-semibold">Apple</span>
                             </motion.button>
+                            */}
                         </div>
                     </div>
                 </div>
