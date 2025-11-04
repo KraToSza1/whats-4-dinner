@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { trackRecipeInteraction } from "../utils/analytics.js";
 
 export default function RecipeRater({ recipeId, recipeTitle }) {
     const storageKey = `recipeRating:${recipeId}`;
@@ -31,6 +32,13 @@ export default function RecipeRater({ recipeId, recipeTitle }) {
 
     const handleRating = (stars) => {
         setRating(stars);
+        // Track interaction
+        if (recipeId) {
+            trackRecipeInteraction(recipeId, "rate", {
+                title: recipeTitle,
+                rating: stars,
+            });
+        }
     };
 
     return (

@@ -12,6 +12,7 @@ import FamilyPlan from "./pages/FamilyPlan.jsx";
 import Help from "./pages/Help.jsx";
 import Terms from "./pages/Terms.jsx";
 import Privacy from "./pages/Privacy.jsx";
+import Analytics from "./pages/Analytics.jsx";
 
 import Filters from "./components/Filters.jsx";
 import PantryChips from "./components/PantryChips.jsx";
@@ -26,6 +27,7 @@ import { GroceryListProvider } from "./context/GroceryListContext.jsx";
 
 import { searchRecipes } from "./api/spoonacular.js";
 import { getPreferenceSummary } from "./utils/preferenceAnalyzer.js";
+import { trackRecipeInteraction } from "./utils/analytics.js";
 
 
 
@@ -199,6 +201,14 @@ const App = () => {
         const updated = exists ? favorites.filter((f) => f.id !== recipe.id) : [recipe, ...favorites];
         setFavorites(updated);
         localStorage.setItem("favorites", JSON.stringify(updated));
+        
+        // Track interaction
+        if (recipe?.id) {
+            trackRecipeInteraction(recipe.id, exists ? "unfavorite" : "favorite", {
+                title: recipe.title,
+                image: recipe.image,
+            });
+        }
     };
 
     return (
@@ -230,12 +240,7 @@ const App = () => {
                                         {/* Divider */}
                                         <div className="border-b border-slate-200 dark:border-slate-800 mb-6" />
 
-                                        {/* Calorie Tracker */}
-                                        <div className="mb-6">
-                                            <CalorieTracker />
-                                        </div>
-
-                                        {/* NEW: Filters + Pantry chips */}
+                                        {/* NEW: Filters */}
                                     <Filters
                                         diet={diet}
                                         setDiet={setDiet}
@@ -250,7 +255,15 @@ const App = () => {
                                         healthScore={healthScore}
                                         setHealthScore={setHealthScore}
                                     />
-                                    
+
+                                    {/* Divider */}
+                                    <div className="border-b border-slate-200 dark:border-slate-800 my-6" />
+
+                                    {/* Calorie Tracker */}
+                                    <div className="mb-6">
+                                        <CalorieTracker />
+                                    </div>
+
                                     {/* Divider */}
                                     <div className="border-b border-slate-200 dark:border-slate-800 my-6" />
                                     
@@ -350,6 +363,7 @@ const App = () => {
                         <Route path="/meal-planner" element={<MealPlanner />} />
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/family-plan" element={<FamilyPlan />} />
+                        <Route path="/analytics" element={<Analytics />} />
                         <Route path="/help" element={<Help />} />
                         <Route path="/terms" element={<Terms />} />
                         <Route path="/privacy" element={<Privacy />} />

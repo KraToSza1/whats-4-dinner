@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useGroceryList } from "../context/GroceryListContext.jsx";
 import { getRecipeInformation } from "../api/spoonacular.js";
 import { searchRecipes } from "../api/spoonacular.js";
+import { trackRecipeInteraction } from "../utils/analytics.js";
 
 const KEY = "meal:plan:v2"; // updated version for breakfast/lunch/dinner
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -111,6 +112,14 @@ export default function MealPlanner() {
 
     const setMeal = (dayIdx, mealType, recipe) => {
         setPlan(setMealPlanDay(dayIdx, mealType, recipe));
+        // Track interaction
+        if (recipe?.id) {
+            trackRecipeInteraction(recipe.id, "add_to_plan", {
+                title: recipe.title,
+                mealType,
+                day: DAYS_SHORT[dayIdx],
+            });
+        }
     };
 
     const favorites = useMemo(() => {

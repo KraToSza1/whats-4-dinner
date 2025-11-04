@@ -12,6 +12,7 @@ import { convertIngredient } from "../utils/unitConverter.js";
 import { RecipePageSkeleton } from "../components/LoadingSkeleton.jsx";
 import { triggerHaptic } from "../utils/haptics.js";
 import { addMealToTracker } from "../components/CalorieTracker.jsx";
+import { trackRecipeView, trackRecipeInteraction } from "../utils/analytics.js";
 
 export default function RecipePage() {
     const { id } = useParams();
@@ -64,6 +65,14 @@ export default function RecipePage() {
                 const full = await getRecipeInformation(id); // unified API wrapper
                 if (!ignore) {
                     setRecipe(full);
+                    // Track recipe view
+                    if (full?.id) {
+                        trackRecipeView(full.id);
+                        trackRecipeInteraction(full.id, "view", {
+                            title: full.title,
+                            image: full.image,
+                        });
+                    }
                     // Set initial servings from saved or recipe default
                     try {
                         const saved = localStorage.getItem(`servings:${id}`);
@@ -356,6 +365,13 @@ export default function RecipePage() {
         if (filtered.length) {
             addMany(filtered, true); // Keep full quantities
             setOpen(true);
+            // Track interaction
+            if (recipe?.id) {
+                trackRecipeInteraction(recipe.id, "add_to_grocery", {
+                    title: recipe.title,
+                    ingredientCount: filtered.length,
+                });
+            }
         }
     };
 
