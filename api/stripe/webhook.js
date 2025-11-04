@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
-export const config = { api: { bodyParser: false } };
+// Body parser disabled for Stripe webhook signature verification
 
 function buffer(req) { return new Promise((resolve, reject) => {
   const chunks = [];

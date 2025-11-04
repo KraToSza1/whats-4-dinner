@@ -1,5 +1,4 @@
 // Vercel Serverless Function - Recipe Info Proxy with simple in-memory TTL cache
-export const config = { runtime: "nodejs18.x" };
 
 const CACHE_TTL_MS = parseInt(process.env.CACHE_TTL_MS || "21600000", 10); // 6h default
 const cache = new Map();
