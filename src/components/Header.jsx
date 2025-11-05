@@ -79,7 +79,7 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                     </h1>
                 </motion.div>
 
-                <div className="flex items-center gap-1 sm:gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                     {/* Favorites button (always visible) */}
                     <motion.button
                         whileHover={{ scale: 1.05 }}
@@ -100,18 +100,18 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                                 }
                             }
                         }}
-                        className="relative px-2 sm:px-3 py-1.5 rounded-md text-xs sm:text-sm bg-rose-600 hover:bg-rose-700 text-white whitespace-nowrap inline-flex items-center gap-2"
+                        className="relative px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-md text-xs sm:text-sm bg-rose-600 hover:bg-rose-700 text-white whitespace-nowrap inline-flex items-center gap-1.5 sm:gap-2 min-h-[36px] sm:min-h-0 touch-manipulation"
                         title={`View ${favorites.length} saved favorites`}
                     >
                         <span className="text-base sm:text-lg">❤️</span>
-                        <span className="hidden sm:inline">Favorites</span>
+                        <span className="hidden xs:inline sm:inline">Favorites</span>
                         <AnimatePresence mode="wait">
                             {favorites.length > 0 && (
                                 <motion.span
                                     initial={{ scale: 0 }}
                                     animate={{ scale: 1 }}
                                     exit={{ scale: 0 }}
-                                    className="inline-flex items-center justify-center min-w-[20px] h-5 px-1 text-xs font-bold bg-white/30 rounded-full"
+                                    className="inline-flex items-center justify-center min-w-[18px] sm:min-w-[20px] h-4.5 sm:h-5 px-1 text-[10px] sm:text-xs font-bold bg-white/30 rounded-full"
                                 >
                                     {favorites.length}
                                 </motion.span>
@@ -133,11 +133,11 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                                 scrollToCalorieTracker();
                             }
                         }}
-                        className="relative px-2 sm:px-3 py-1.5 rounded-md text-xs sm:text-sm bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white whitespace-nowrap inline-flex items-center gap-2"
+                        className="relative px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-md text-xs sm:text-sm bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white whitespace-nowrap inline-flex items-center gap-1.5 sm:gap-2 min-h-[36px] sm:min-h-0 touch-manipulation"
                         title="View calorie tracker"
                     >
                         <span className="text-base sm:text-lg">📊</span>
-                        <span className="hidden sm:inline">Calories</span>
+                        <span className="hidden xs:inline sm:inline">Calories</span>
                     </motion.button>
 
                     {/* Menu Button */}
@@ -170,7 +170,7 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                                         initial={{ opacity: 0, scale: 0.95, y: -10 }}
                                         animate={{ opacity: 1, scale: 1, y: 0 }}
                                         exit={{ opacity: 0, scale: 0.95 }}
-                                        className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-2 z-50"
+                                        className="absolute right-0 mt-2 w-56 sm:w-48 bg-white dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-2 z-50 max-h-[85vh] overflow-y-auto"
                                     >
                                         {/* Sign In First */}
                                         {userEmail ? (

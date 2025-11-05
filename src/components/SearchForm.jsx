@@ -80,12 +80,15 @@ export default function SearchForm({ onSearch, placeholder = "Enter ingredients 
             aria-label="Recipe ingredient search form"
         >
             {/* Icon container with input wrapper */}
-            <div className="relative flex items-center gap-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-2xl p-4 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg hover:shadow-xl transition-all">
-                <span className="text-2xl">🔍</span>
+            <div className="relative flex items-center gap-2 sm:gap-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-2xl p-3 sm:p-4 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg hover:shadow-xl transition-all">
+                {/* Search icon - only shown on desktop (outside input) */}
+                <span className="hidden sm:block text-xl sm:text-2xl flex-shrink-0">🔍</span>
+                
+                {/* Input - no button inside */}
                 <input
                     ref={inputRef}
                     type="text"
-                    className="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-slate-800 ring-2 ring-emerald-300 dark:ring-emerald-700 focus:outline-none focus:ring-emerald-500 focus:border-transparent shadow-sm transition-all text-base"
+                    className="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl bg-white dark:bg-slate-800 ring-2 ring-emerald-300 dark:ring-emerald-700 focus:outline-none focus:ring-emerald-500 focus:border-transparent shadow-sm transition-all text-sm sm:text-base min-h-[44px] sm:min-h-0"
                     placeholder={placeholder}
                     value={ingredients}
                     onChange={(e) => setIngredients(e.target.value)}
@@ -95,6 +98,7 @@ export default function SearchForm({ onSearch, placeholder = "Enter ingredients 
                     autoComplete="off"
                     spellCheck={false}
                 />
+                
                 {recogRef.current && (
                     <motion.button
                         type="button"
@@ -105,7 +109,7 @@ export default function SearchForm({ onSearch, placeholder = "Enter ingredients 
                             transition: { duration: 1, repeat: Infinity }
                         } : {}}
                         onClick={startVoice}
-                        className={`px-3 py-3 rounded-xl border-2 ${
+                        className={`px-2.5 sm:px-3 py-2.5 sm:py-3 rounded-xl border-2 flex-shrink-0 min-h-[44px] sm:min-h-0 touch-manipulation ${
                             listening 
                                 ? "border-emerald-500 text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 shadow-sm" 
                                 : "border-emerald-300 dark:border-emerald-700 hover:border-emerald-500 bg-white dark:bg-slate-800"
@@ -113,7 +117,7 @@ export default function SearchForm({ onSearch, placeholder = "Enter ingredients 
                         title="Speak ingredients"
                         aria-pressed={listening}
                     >
-                        🎤
+                        <span className="text-base sm:text-lg">🎤</span>
                     </motion.button>
                 )}
 
@@ -122,20 +126,23 @@ export default function SearchForm({ onSearch, placeholder = "Enter ingredients 
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         type="button"
-                        className="px-4 py-3 rounded-xl border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all font-medium"
+                        className="px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all font-medium min-h-[44px] sm:min-h-0 touch-manipulation flex-shrink-0"
                         onClick={clear}
                     >
                         ✕
                     </motion.button>
                 )}
 
+                {/* Search button - icon on mobile, text on desktop, always outside input */}
                 <motion.button
                     whileHover={{ scale: 1.05, boxShadow: "0 10px 15px -3px rgba(5, 150, 105, 0.3)" }}
                     whileTap={{ scale: 0.95 }}
                     type="submit"
-                    className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base shadow-md hover:shadow-lg transition-all"
+                    className="px-3 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg sm:text-base shadow-md hover:shadow-lg transition-all min-h-[44px] sm:min-h-0 touch-manipulation flex-shrink-0 flex items-center justify-center"
+                    title="Search recipes"
                 >
-                    Search
+                    <span className="sm:hidden">🔍</span>
+                    <span className="hidden sm:inline">Search</span>
                 </motion.button>
             </div>
         </motion.form>

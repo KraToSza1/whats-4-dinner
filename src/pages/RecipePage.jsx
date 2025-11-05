@@ -379,15 +379,15 @@ export default function RecipePage() {
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
             {/* Top bar */}
             <div className="sticky top-0 z-20 bg-white/70 dark:bg-slate-900/70 backdrop-blur border-b border-slate-200 dark:border-slate-800">
-                <div className="mx-auto max-w-4xl px-4 sm:px-6 py-3 flex items-center justify-between">
+                <div className="mx-auto max-w-4xl px-3 sm:px-4 lg:px-6 py-2 sm:py-3 flex items-center justify-between gap-2">
                     <button
                         onClick={() => navigate(-1)}
-                        className="px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700"
+                        className="px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-md border border-slate-300 dark:border-slate-700 text-sm sm:text-base hover:bg-slate-50 dark:hover:bg-slate-800 min-h-[44px] sm:min-h-0 touch-manipulation"
                     >
-                        ← Back
+                        ← <span className="hidden sm:inline">Back</span>
                     </button>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
                         {/* Add to planner */}
                         <button
                             onClick={() => {
@@ -397,10 +397,11 @@ export default function RecipePage() {
                                 setMealPlanDay(todayIdx, "dinner", recipe);
                                 triggerHaptic("success");
                             }}
-                            className="px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                            className="px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-md border border-slate-300 dark:border-slate-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-xs sm:text-sm min-h-[44px] sm:min-h-0 touch-manipulation"
                             title="Add to today's dinner"
                         >
-                            Add to Planner
+                            <span className="hidden sm:inline">Add to Planner</span>
+                            <span className="sm:hidden">📅</span>
                         </button>
 
                         {/* Share */}
@@ -415,7 +416,7 @@ export default function RecipePage() {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => window.print()}
-                            className="px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700"
+                            className="px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-md border border-slate-300 dark:border-slate-700 min-h-[44px] sm:min-h-0 touch-manipulation text-base sm:text-lg"
                             title="Print"
                         >
                             🖨️
@@ -437,17 +438,17 @@ export default function RecipePage() {
                         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-950/20 to-slate-950/60 pointer-events-none" />
                     </>
                 )}
-                <div className="mx-auto max-w-4xl px-4 sm:px-6 py-10 relative">
+                <div className="mx-auto max-w-4xl px-3 sm:px-4 lg:px-6 py-6 sm:py-10 relative">
                     <motion.h1
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.35 }}
-                        className="text-center text-3xl sm:text-4xl font-extrabold tracking-tight"
+                        className="text-center text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight px-2"
                     >
                         {title}
                     </motion.h1>
 
-                    <div className="mt-4 flex flex-wrap gap-2 justify-center">
+                    <div className="mt-4 flex flex-wrap gap-2 justify-center px-2">
                         <Stat
                             label="Ready"
                             value={recipe.readyInMinutes ? `${recipe.readyInMinutes} mins` : "—"}
@@ -486,7 +487,7 @@ export default function RecipePage() {
             </section>
 
             {/* Body */}
-            <div className="mx-auto max-w-4xl px-4 sm:px-6 py-10 space-y-10">
+            <div className="mx-auto max-w-4xl px-3 sm:px-4 lg:px-6 py-6 sm:py-10 space-y-6 sm:space-y-10">
                 {/* Macros */}
                 <section>
                     <h2 className="text-xl font-bold mb-3 text-center">🍽️ Nutritional Info</h2>

@@ -57,17 +57,18 @@ export default function GroceryDrawer() {
                     scale: [1, 1.1, 1],
                     transition: { duration: 0.5, repeat: Infinity, repeatDelay: 3 }
                 } : {}}
-                className="fixed bottom-4 right-4 rounded-full px-4 py-2 bg-emerald-600 text-white shadow-lg hover:shadow-xl transition-shadow z-40"
+                className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 rounded-full px-3 sm:px-4 py-2.5 sm:py-2 bg-emerald-600 text-white shadow-lg hover:shadow-xl transition-shadow z-50 text-xs sm:text-sm font-semibold touch-manipulation min-h-[44px] sm:min-h-0 flex items-center gap-1.5 sm:gap-2"
                 aria-label={`Open grocery list (${items.length} items)`}
             >
                 <motion.span
                     animate={{ rotate: [0, -10, 10, 0] }}
                     transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
-                    className="inline-block mr-2"
+                    className="inline-block text-lg sm:text-xl flex-shrink-0"
                 >
                     🛒
                 </motion.span>
-                Grocery list ({items.length})
+                <span className="hidden xs:inline whitespace-nowrap">Grocery list </span>
+                <span className="font-bold">({items.length})</span>
             </motion.button>
 
             {/* Drawer */}
@@ -87,7 +88,7 @@ export default function GroceryDrawer() {
                             animate={{ x: 0 }}
                             exit={{ x: "100%" }}
                             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                            className="absolute right-0 top-0 h-full w-[90%] max-w-sm bg-white dark:bg-slate-900 p-4 shadow-xl border-l border-slate-200 dark:border-slate-800"
+                            className="absolute right-0 top-0 h-full w-[95%] sm:w-[90%] max-w-sm bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-xl border-l border-slate-200 dark:border-slate-800 overflow-y-auto"
                             onClick={(e) => e.stopPropagation()}
                         >
                         <div className="flex items-center justify-between mb-4">

@@ -79,7 +79,7 @@ export default function Filters({
             transition={{ delay: 0.1 }}
             className="mt-4 sm:mt-6"
         >
-            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-2xl p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg">
+            <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-2xl p-4 sm:p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
@@ -134,7 +134,7 @@ export default function Filters({
                 </div>
 
                 {/* Main Filters - Always Visible */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-4">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-4">
                     {/* Meal Type */}
                     <motion.div
                         whileHover={{ scale: 1.02 }}

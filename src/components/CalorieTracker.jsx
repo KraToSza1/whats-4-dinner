@@ -147,7 +147,7 @@ export default function CalorieTracker() {
                 id="calorie-tracker-section"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-2xl p-6 border-2 border-blue-200 dark:border-blue-800 shadow-lg mb-6"
+                className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-2xl p-4 sm:p-6 border-2 border-blue-200 dark:border-blue-800 shadow-lg mb-6"
             >
                 <div className="flex items-center gap-3 mb-6">
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-md">
@@ -163,7 +163,7 @@ export default function CalorieTracker() {
                     </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2 mb-4">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 mb-4">
                     <div>
                         <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
                             Weight (kg) *

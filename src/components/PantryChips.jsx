@@ -54,7 +54,7 @@ export default function PantryChips({ pantry, setPantry }) {
             transition={{ delay: 0.15 }}
             className="mt-4 sm:mt-6"
         >
-            <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-2xl p-6 border-2 border-amber-200 dark:border-amber-800 shadow-lg">
+            <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-2xl p-4 sm:p-6 border-2 border-amber-200 dark:border-amber-800 shadow-lg">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
@@ -156,8 +156,8 @@ export default function PantryChips({ pantry, setPantry }) {
                 </div>
 
                 {/* Add Custom Ingredient */}
-                <div className="relative flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-amber-300 dark:border-amber-700 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm">
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-400 to-orange-400 flex items-center justify-center shadow-sm">
+                <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-3 sm:p-4 rounded-xl border-2 border-dashed border-amber-300 dark:border-amber-700 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-400 to-orange-400 flex items-center justify-center shadow-sm flex-shrink-0 hidden sm:flex">
                         <span className="text-lg">➕</span>
                     </div>
                     <input
@@ -167,7 +167,7 @@ export default function PantryChips({ pantry, setPantry }) {
                         onChange={(e) => setCustom(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && addCustom()}
                         placeholder="Type ingredient and press Enter..."
-                        className="flex-1 px-4 py-2.5 bg-white dark:bg-slate-900 rounded-lg border-2 border-slate-200 dark:border-slate-700 focus:border-amber-500 dark:focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition-all text-sm sm:text-base placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                        className="flex-1 px-3 sm:px-4 py-2.5 bg-white dark:bg-slate-900 rounded-lg border-2 border-slate-200 dark:border-slate-700 focus:border-amber-500 dark:focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition-all text-sm sm:text-base placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm min-h-[44px] sm:min-h-0"
                         aria-label="Add a custom ingredient"
                     />
                     <motion.button
@@ -176,7 +176,7 @@ export default function PantryChips({ pantry, setPantry }) {
                         type="button"
                         onClick={addCustom}
                         disabled={!custom.trim()}
-                        className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-semibold shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                        className="px-4 sm:px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-semibold shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 min-h-[44px] sm:min-h-0 touch-manipulation"
                     >
                         Add
                     </motion.button>

@@ -447,7 +447,7 @@ export default function Profile() {
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-            <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
+            <div className="mx-auto max-w-6xl px-3 sm:px-4 lg:px-6 py-6 sm:py-8">
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
@@ -477,19 +477,19 @@ export default function Profile() {
                 </AnimatePresence>
 
                 {/* Tabs */}
-                <div className="mb-6 flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800">
+                <div className="mb-6 flex gap-1 sm:gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-hide -mx-3 sm:mx-0 px-3 sm:px-0">
                     {tabs.map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`px-4 py-2 rounded-t-lg transition-colors flex items-center gap-2 ${
+                            className={`px-3 sm:px-4 py-2.5 sm:py-2 rounded-t-lg transition-colors flex items-center gap-1.5 sm:gap-2 whitespace-nowrap min-h-[44px] sm:min-h-0 touch-manipulation ${
                                 activeTab === tab.id
                                     ? "bg-white dark:bg-slate-900 border-t border-l border-r border-slate-200 dark:border-slate-800 text-emerald-600 dark:text-emerald-400 font-semibold"
                                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
                             }`}
                         >
-                            <span>{tab.icon}</span>
-                            <span>{tab.label}</span>
+                            <span className="text-base sm:text-lg">{tab.icon}</span>
+                            <span className="text-sm sm:text-base">{tab.label}</span>
                         </button>
                     ))}
                 </div>
