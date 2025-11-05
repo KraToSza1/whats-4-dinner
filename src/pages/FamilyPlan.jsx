@@ -16,22 +16,39 @@ const DIETARY_RESTRICTIONS = [
     "Low-Sodium", "Diabetic", "Halal", "Kosher"
 ];
 
-const ROLES = ["parent", "child", "nanny"];
+// Comprehensive family member roles
+const ROLES = [
+    "parent",
+    "mom",
+    "dad",
+    "grandparent",
+    "grandma",
+    "grandpa",
+    "child",
+    "baby",
+    "toddler",
+    "teenager",
+    "teen",
+    "nanny",
+    "au pair",
+    "caregiver",
+    "guardian",
+    "other"
+];
 
 const COMMON_MEMBERS = [
-    { name: "Mom", role: "parent", icon: "👩" },
-    { name: "Dad", role: "parent", icon: "👨" },
+    { name: "Mom", role: "mom", icon: "👩" },
+    { name: "Dad", role: "dad", icon: "👨" },
     { name: "Parent", role: "parent", icon: "👤" },
-    { name: "Child 1", role: "child", icon: "👶", ageRange: "0-2 years" },
-    { name: "Child 2", role: "child", icon: "👦", ageRange: "3-5 years" },
-    { name: "Child 3", role: "child", icon: "👧", ageRange: "6-10 years" },
-    { name: "Teenager", role: "child", icon: "🧑", ageRange: "11-17 years" },
-    { name: "Baby", role: "child", icon: "👶", ageRange: "0-1 year" },
-    { name: "Toddler", role: "child", icon: "🧒", ageRange: "2-3 years" },
+    { name: "Baby", role: "baby", icon: "👶", ageRange: "0-1 year" },
+    { name: "Toddler", role: "toddler", icon: "🧒", ageRange: "2-3 years" },
+    { name: "Child", role: "child", icon: "👦", ageRange: "4-10 years" },
+    { name: "Teenager", role: "teenager", icon: "🧑", ageRange: "11-17 years" },
+    { name: "Grandma", role: "grandma", icon: "👵" },
+    { name: "Grandpa", role: "grandpa", icon: "👴" },
     { name: "Nanny", role: "nanny", icon: "👷" },
-    { name: "Au Pair", role: "nanny", icon: "👨‍🏫" },
-    { name: "Grandma", role: "parent", icon: "👵" },
-    { name: "Grandpa", role: "parent", icon: "👴" },
+    { name: "Au Pair", role: "au pair", icon: "👨‍🏫" },
+    { name: "Caregiver", role: "caregiver", icon: "👨‍⚕️" },
 ];
 
 function readFamilyMembers() {
@@ -67,6 +84,45 @@ export default function FamilyPlan() {
     const [selectedMember, setSelectedMember] = useState(null);
     const [mealLogs, setMealLogs] = useState(readMealLogs);
 
+    // Realistic portion size multipliers based on age/role
+    const getPortionMultiplier = (role, ageRange) => {
+        // Baby (0-1 year): ~0.25 of adult serving
+        if (role === "baby" || (ageRange && ageRange.includes("0-1"))) {
+            return { multiplier: 0.25, label: "Baby (¼ serving)", value: "baby" };
+        }
+        // Toddler (2-3 years): ~0.5 of adult serving
+        if (role === "toddler" || (ageRange && ageRange.includes("2-3"))) {
+            return { multiplier: 0.5, label: "Toddler (½ serving)", value: "toddler" };
+        }
+        // Child (4-10 years): ~0.75 of adult serving
+        if (role === "child" || (ageRange && /^[4-9]|10/.test(ageRange))) {
+            return { multiplier: 0.75, label: "Child (¾ serving)", value: "child" };
+        }
+        // Teenager (11-17 years): ~1.0-1.25 of adult serving (growing!)
+        if (role === "teenager" || role === "teen" || (ageRange && ageRange.includes("11-17"))) {
+            return { multiplier: 1.25, label: "Teenager (1.25 servings)", value: "teen" };
+        }
+        // Senior/Grandparent: ~0.75-0.9 of adult serving
+        if (role === "grandparent" || role === "grandma" || role === "grandpa") {
+            return { multiplier: 0.85, label: "Senior (0.85 serving)", value: "senior" };
+        }
+        // Adult/Parent: Standard 1.0 serving
+        // Large appetite: 1.25-1.5 servings
+        return { multiplier: 1.0, label: "Adult (1 serving)", value: "adult" };
+    };
+
+    // Available portion size options with realistic multipliers
+    const PORTION_SIZES = [
+        { value: "baby", label: "Baby (¼ serving)", multiplier: 0.25, description: "0-1 year" },
+        { value: "toddler", label: "Toddler (½ serving)", multiplier: 0.5, description: "2-3 years" },
+        { value: "child", label: "Child (¾ serving)", multiplier: 0.75, description: "4-10 years" },
+        { value: "teen", label: "Teenager (1.25 servings)", multiplier: 1.25, description: "11-17 years" },
+        { value: "small", label: "Small (0.75 serving)", multiplier: 0.75, description: "Light eater" },
+        { value: "normal", label: "Normal (1 serving)", multiplier: 1.0, description: "Standard adult" },
+        { value: "large", label: "Large (1.5 servings)", multiplier: 1.5, description: "Big appetite" },
+        { value: "xlarge", label: "Extra Large (2 servings)", multiplier: 2.0, description: "Athlete/heavy eater" },
+    ];
+
     // Form state
     const [formData, setFormData] = useState({
         name: "",
@@ -74,7 +130,7 @@ export default function FamilyPlan() {
         ageRange: "",
         allergies: [],
         dietaryRestrictions: [],
-        portionSize: "normal", // "small", "normal", "large"
+        portionSize: "normal",
     });
 
     useEffect(() => {
@@ -86,13 +142,14 @@ export default function FamilyPlan() {
     }, [mealLogs]);
 
     const handleAddMember = () => {
+        const defaultPortion = getPortionMultiplier("child", "").value;
         setFormData({
             name: "",
             role: "child",
             ageRange: "",
             allergies: [],
             dietaryRestrictions: [],
-            portionSize: "normal",
+            portionSize: defaultPortion,
         });
         setEditingMember(null);
         setShowAddModal(true);
@@ -239,6 +296,47 @@ export default function FamilyPlan() {
                     </div>
                 </motion.div>
 
+                {/* Family Servings Summary */}
+                {members.length > 0 && (
+                    <motion.section
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl shadow-sm border border-emerald-200 dark:border-emerald-800 p-6 mb-6"
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold">Family Servings Summary</h2>
+                            <span className="text-2xl">🍽️</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="bg-white dark:bg-slate-800 rounded-lg p-4">
+                                <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">Total Family Members</div>
+                                <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{members.length}</div>
+                            </div>
+                            <div className="bg-white dark:bg-slate-800 rounded-lg p-4">
+                                <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">Total Servings Needed</div>
+                                <div className="text-2xl font-bold text-teal-600 dark:text-teal-400">
+                                    {Math.ceil(members.reduce((sum, m) => {
+                                        const multiplier = PORTION_SIZES.find(s => s.value === m.portionSize)?.multiplier || 1.0;
+                                        return sum + multiplier;
+                                    }, 0))}
+                                </div>
+                            </div>
+                            <div className="bg-white dark:bg-slate-800 rounded-lg p-4">
+                                <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">Average Per Person</div>
+                                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                    {(members.reduce((sum, m) => {
+                                        const multiplier = PORTION_SIZES.find(s => s.value === m.portionSize)?.multiplier || 1.0;
+                                        return sum + multiplier;
+                                    }, 0) / members.length).toFixed(2)}x
+                                </div>
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-3">
+                            💡 Recipe servings will automatically adjust based on your family members when viewing recipes
+                        </p>
+                    </motion.section>
+                )}
+
                 {/* Today's Meals Summary */}
                 {members.length > 0 && (
                     <motion.section
@@ -377,7 +475,16 @@ export default function FamilyPlan() {
                                     <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">
                                         Portion Size
                                     </label>
-                                    <span className="text-sm capitalize">{member.portionSize}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium capitalize">
+                                            {PORTION_SIZES.find(s => s.value === member.portionSize)?.label || member.portionSize}
+                                        </span>
+                                        {PORTION_SIZES.find(s => s.value === member.portionSize) && (
+                                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                                                ({PORTION_SIZES.find(s => s.value === member.portionSize).multiplier}x)
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </motion.div>
                         ))}
@@ -421,6 +528,7 @@ export default function FamilyPlan() {
                                                             whileTap={{ scale: 0.95 }}
                                                             type="button"
                                                             onClick={() => {
+                                                                const portionInfo = getPortionMultiplier(member.role, member.ageRange || "");
                                                                 setFormData({
                                                                     ...formData,
                                                                     name: member.name,
@@ -428,7 +536,7 @@ export default function FamilyPlan() {
                                                                     ageRange: member.ageRange || "",
                                                                     allergies: [],
                                                                     dietaryRestrictions: [],
-                                                                    portionSize: member.role === "child" ? "small" : "normal",
+                                                                    portionSize: portionInfo.value,
                                                                 });
                                                             }}
                                                             className="px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all flex items-center gap-2 text-sm font-medium"
@@ -464,39 +572,49 @@ export default function FamilyPlan() {
                                             </label>
                                             <select
                                                 value={formData.role}
-                                                onChange={(e) =>
-                                                    setFormData({ ...formData, role: e.target.value })
-                                                }
+                                                onChange={(e) => {
+                                                    const newRole = e.target.value;
+                                                    const portionInfo = getPortionMultiplier(newRole, formData.ageRange);
+                                                    setFormData({ 
+                                                        ...formData, 
+                                                        role: newRole,
+                                                        portionSize: portionInfo.value
+                                                    });
+                                                }}
                                                 className="w-full px-4 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
                                             >
                                                 {ROLES.map((role) => (
                                                     <option key={role} value={role}>
-                                                        {role.charAt(0).toUpperCase() + role.slice(1)}
+                                                        {role.charAt(0).toUpperCase() + role.slice(1).replace(/([A-Z])/g, ' $1').trim()}
                                                     </option>
                                                 ))}
                                             </select>
                                         </div>
 
-                                        {/* Age Range (for children) */}
-                                        {formData.role === "child" && (
-                                            <div>
-                                                <label className="block text-sm font-medium mb-2">
-                                                    Age Range
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={formData.ageRange}
-                                                    onChange={(e) =>
-                                                        setFormData({
-                                                            ...formData,
-                                                            ageRange: e.target.value,
-                                                        })
-                                                    }
-                                                    className="w-full px-4 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
-                                                    placeholder="e.g., 5-10 years"
-                                                />
-                                            </div>
-                                        )}
+                                        {/* Age Range */}
+                                        <div>
+                                            <label className="block text-sm font-medium mb-2">
+                                                Age Range
+                                                <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">
+                                                    (Helps auto-adjust portion size)
+                                                </span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.ageRange}
+                                                onChange={(e) => {
+                                                    const newAgeRange = e.target.value;
+                                                    const portionInfo = getPortionMultiplier(formData.role, newAgeRange);
+                                                    setFormData({
+                                                        ...formData,
+                                                        ageRange: newAgeRange,
+                                                        portionSize: portionInfo.value,
+                                                    });
+                                                }}
+                                                className="w-full px-4 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800"
+                                                placeholder="e.g., 5-10 years, 30-40 years, etc."
+                                            />
+                                        </div>
 
                                         {/* Allergies */}
                                         <div>
@@ -550,27 +668,41 @@ export default function FamilyPlan() {
                                         <div>
                                             <label className="block text-sm font-medium mb-2">
                                                 Portion Size
+                                                <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">
+                                                    (Auto-adjusted based on role/age)
+                                                </span>
                                             </label>
-                                            <div className="flex gap-2">
-                                                {["small", "normal", "large"].map((size) => (
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                {PORTION_SIZES.map((size) => (
                                                     <button
-                                                        key={size}
+                                                        key={size.value}
+                                                        type="button"
                                                         onClick={() =>
                                                             setFormData({
                                                                 ...formData,
-                                                                portionSize: size,
+                                                                portionSize: size.value,
                                                             })
                                                         }
-                                                        className={`px-4 py-2 rounded-md transition-colors capitalize ${
-                                                            formData.portionSize === size
-                                                                ? "bg-emerald-600 text-white"
-                                                                : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                                        className={`px-3 py-2 rounded-md transition-all text-left ${
+                                                            formData.portionSize === size.value
+                                                                ? "bg-emerald-600 text-white border-2 border-emerald-500"
+                                                                : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border-2 border-transparent"
                                                         }`}
+                                                        title={size.description}
                                                     >
-                                                        {size}
+                                                        <div className="font-medium text-xs sm:text-sm">{size.label}</div>
+                                                        <div className="text-[10px] opacity-75 mt-0.5">
+                                                            {size.multiplier}x
+                                                        </div>
                                                     </button>
                                                 ))}
                                             </div>
+                                            {formData.portionSize && (
+                                                <div className="mt-2 text-xs text-slate-600 dark:text-slate-400 p-2 bg-slate-50 dark:bg-slate-800 rounded">
+                                                    Selected: <strong>{PORTION_SIZES.find(s => s.value === formData.portionSize)?.label}</strong> 
+                                                    {" "}• {PORTION_SIZES.find(s => s.value === formData.portionSize)?.description}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 

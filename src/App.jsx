@@ -9,6 +9,7 @@ import RecipePage from "./pages/RecipePage.jsx";
 import MealPlanner from "./pages/MealPlanner.jsx";
 import Profile from "./pages/Profile.jsx";
 import FamilyPlan from "./pages/FamilyPlan.jsx";
+import Collections from "./pages/Collections.jsx";
 import Help from "./pages/Help.jsx";
 import Terms from "./pages/Terms.jsx";
 import Privacy from "./pages/Privacy.jsx";
@@ -409,6 +410,7 @@ const App = () => {
                         <Route path="/meal-planner" element={<MealPlanner />} />
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/family-plan" element={<FamilyPlan />} />
+                        <Route path="/collections" element={<Collections />} />
                         <Route path="/analytics" element={<Analytics />} />
                         <Route path="/help" element={<Help />} />
                         <Route path="/terms" element={<Terms />} />

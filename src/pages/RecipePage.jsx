@@ -13,6 +13,12 @@ import { RecipePageSkeleton } from "../components/LoadingSkeleton.jsx";
 import { triggerHaptic } from "../utils/haptics.js";
 import { addMealToTracker } from "../components/CalorieTracker.jsx";
 import { trackRecipeView, trackRecipeInteraction } from "../utils/analytics.js";
+import { calculateTotalServingsNeeded, getFamilySummary } from "../utils/familyCalculations.js";
+import RecipeCollectionsButton from "../components/RecipeCollectionsButton.jsx";
+import RecipeNotes from "../components/RecipeNotes.jsx";
+import { addRecipeToHistory } from "../utils/recipeHistory.js";
+import { getLeftoverIdeasFromRecipe } from "../utils/leftoverIdeas.js";
+import { getSimilarRecipes, getCompleteMealSuggestions } from "../utils/recipeRecommendations.js";
 
 export default function RecipePage() {
     const { id } = useParams();
@@ -47,6 +53,12 @@ export default function RecipePage() {
     const [secondsLeft, setSecondsLeft] = useState(0);
     const [ticking, setTicking] = useState(false);
 
+    // New features state
+    const [leftoverIdeas, setLeftoverIdeas] = useState([]);
+    const [similarRecipes, setSimilarRecipes] = useState([]);
+    const [mealSuggestions, setMealSuggestions] = useState([]);
+    const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
     // simple timer tick
     useEffect(() => {
         if (!ticking || secondsLeft <= 0) return;
@@ -73,15 +85,25 @@ export default function RecipePage() {
                             image: full.image,
                         });
                     }
-                    // Set initial servings from saved or recipe default
+                    // Set initial servings from saved, family members, or recipe default
                     try {
                         const saved = localStorage.getItem(`servings:${id}`);
                         if (saved) {
                             setTargetServings(parseInt(saved, 10));
-                        } else if (full?.servings) {
-                            setTargetServings(full.servings);
+                        } else {
+                            // Try to use family-based calculation
+                            const familySummary = getFamilySummary();
+                            if (familySummary.totalMembers > 0) {
+                                const familyServings = calculateTotalServingsNeeded(full?.servings || 4);
+                                setTargetServings(familyServings);
+                            } else if (full?.servings) {
+                                setTargetServings(full.servings);
+                            }
                         }
                     } catch {}
+
+                    // Load suggestions
+                    loadSuggestions(full);
                 }
             } catch (e) {
                 if (!ignore) setError(e.message || "Failed to load recipe.");
@@ -102,6 +124,42 @@ export default function RecipePage() {
             } catch {}
         }
     }, [targetServings, recipe?.id, recipe?.servings]);
+
+    // Load suggestions
+    const loadSuggestions = async (recipeData) => {
+        if (!recipeData) return;
+        setLoadingSuggestions(true);
+        try {
+            // Load leftover ideas
+            const diet = localStorage.getItem("filters:diet") || "";
+            const intolerances = localStorage.getItem("filters:intolerances") || "";
+            const leftovers = await getLeftoverIdeasFromRecipe(recipeData, diet, intolerances);
+            setLeftoverIdeas(leftovers.slice(0, 6));
+
+            // Load similar recipes
+            const similar = await getSimilarRecipes(recipeData, 5);
+            setSimilarRecipes(similar);
+
+            // Load meal suggestions
+            const suggestions = await getCompleteMealSuggestions(recipeData, 3);
+            setMealSuggestions(suggestions);
+        } catch (err) {
+            console.error("Error loading suggestions:", err);
+        } finally {
+            setLoadingSuggestions(false);
+        }
+    };
+
+    // Track recipe made (add to history)
+    const handleRecipeMade = () => {
+        if (!recipe?.id) return;
+        addRecipeToHistory(recipe.id, {
+            servings: targetServings,
+            success: true,
+        });
+        triggerHaptic("success");
+        alert("Recipe added to your history! 📝");
+    };
     
     // Listen for unit system changes
     useEffect(() => {
@@ -128,6 +186,15 @@ export default function RecipePage() {
 
     const title = recipe?.title || "Recipe";
     const image = recipe?.image;
+    
+    const placeholderSVG =
+        "data:image/svg+xml;utf8," +
+        encodeURIComponent(
+            `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'>
+                <rect width='100%' height='100%' fill='#e2e8f0'/>
+                <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#475569' font-family='sans-serif' font-size='16'>Recipe image</text>
+            </svg>`
+        );
 
     const nutrient = (name) =>
         recipe?.nutrition?.nutrients?.find((x) => x.name === name)?.amount ?? null;
@@ -394,7 +461,13 @@ export default function RecipePage() {
                         ← <span className="hidden sm:inline">Back</span>
                     </button>
 
-                    <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                        {/* Collections */}
+                        <RecipeCollectionsButton recipeId={id} />
+
+                        {/* Notes */}
+                        <RecipeNotes recipeId={id} ingredients={scaledIngredients} steps={steps} />
+
                         {/* Add to planner */}
                         <button
                             onClick={() => {
@@ -411,23 +484,24 @@ export default function RecipePage() {
                             <span className="sm:hidden">📅</span>
                         </button>
 
+                        {/* Track as made */}
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={handleRecipeMade}
+                            className="px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm min-h-[44px] sm:min-h-0 touch-manipulation"
+                            title="Mark as made"
+                        >
+                            <span className="hidden sm:inline">✓ Made</span>
+                            <span className="sm:hidden">✓</span>
+                        </motion.button>
+
                         {/* Share */}
                         <ShareButton
                             title={title}
                             text={`Check out this recipe: ${title}`}
                             url={window.location.href}
                         />
-
-                        {/* Print */}
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => window.print()}
-                            className="px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-md border border-slate-300 dark:border-slate-700 min-h-[44px] sm:min-h-0 touch-manipulation text-base sm:text-lg"
-                            title="Print"
-                        >
-                            🖨️
-                        </motion.button>
                     </div>
                 </div>
             </div>
@@ -641,6 +715,128 @@ export default function RecipePage() {
                 <section>
                     <RecipeRater recipeId={id} recipeTitle={title} />
                 </section>
+
+                {/* Suggestions Sections */}
+                {(leftoverIdeas.length > 0 || similarRecipes.length > 0 || mealSuggestions.length > 0) && (
+                    <div className="space-y-12 mt-12">
+                        {/* Leftover Ideas */}
+                        {leftoverIdeas.length > 0 && (
+                            <motion.section
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-2xl p-6 sm:p-8 border border-amber-200 dark:border-amber-800"
+                            >
+                                <div className="flex items-center gap-3 mb-6">
+                                    <span className="text-3xl">♻️</span>
+                                    <div>
+                                        <h2 className="text-2xl font-bold">Leftover Ideas</h2>
+                                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                                            What to make with leftover ingredients from this recipe
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {leftoverIdeas.map((recipe) => (
+                                        <motion.div
+                                            key={recipe.id}
+                                            whileHover={{ scale: 1.02, y: -4 }}
+                                            onClick={() => navigate(`/recipe/${recipe.id}`, { state: { recipe } })}
+                                            className="bg-white dark:bg-slate-800 rounded-xl p-4 cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-amber-400 dark:hover:border-amber-600 transition-all"
+                                        >
+                                            <img
+                                                src={recipe.image || placeholderSVG}
+                                                alt={recipe.title}
+                                                className="w-full aspect-[4/3] object-cover rounded-lg mb-3"
+                                            />
+                                            <h3 className="font-semibold text-sm line-clamp-2">{recipe.title}</h3>
+                                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                                                {recipe.readyInMinutes} min
+                                            </p>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            </motion.section>
+                        )}
+
+                        {/* Similar Recipes */}
+                        {similarRecipes.length > 0 && (
+                            <motion.section
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 sm:p-8 border border-blue-200 dark:border-blue-800"
+                            >
+                                <div className="flex items-center gap-3 mb-6">
+                                    <span className="text-3xl">🔍</span>
+                                    <div>
+                                        <h2 className="text-2xl font-bold">Similar Recipes</h2>
+                                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                                            Recipes you might also like
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {similarRecipes.map((recipe) => (
+                                        <motion.div
+                                            key={recipe.id}
+                                            whileHover={{ scale: 1.02, y: -4 }}
+                                            onClick={() => navigate(`/recipe/${recipe.id}`, { state: { recipe } })}
+                                            className="bg-white dark:bg-slate-800 rounded-xl p-4 cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all"
+                                        >
+                                            <img
+                                                src={recipe.image || placeholderSVG}
+                                                alt={recipe.title}
+                                                className="w-full aspect-[4/3] object-cover rounded-lg mb-3"
+                                            />
+                                            <h3 className="font-semibold text-sm line-clamp-2">{recipe.title}</h3>
+                                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                                                {recipe.readyInMinutes} min
+                                            </p>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            </motion.section>
+                        )}
+
+                        {/* Complete Your Meal */}
+                        {mealSuggestions.length > 0 && (
+                            <motion.section
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-6 sm:p-8 border border-purple-200 dark:border-purple-800"
+                            >
+                                <div className="flex items-center gap-3 mb-6">
+                                    <span className="text-3xl">🍽️</span>
+                                    <div>
+                                        <h2 className="text-2xl font-bold">Complete Your Meal</h2>
+                                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                                            Perfect pairings for this recipe
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {mealSuggestions.map((recipe) => (
+                                        <motion.div
+                                            key={recipe.id}
+                                            whileHover={{ scale: 1.02, y: -4 }}
+                                            onClick={() => navigate(`/recipe/${recipe.id}`, { state: { recipe } })}
+                                            className="bg-white dark:bg-slate-800 rounded-xl p-4 cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-purple-400 dark:hover:border-purple-600 transition-all"
+                                        >
+                                            <img
+                                                src={recipe.image || placeholderSVG}
+                                                alt={recipe.title}
+                                                className="w-full aspect-[4/3] object-cover rounded-lg mb-3"
+                                            />
+                                            <h3 className="font-semibold text-sm line-clamp-2">{recipe.title}</h3>
+                                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                                                {recipe.readyInMinutes} min
+                                            </p>
+                                        </motion.div>
+                                    ))}
+                                </div>
+                            </motion.section>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Cook Mode overlay */}

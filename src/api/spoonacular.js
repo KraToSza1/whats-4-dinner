@@ -1,6 +1,9 @@
 ﻿// src/api/spoonacular.js
 import { SPOONACULAR, FEATURES } from "../config";
 
+// Force mock mode for testing (set in localStorage: "forceMockMode" = "true")
+const FORCE_MOCK_MODE = typeof window !== 'undefined' && localStorage.getItem("forceMockMode") === "true";
+
 function buildSpoonUrl(path, params = {}) {
     const u = new URL(path, SPOONACULAR.base);
     Object.entries({ ...params, apiKey: SPOONACULAR.key }).forEach(([k, v]) => {
@@ -72,10 +75,14 @@ export async function searchRecipes({
                                     }) {
     const params = {
         query,
-        includeIngredients: includeIngredients.join(","),
-        diet,
-        intolerances,
-        type,
+        ...(includeIngredients && Array.isArray(includeIngredients) && includeIngredients.length > 0 
+            ? { includeIngredients: includeIngredients.join(",") } 
+            : includeIngredients && typeof includeIngredients === 'string' 
+                ? { includeIngredients } 
+                : {}),
+        ...(diet ? { diet } : {}),
+        ...(intolerances ? { intolerances } : {}),
+        ...(type ? { type } : {}),
         addRecipeInformation: true,
         instructionsRequired: true,
         number,
@@ -102,13 +109,22 @@ export async function searchRecipes({
             }
             return await res.json();
         } catch (e) {
+            // If proxy returns quota error, use mock immediately
+            if (e.status === 402 || e.status === 429) {
+                console.warn("[searchRecipes] API quota reached via proxy, using mock data", e.message);
+                const mock = await import("../assets/mockResults.json");
+                return mock.default;
+            }
             console.warn("[searchRecipes] proxy unavailable in dev, falling back", e);
             // fall through to non-proxy paths below
         }
     }
 
-    // Otherwise, if no key configured, go straight to mock
-    if (!SPOONACULAR.key) {
+    // Otherwise, if no key configured or force mock mode, go straight to mock
+    if (!SPOONACULAR.key || FORCE_MOCK_MODE) {
+        if (FORCE_MOCK_MODE) {
+            console.log("[searchRecipes] Using mock data (forceMockMode enabled)");
+        }
         const mock = await import("../assets/mockResults.json");
         return mock.default;
     }
@@ -119,7 +135,14 @@ export async function searchRecipes({
         const data = await _fetch(url);
         return data;
     } catch (e) {
-        console.warn("[searchRecipes] falling back to mockResults.json", e);
+        // If quota reached or any error, use mock data
+        if (e.status === 402 || e.status === 429 || e.status === 401) {
+            console.warn("[searchRecipes] API quota reached or error, using mock data", e.message);
+            const mock = await import("../assets/mockResults.json");
+            return mock.default;
+        }
+        // For other errors, still try mock as fallback
+        console.warn("[searchRecipes] falling back to mockResults.json", e.message);
         const mock = await import("../assets/mockResults.json");
         return mock.default;
     }
@@ -170,16 +193,41 @@ export async function getRecipeInformation(id) {
         }
         return recipe;
     } catch (e) {
-        if (e.status === 401 || e.status === 402) {
-            const withoutNutri = buildSpoonUrl(`/recipes/${id}/information`, { includeNutrition: false });
-            const recipe = await _fetch(withoutNutri);
-            // Cache for offline access
-            try {
-                localStorage.setItem(`recipe_cache_${id}`, JSON.stringify(recipe));
-            } catch (err) {
-                console.warn("[OfflineCache] Failed to cache recipe", err);
+        // If quota reached, try cached first
+        if (e.status === 402 || e.status === 429) {
+            console.warn("[getRecipeInformation] API quota reached, checking cache", e.message);
+            const cached = localStorage.getItem(`recipe_cache_${id}`);
+            if (cached) {
+                try {
+                    return JSON.parse(cached);
+                } catch {}
             }
-            return recipe;
+            // If no cache, return null (will show error on page)
+            return null;
+        }
+        
+        if (e.status === 401 || e.status === 402) {
+            // Try without nutrition if blocked
+            try {
+                const withoutNutri = buildSpoonUrl(`/recipes/${id}/information`, { includeNutrition: false });
+                const recipe = await _fetch(withoutNutri);
+                // Cache for offline access
+                try {
+                    localStorage.setItem(`recipe_cache_${id}`, JSON.stringify(recipe));
+                } catch (err) {
+                    console.warn("[OfflineCache] Failed to cache recipe", err);
+                }
+                return recipe;
+            } catch (e2) {
+                // If still fails, try cache
+                const cached = localStorage.getItem(`recipe_cache_${id}`);
+                if (cached) {
+                    try {
+                        return JSON.parse(cached);
+                    } catch {}
+                }
+                return null;
+            }
         }
         throw e;
     }
