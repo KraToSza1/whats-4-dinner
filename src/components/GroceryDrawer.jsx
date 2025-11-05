@@ -48,29 +48,6 @@ export default function GroceryDrawer() {
 
     return (
         <>
-            {/* Floating button */}
-            <motion.button
-                onClick={() => setOpen(true)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                animate={items.length > 0 ? {
-                    scale: [1, 1.1, 1],
-                    transition: { duration: 0.5, repeat: Infinity, repeatDelay: 3 }
-                } : {}}
-                className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 rounded-full px-3 sm:px-4 py-2.5 sm:py-2 bg-emerald-600 text-white shadow-lg hover:shadow-xl transition-shadow z-50 text-xs sm:text-sm font-semibold touch-manipulation min-h-[44px] sm:min-h-0 flex items-center gap-1.5 sm:gap-2"
-                aria-label={`Open grocery list (${items.length} items)`}
-            >
-                <motion.span
-                    animate={{ rotate: [0, -10, 10, 0] }}
-                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
-                    className="inline-block text-lg sm:text-xl flex-shrink-0"
-                >
-                    🛒
-                </motion.span>
-                <span className="hidden xs:inline whitespace-nowrap">Grocery list </span>
-                <span className="font-bold">({items.length})</span>
-            </motion.button>
-
             {/* Drawer */}
             <AnimatePresence>
                 {open && (

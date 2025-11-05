@@ -18,7 +18,7 @@ const CATEGORIES = {
     "Other": ["sugar"]
 };
 
-export default function PantryChips({ pantry, setPantry }) {
+export default function PantryChips({ pantry, setPantry, onSearch }) {
     const [custom, setCustom] = useState("");
     const [activeCategory, setActiveCategory] = useState("All");
     const inputRef = useRef(null);
@@ -35,7 +35,7 @@ export default function PantryChips({ pantry, setPantry }) {
     };
 
     const clearAll = () => {
-        if (pantry.length > 0 && confirm(`Clear all ${pantry.length} pantry items?`)) {
+        if (pantry.length > 0) {
             setPantry([]);
         }
     };
@@ -188,11 +188,26 @@ export default function PantryChips({ pantry, setPantry }) {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="mt-4 p-4 rounded-lg bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-amber-200 dark:border-amber-800"
+                        className="mt-4 p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 backdrop-blur-sm border-2 border-emerald-200 dark:border-emerald-800 shadow-md"
                     >
-                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                            Selected Ingredients:
-                        </p>
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="text-sm font-bold text-emerald-800 dark:text-emerald-200">
+                                ✓ {pantry.length} ingredient{pantry.length !== 1 ? 's' : ''} selected
+                            </p>
+                            {onSearch && (
+                                <motion.button
+                                    whileHover={{ scale: 1.05, boxShadow: "0 10px 20px rgba(5, 150, 105, 0.3)" }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => onSearch(pantry.join(", "))}
+                                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2 min-h-[44px] sm:min-h-0 touch-manipulation"
+                                    title="Find recipes with these ingredients"
+                                >
+                                    <span className="text-lg">🔍</span>
+                                    <span className="hidden sm:inline">Find Recipes</span>
+                                    <span className="sm:hidden">Find</span>
+                                </motion.button>
+                            )}
+                        </div>
                         <div className="flex flex-wrap gap-2">
                             {pantry.map((item) => (
                                 <motion.span
@@ -201,12 +216,12 @@ export default function PantryChips({ pantry, setPantry }) {
                                     initial={{ opacity: 0, scale: 0 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0 }}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 rounded-full text-xs font-medium border border-emerald-200 dark:border-emerald-800"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 text-emerald-800 dark:text-emerald-200 rounded-full text-xs font-semibold border-2 border-emerald-300 dark:border-emerald-700 shadow-sm"
                                 >
                                     {item.charAt(0).toUpperCase() + item.slice(1)}
                                     <button
                                         onClick={() => toggle(item)}
-                                        className="hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                        className="hover:text-red-600 dark:hover:text-red-400 transition-colors font-bold"
                                         title="Remove"
                                     >
                                         ×

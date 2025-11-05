@@ -28,6 +28,10 @@ import { GroceryListProvider } from "./context/GroceryListContext.jsx";
 import { searchRecipes } from "./api/spoonacular.js";
 import { getPreferenceSummary } from "./utils/preferenceAnalyzer.js";
 import { trackRecipeInteraction } from "./utils/analytics.js";
+import { shouldShowAds } from "./utils/subscription.js";
+import { checkPaymentSuccess } from "./utils/paymentProviders.js";
+import AdBanner, { InlineAd } from "./components/AdBanner.jsx";
+import ProModalWrapper from "./components/ProModalWrapper.jsx";
 
 
 
@@ -79,6 +83,27 @@ const App = () => {
         document.documentElement.classList.toggle("dark", theme === "dark");
         localStorage.setItem("theme", theme);
     }, [theme]);
+
+    // Check for payment success on mount
+    useEffect(() => {
+        const paymentResult = checkPaymentSuccess();
+        if (paymentResult?.success) {
+            // Payment successful - update subscription
+            const { plan } = paymentResult;
+            import("./utils/subscription.js").then((subscriptionUtils) => {
+                subscriptionUtils.setCurrentPlan(plan);
+                
+                // Show success message
+                alert(`🎉 Payment successful! Welcome to ${plan}! Your subscription is now active.`);
+                
+                // Refresh to update UI
+                window.location.reload();
+            });
+        } else if (paymentResult?.canceled) {
+            // Payment canceled
+            console.log("Payment canceled by user");
+        }
+    }, []);
 
     // Persist filters and pantry chips
     useEffect(() => {
@@ -233,12 +258,26 @@ const App = () => {
                                             <DailyRecipe onRecipeSelect={toggleFavorite} />
                                         </div>
 
-                                        <div className="mb-6">
-                                            <SearchForm onSearch={fetchRecipes} />
-                                        </div>
+                                    <div className="mb-6">
+                                        <SearchForm onSearch={fetchRecipes} />
+                                    </div>
 
-                                        {/* Divider */}
-                                        <div className="border-b border-slate-200 dark:border-slate-800 mb-6" />
+                                    {/* Ad Banner (Top) */}
+                                    {shouldShowAds() && (
+                                        <div className="mb-4">
+                                            <AdBanner position="top" size="banner" />
+                                        </div>
+                                    )}
+
+                                    {/* Divider */}
+                                    <div className="border-b border-slate-200 dark:border-slate-800 mb-6" />
+
+                                    {/* Inline Ad (after search, before filters) */}
+                                    {shouldShowAds() && (
+                                        <div className="mb-6">
+                                            <InlineAd />
+                                        </div>
+                                    )}
 
                                         {/* NEW: Filters */}
                                     <Filters
@@ -267,7 +306,7 @@ const App = () => {
                                     {/* Divider */}
                                     <div className="border-b border-slate-200 dark:border-slate-800 my-6" />
                                     
-                                    <PantryChips pantry={pantry} setPantry={setPantry} />
+                                    <PantryChips pantry={pantry} setPantry={setPantry} onSearch={fetchRecipes} />
 
                                     {loading && (
                                         <div className="mt-10">
@@ -356,6 +395,13 @@ const App = () => {
                                         </div>
                                     )}
                                     </main>
+                                    
+                                    {/* Ad Banner (Bottom) */}
+                                    {shouldShowAds() && (
+                                        <div className="mt-6">
+                                            <AdBanner position="bottom" size="banner" />
+                                        </div>
+                                    )}
                                 </PullToRefresh>
                             }
                         />
@@ -368,6 +414,9 @@ const App = () => {
                         <Route path="/terms" element={<Terms />} />
                         <Route path="/privacy" element={<Privacy />} />
                     </Routes>
+
+                    {/* Pro Modal Wrapper - listen for open event */}
+                    <ProModalWrapper />
 
                     {/* Floating grocery list drawer */}
                     <GroceryDrawer />

@@ -84,20 +84,37 @@ export default function SearchForm({ onSearch, placeholder = "Enter ingredients 
                 {/* Search icon - only shown on desktop (outside input) */}
                 <span className="hidden sm:block text-xl sm:text-2xl flex-shrink-0">🔍</span>
                 
-                {/* Input - no button inside */}
-                <input
-                    ref={inputRef}
-                    type="text"
-                    className="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl bg-white dark:bg-slate-800 ring-2 ring-emerald-300 dark:ring-emerald-700 focus:outline-none focus:ring-emerald-500 focus:border-transparent shadow-sm transition-all text-sm sm:text-base min-h-[44px] sm:min-h-0"
-                    placeholder={placeholder}
-                    value={ingredients}
-                    onChange={(e) => setIngredients(e.target.value)}
-                    onPaste={onPaste}
-                    onDrop={onDrop}
-                    aria-label="Search ingredients"
-                    autoComplete="off"
-                    spellCheck={false}
-                />
+                {/* Input wrapper - prevents layout shift */}
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                    <input
+                        ref={inputRef}
+                        type="text"
+                        className="flex-1 min-w-0 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl bg-white dark:bg-slate-800 ring-2 ring-emerald-300 dark:ring-emerald-700 focus:outline-none focus:ring-emerald-500 focus:border-transparent shadow-sm transition-all text-sm sm:text-base min-h-[44px] sm:min-h-0"
+                        placeholder={placeholder}
+                        value={ingredients}
+                        onChange={(e) => setIngredients(e.target.value)}
+                        onPaste={onPaste}
+                        onDrop={onDrop}
+                        aria-label="Search ingredients"
+                        autoComplete="off"
+                        spellCheck={false}
+                        style={{ width: '100%' }}
+                    />
+                    
+                    {/* Clear button - inside input wrapper to prevent shifting */}
+                    {ingredients && (
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            type="button"
+                            className="flex-shrink-0 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all font-medium min-h-[44px] sm:min-h-0 touch-manipulation flex items-center justify-center"
+                            onClick={clear}
+                            title="Clear input"
+                        >
+                            <span className="text-lg">✕</span>
+                        </motion.button>
+                    )}
+                </div>
                 
                 {recogRef.current && (
                     <motion.button
@@ -121,24 +138,12 @@ export default function SearchForm({ onSearch, placeholder = "Enter ingredients 
                     </motion.button>
                 )}
 
-                {ingredients && (
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        type="button"
-                        className="px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all font-medium min-h-[44px] sm:min-h-0 touch-manipulation flex-shrink-0"
-                        onClick={clear}
-                    >
-                        ✕
-                    </motion.button>
-                )}
-
                 {/* Search button - icon on mobile, text on desktop, always outside input */}
                 <motion.button
                     whileHover={{ scale: 1.05, boxShadow: "0 10px 15px -3px rgba(5, 150, 105, 0.3)" }}
                     whileTap={{ scale: 0.95 }}
                     type="submit"
-                    className="px-3 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg sm:text-base shadow-md hover:shadow-lg transition-all min-h-[44px] sm:min-h-0 touch-manipulation flex-shrink-0 flex items-center justify-center"
+                    className="px-3 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg sm:text-base shadow-md hover:shadow-lg transition-all min-h-[44px] sm:min-h-0 touch-manipulation flex-shrink-0 flex items-center justify-center w-12 sm:w-auto"
                     title="Search recipes"
                 >
                     <span className="sm:hidden">🔍</span>

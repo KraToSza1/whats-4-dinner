@@ -193,6 +193,7 @@ export function getFavoritesStats() {
 export function getNutritionalInsights() {
     try {
         const mealLogs = JSON.parse(localStorage.getItem("calorie:meals:v1") || "{}");
+        const profile = JSON.parse(localStorage.getItem("calorie:tracker:v1") || "null");
         const last7Days = [];
         const today = new Date();
         
@@ -214,6 +215,13 @@ export function getNutritionalInsights() {
             maxCalories,
             minCalories,
             trend: last7Days[6] > last7Days[0] ? "up" : last7Days[6] < last7Days[0] ? "down" : "stable",
+            profile: profile ? {
+                goal: profile.goal,
+                activityLevel: profile.activityLevel,
+                trainingFrequency: profile.trainingFrequency,
+                bodyFat: profile.bodyFat,
+                proteinTarget: profile.proteinTarget,
+            } : null,
         };
     } catch {
         return {
@@ -221,7 +229,31 @@ export function getNutritionalInsights() {
             maxCalories: 0,
             minCalories: 0,
             trend: "stable",
+            profile: null,
         };
+    }
+}
+
+export function getCalorieProfileData() {
+    try {
+        const profile = JSON.parse(localStorage.getItem("calorie:tracker:v1") || "null");
+        if (!profile) return null;
+        
+        return {
+            goal: profile.goal || "maintain",
+            activityLevel: profile.activityLevel || "moderate",
+            trainingFrequency: profile.trainingFrequency || "3-4",
+            bodyFat: profile.bodyFat || null,
+            proteinTarget: profile.proteinTarget || null,
+            weight: profile.weight || null,
+            height: profile.height || null,
+            age: profile.age || null,
+            gender: profile.gender || "male",
+            createdAt: profile.createdAt || new Date().toISOString(),
+            lastUpdated: new Date().toISOString(),
+        };
+    } catch {
+        return null;
     }
 }
 

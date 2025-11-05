@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { trackRecipeInteraction } from "../utils/analytics.js";
 
 const STORAGE_KEY = "calorie:tracker:v1";
 const MEAL_LOG_KEY = "calorie:meals:v1";
@@ -26,17 +27,46 @@ function calculateTDEE(bmr, activityLevel) {
 }
 
 // Calculate calories for weight goal
-function calculateGoalCalories(tdee, goal, rate) {
+function calculateGoalCalories(tdee, goal, rate, bodyWeight = null, bodyFat = null) {
     // rate in kg per week
     const weeklyDeficit = rate * 7700; // 1 kg = 7700 calories
     const dailyDeficit = weeklyDeficit / 7;
 
-    if (goal === "lose") {
-        return Math.max(1200, Math.round(tdee - dailyDeficit)); // Min 1200 calories
-    } else if (goal === "gain") {
-        return Math.round(tdee + dailyDeficit);
-    } else {
-        return Math.round(tdee); // Maintain
+    switch (goal) {
+        case "lose":
+            // Weight loss: deficit from TDEE
+            return Math.max(1200, Math.round(tdee - dailyDeficit));
+        
+        case "cut":
+            // Aggressive cutting (bodybuilding): larger deficit
+            return Math.max(1200, Math.round(tdee - (dailyDeficit * 1.5)));
+        
+        case "maintain":
+            // Maintain weight
+            return Math.round(tdee);
+        
+        case "gain":
+            // Weight gain: surplus from TDEE
+            return Math.round(tdee + dailyDeficit);
+        
+        case "bulk":
+            // Muscle building: moderate surplus
+            return Math.round(tdee + (dailyDeficit * 1.2));
+        
+        case "recomp":
+            // Body recomposition: slight deficit or maintenance
+            return Math.round(tdee - (dailyDeficit * 0.3));
+        
+        case "athletic":
+            // Athletic performance: maintenance to slight surplus
+            return Math.round(tdee + (dailyDeficit * 0.5));
+        
+        case "health":
+            // General health: maintenance
+            return Math.round(tdee);
+        
+        default:
+            return Math.round(tdee);
     }
 }
 
@@ -74,6 +104,12 @@ export default function CalorieTracker() {
         activityLevel: "moderate",
         goal: "maintain",
         rate: 0.5, // kg per week
+        bodyFat: "", // optional body fat percentage
+        trainingFrequency: "3-4", // days per week
+        proteinTarget: "", // grams per day
+        carbTarget: "", // grams per day
+        fatTarget: "", // grams per day
+        notes: "", // user notes
     });
 
     const [mealLogs, setMealLogs] = useState(readMealLogs());
@@ -116,6 +152,16 @@ export default function CalorieTracker() {
             alert("Please fill in all required fields");
             return;
         }
+        
+        // Track profile setup/update in analytics
+        trackRecipeInteraction("profile", "calorie_profile_updated", {
+            goal: profile.goal,
+            activityLevel: profile.activityLevel,
+            trainingFrequency: profile.trainingFrequency,
+            hasBodyFat: !!profile.bodyFat,
+            hasProteinTarget: !!profile.proteinTarget,
+        });
+        
         setShowSetup(false);
     };
 
@@ -231,21 +277,88 @@ export default function CalorieTracker() {
                     </div>
                     <div>
                         <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
-                            Goal
+                            Fitness Goal *
                         </label>
                         <select
                             value={profile.goal}
                             onChange={(e) => handleProfileChange("goal", e.target.value)}
                             className="w-full px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:outline-none"
                         >
-                            <option value="lose">Lose Weight</option>
-                            <option value="maintain">Maintain Weight</option>
-                            <option value="gain">Gain Weight</option>
+                            <optgroup label="Weight Management">
+                                <option value="lose">Lose Weight</option>
+                                <option value="maintain">Maintain Weight</option>
+                                <option value="gain">Gain Weight</option>
+                            </optgroup>
+                            <optgroup label="Fitness & Bodybuilding">
+                                <option value="cut">Cut (Fat Loss)</option>
+                                <option value="bulk">Bulk (Muscle Building)</option>
+                                <option value="recomp">Recomp (Body Recomposition)</option>
+                            </optgroup>
+                            <optgroup label="Performance & Health">
+                                <option value="athletic">Athletic Performance</option>
+                                <option value="health">General Health</option>
+                            </optgroup>
+                        </select>
+                        <p className="text-xs text-slate-500 mt-1">
+                            {profile.goal === "cut" && "Aggressive fat loss for defined physique"}
+                            {profile.goal === "bulk" && "Muscle building with calorie surplus"}
+                            {profile.goal === "recomp" && "Lose fat while gaining muscle"}
+                            {profile.goal === "athletic" && "Optimize for performance and recovery"}
+                            {profile.goal === "health" && "Maintain healthy weight and lifestyle"}
+                        </p>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+                            Training Frequency
+                        </label>
+                        <select
+                            value={profile.trainingFrequency || "3-4"}
+                            onChange={(e) => handleProfileChange("trainingFrequency", e.target.value)}
+                            className="w-full px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:outline-none"
+                        >
+                            <option value="0">No Exercise</option>
+                            <option value="1-2">1-2 days/week</option>
+                            <option value="3-4">3-4 days/week</option>
+                            <option value="5-6">5-6 days/week</option>
+                            <option value="7">Daily (7 days/week)</option>
+                            <option value="2x">2x per day</option>
                         </select>
                     </div>
                 </div>
 
-                {profile.goal !== "maintain" && (
+                {/* Additional Profile Fields */}
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 mb-4">
+                    <div>
+                        <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+                            Body Fat % (optional)
+                        </label>
+                        <input
+                            type="number"
+                            value={profile.bodyFat || ""}
+                            onChange={(e) => handleProfileChange("bodyFat", e.target.value)}
+                            className="w-full px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:outline-none"
+                            placeholder="e.g. 15"
+                            min="5"
+                            max="50"
+                            step="0.1"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+                            Protein Target (g/day)
+                        </label>
+                        <input
+                            type="number"
+                            value={profile.proteinTarget || ""}
+                            onChange={(e) => handleProfileChange("proteinTarget", e.target.value)}
+                            className="w-full px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:outline-none"
+                            placeholder="Auto-calculated"
+                            min="0"
+                        />
+                    </div>
+                </div>
+
+                {profile.goal !== "maintain" && profile.goal !== "health" && (
                     <div className="mb-4">
                         <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
                             Target Rate: {profile.rate} kg per week
@@ -253,7 +366,7 @@ export default function CalorieTracker() {
                         <input
                             type="range"
                             min="0.25"
-                            max={profile.goal === "lose" ? "1" : "0.5"}
+                            max={profile.goal === "lose" || profile.goal === "cut" ? "1.5" : "0.75"}
                             step="0.25"
                             value={profile.rate}
                             onChange={(e) => handleProfileChange("rate", parseFloat(e.target.value))}
@@ -261,7 +374,7 @@ export default function CalorieTracker() {
                         />
                         <div className="flex justify-between text-xs text-slate-500">
                             <span>0.25 kg/week</span>
-                            <span>{profile.goal === "lose" ? "1 kg/week" : "0.5 kg/week"}</span>
+                            <span>{profile.goal === "lose" || profile.goal === "cut" ? "1.5 kg/week" : "0.75 kg/week"}</span>
                         </div>
                     </div>
                 )}
@@ -301,7 +414,18 @@ export default function CalorieTracker() {
         profile.gender
     );
     const tdee = calculateTDEE(bmr, profile.activityLevel);
-    const goalCalories = calculateGoalCalories(tdee, profile.goal, profile.rate);
+    const goalCalories = calculateGoalCalories(
+        tdee, 
+        profile.goal, 
+        profile.rate,
+        parseFloat(profile.weight),
+        parseFloat(profile.bodyFat)
+    );
+    
+    // Calculate protein target if not set (1.6-2.2g per kg body weight)
+    const proteinTarget = profile.proteinTarget 
+        ? parseFloat(profile.proteinTarget)
+        : Math.round(parseFloat(profile.weight || 70) * 1.8);
 
     const today = new Date().toISOString().split("T")[0];
     const todayMeals = mealLogs[today] || [];
@@ -351,11 +475,14 @@ export default function CalorieTracker() {
                     </div>
                     <div className="text-right">
                         <div className="text-lg font-semibold text-slate-900 dark:text-white">
-                            {profile.goal === "lose"
-                                ? "Lose Weight"
-                                : profile.goal === "gain"
-                                ? "Gain Weight"
-                                : "Maintain Weight"}
+                            {profile.goal === "lose" && "Lose Weight"}
+                            {profile.goal === "cut" && "Cut (Fat Loss)"}
+                            {profile.goal === "maintain" && "Maintain Weight"}
+                            {profile.goal === "gain" && "Gain Weight"}
+                            {profile.goal === "bulk" && "Bulk (Muscle Building)"}
+                            {profile.goal === "recomp" && "Recomp (Body Recomposition)"}
+                            {profile.goal === "athletic" && "Athletic Performance"}
+                            {profile.goal === "health" && "General Health"}
                         </div>
                         <div className="text-xs text-slate-500">
                             {profile.rate} kg/week
@@ -384,20 +511,44 @@ export default function CalorieTracker() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                 <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg p-4 text-center border border-blue-200 dark:border-blue-800">
                     <div className="text-2xl font-bold text-blue-600">{Math.round(bmr)}</div>
                     <div className="text-xs text-slate-600 dark:text-slate-400">BMR</div>
                 </div>
-                <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg p-4 text-center border border-blue-200 dark:border-blue-800">
+                <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg p-4 text-center border border-purple-200 dark:border-purple-800">
                     <div className="text-2xl font-bold text-purple-600">{tdee}</div>
                     <div className="text-xs text-slate-600 dark:text-slate-400">TDEE</div>
                 </div>
-                <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg p-4 text-center border border-blue-200 dark:border-blue-800">
+                <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg p-4 text-center border border-pink-200 dark:border-pink-800">
                     <div className="text-2xl font-bold text-pink-600">{goalCalories}</div>
                     <div className="text-xs text-slate-600 dark:text-slate-400">Goal</div>
                 </div>
+                <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg p-4 text-center border border-emerald-200 dark:border-emerald-800">
+                    <div className="text-2xl font-bold text-emerald-600">{proteinTarget}g</div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400">Protein</div>
+                </div>
             </div>
+            
+            {/* Additional Info */}
+            {(profile.bodyFat || profile.trainingFrequency) && (
+                <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 mb-4 border border-blue-200 dark:border-blue-800">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        {profile.bodyFat && (
+                            <div>
+                                <span className="text-slate-600 dark:text-slate-400">Body Fat: </span>
+                                <span className="font-semibold">{profile.bodyFat}%</span>
+                            </div>
+                        )}
+                        {profile.trainingFrequency && (
+                            <div>
+                                <span className="text-slate-600 dark:text-slate-400">Training: </span>
+                                <span className="font-semibold">{profile.trainingFrequency} days/week</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Today's Meals */}
             <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-blue-200 dark:border-blue-800">

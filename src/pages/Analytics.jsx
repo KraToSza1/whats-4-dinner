@@ -11,6 +11,7 @@ import {
     getFavoritesStats,
     getNutritionalInsights,
     getActivitySummary,
+    getCalorieProfileData,
 } from "../utils/analytics.js";
 import { BarChart, LineChart, ProgressRing, DonutChart } from "../components/SimpleChart.jsx";
 
@@ -28,6 +29,7 @@ export default function Analytics() {
     const [favoritesStats, setFavoritesStats] = useState(null);
     const [nutritionalInsights, setNutritionalInsights] = useState(null);
     const [activitySummary, setActivitySummary] = useState(null);
+    const [profileData, setProfileData] = useState(null);
 
     useEffect(() => {
         loadAnalytics();
@@ -47,6 +49,7 @@ export default function Analytics() {
             setFavoritesStats(getFavoritesStats());
             setNutritionalInsights(getNutritionalInsights());
             setActivitySummary(getActivitySummary());
+            setProfileData(getCalorieProfileData());
 
             // Load top recipes with full data
             const top = getTopRecipes(10);
@@ -411,12 +414,74 @@ export default function Analytics() {
                                 animate={{ opacity: 1, y: 0 }}
                                 className="space-y-6"
                             >
+                                {/* Profile Data */}
+                                {profileData && (
+                                    <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
+                                        <h2 className="text-xl font-bold mb-4">Your Calorie Tracker Profile</h2>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                                <div className="text-sm text-slate-600 dark:text-slate-400">Fitness Goal</div>
+                                                <div className="text-lg font-bold capitalize">{profileData.goal}</div>
+                                            </div>
+                                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                                <div className="text-sm text-slate-600 dark:text-slate-400">Activity Level</div>
+                                                <div className="text-lg font-bold capitalize">{profileData.activityLevel}</div>
+                                            </div>
+                                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                                <div className="text-sm text-slate-600 dark:text-slate-400">Training Frequency</div>
+                                                <div className="text-lg font-bold">{profileData.trainingFrequency || "3-4"} days/week</div>
+                                            </div>
+                                            {profileData.bodyFat && (
+                                                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                                    <div className="text-sm text-slate-600 dark:text-slate-400">Body Fat %</div>
+                                                    <div className="text-lg font-bold">{profileData.bodyFat}%</div>
+                                                </div>
+                                            )}
+                                            {profileData.proteinTarget && (
+                                                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                                    <div className="text-sm text-slate-600 dark:text-slate-400">Protein Target</div>
+                                                    <div className="text-lg font-bold">{profileData.proteinTarget}g/day</div>
+                                                </div>
+                                            )}
+                                            {profileData.weight && (
+                                                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                                    <div className="text-sm text-slate-600 dark:text-slate-400">Weight</div>
+                                                    <div className="text-lg font-bold">{profileData.weight} kg</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                                
                                 <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
                                     <h2 className="text-xl font-bold mb-4">Nutritional Insights</h2>
                                     <p className="text-slate-600 dark:text-slate-400 mb-6">
                                         Track your nutritional progress and patterns
                                     </p>
-                                    {/* Add more nutrition-specific analytics here */}
+                                    {nutritionalInsights && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                                <div className="text-sm text-slate-600 dark:text-slate-400">Calorie Trend (7d)</div>
+                                                <div className="text-lg font-bold capitalize">{nutritionalInsights.trend}</div>
+                                            </div>
+                                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                                <div className="text-sm text-slate-600 dark:text-slate-400">Average Daily</div>
+                                                <div className="text-lg font-bold">{nutritionalInsights.avgCalories} cal</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {/* Storage Info */}
+                                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+                                    <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
+                                        <span>💾</span> Data Storage
+                                    </h3>
+                                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                                        <strong>All calorie tracker data is stored locally</strong> in your browser (localStorage). 
+                                        This means your data stays on your device and is not sent to any servers. 
+                                        To enable cloud sync across devices, connect your account to Supabase.
+                                    </p>
                                 </div>
                             </motion.div>
                         )}

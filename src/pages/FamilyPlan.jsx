@@ -18,6 +18,22 @@ const DIETARY_RESTRICTIONS = [
 
 const ROLES = ["parent", "child", "nanny"];
 
+const COMMON_MEMBERS = [
+    { name: "Mom", role: "parent", icon: "👩" },
+    { name: "Dad", role: "parent", icon: "👨" },
+    { name: "Parent", role: "parent", icon: "👤" },
+    { name: "Child 1", role: "child", icon: "👶", ageRange: "0-2 years" },
+    { name: "Child 2", role: "child", icon: "👦", ageRange: "3-5 years" },
+    { name: "Child 3", role: "child", icon: "👧", ageRange: "6-10 years" },
+    { name: "Teenager", role: "child", icon: "🧑", ageRange: "11-17 years" },
+    { name: "Baby", role: "child", icon: "👶", ageRange: "0-1 year" },
+    { name: "Toddler", role: "child", icon: "🧒", ageRange: "2-3 years" },
+    { name: "Nanny", role: "nanny", icon: "👷" },
+    { name: "Au Pair", role: "nanny", icon: "👨‍🏫" },
+    { name: "Grandma", role: "parent", icon: "👵" },
+    { name: "Grandpa", role: "parent", icon: "👴" },
+];
+
 function readFamilyMembers() {
     try {
         return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
@@ -112,7 +128,6 @@ export default function FamilyPlan() {
     };
 
     const handleDeleteMember = (id) => {
-        if (!confirm("Are you sure you want to delete this family member?")) return;
         setMembers(members.filter((m) => m.id !== id));
         // Also remove from meal logs
         const newLogs = { ...mealLogs };
@@ -215,9 +230,11 @@ export default function FamilyPlan() {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={handleAddMember}
-                            className="px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white"
+                            className="px-3 sm:px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm sm:text-base min-h-[36px] sm:min-h-0 touch-manipulation flex items-center justify-center gap-1.5 sm:gap-2"
+                            title="Add family member"
                         >
-                            + Add Member
+                            <span className="text-lg sm:text-xl">➕</span>
+                            <span className="hidden sm:inline">Add Member</span>
                         </motion.button>
                     </div>
                 </motion.div>
@@ -273,12 +290,17 @@ export default function FamilyPlan() {
                         <p className="text-slate-600 dark:text-slate-400 mb-6">
                             Add family members to track allergies, dietary restrictions, and meals
                         </p>
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={handleAddMember}
-                            className="px-6 py-3 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white"
+                            className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm sm:text-base min-h-[36px] sm:min-h-0 touch-manipulation flex items-center justify-center gap-2 mx-auto"
+                            title="Add family member"
                         >
-                            Add Your First Family Member
-                        </button>
+                            <span className="text-lg sm:text-xl">➕</span>
+                            <span className="hidden xs:inline">Add Your First Family Member</span>
+                            <span className="xs:hidden">Add Member</span>
+                        </motion.button>
                     </motion.div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -385,6 +407,40 @@ export default function FamilyPlan() {
                                     </h2>
 
                                     <div className="space-y-4">
+                                        {/* Quick Add Common Members */}
+                                        {!editingMember && (
+                                            <div>
+                                                <label className="block text-sm font-medium mb-2">
+                                                    Quick Add Common Members
+                                                </label>
+                                                <div className="flex flex-wrap gap-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                                                    {COMMON_MEMBERS.map((member, idx) => (
+                                                        <motion.button
+                                                            key={idx}
+                                                            whileHover={{ scale: 1.05 }}
+                                                            whileTap={{ scale: 0.95 }}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setFormData({
+                                                                    ...formData,
+                                                                    name: member.name,
+                                                                    role: member.role,
+                                                                    ageRange: member.ageRange || "",
+                                                                    allergies: [],
+                                                                    dietaryRestrictions: [],
+                                                                    portionSize: member.role === "child" ? "small" : "normal",
+                                                                });
+                                                            }}
+                                                            className="px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all flex items-center gap-2 text-sm font-medium"
+                                                        >
+                                                            <span className="text-lg">{member.icon}</span>
+                                                            <span>{member.name}</span>
+                                                        </motion.button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Name */}
                                         <div>
                                             <label className="block text-sm font-medium mb-2">
