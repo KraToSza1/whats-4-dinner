@@ -1,79 +1,120 @@
-# 🚨 URGENT: Fix "supabaseUrl is required" Error
+# 🔧 Vercel Environment Variables Setup
 
-## The Problem
-Your app is showing a blank page because `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are not set in Vercel.
+## ❌ Current Issues:
+1. **Cannot login** - Missing Supabase environment variables
+2. **Cannot see recipes** - Missing Spoonacular API key
 
-## Fix in 3 Steps:
+## ✅ Solution: Add These Environment Variables in Vercel
 
-### Step 1: Get Your Supabase Keys
+### Step-by-Step Instructions:
 
-1. Go to: https://supabase.com/dashboard
-2. Select your project (the one with ID `chhdqmntirvngvamtgdo`)
-3. Click **Settings** (gear icon) → **API**
-4. Copy these two values:
-   - **Project URL** (looks like: `https://chhdqmntirvngvamtgdo.supabase.co`)
-   - **anon public** key (long string starting with `eyJ...`)
+1. **Go to your Vercel project:**
+   - Visit https://vercel.com/dashboard
+   - Click on your project: `whats-4-dinner`
 
-### Step 2: Add to Vercel
+2. **Navigate to Settings:**
+   - Click **"Settings"** tab (top navigation)
+   - Click **"Environment Variables"** (left sidebar)
 
-1. Go to: https://vercel.com/dashboard
-2. Click on your **whats-4-dinner** project
-3. Click **Settings** (left sidebar)
-4. Click **Environment Variables**
-5. Click **Add New** and add these THREE variables:
+3. **Add these 3 environment variables:**
 
-**Variable 1:**
-- **Key:** `VITE_SUPABASE_URL`
-- **Value:** `https://chhdqmntirvngvamtgdo.supabase.co` (your actual URL)
-- **Environment:** Select **Production**, **Preview**, and **Development**
+   #### 🔐 Supabase Variables (for login):
+   
+   **Variable 1:**
+   - **Name:** `VITE_SUPABASE_URL`
+   - **Value:** Your Supabase project URL (from Supabase dashboard)
+     - Format: `https://xxxxx.supabase.co`
+     - Find it in: Supabase Dashboard → Settings → API → Project URL
+   - **Environment:** Select all three:
+     - ✅ Production
+     - ✅ Preview
+     - ✅ Development
+   
+   **Variable 2:**
+   - **Name:** `VITE_SUPABASE_ANON_KEY`
+   - **Value:** Your Supabase anon/public key
+     - Find it in: Supabase Dashboard → Settings → API → Project API keys → `anon` `public`
+   - **Environment:** Select all three:
+     - ✅ Production
+     - ✅ Preview
+     - ✅ Development
 
-**Variable 2:**
-- **Key:** `VITE_SUPABASE_ANON_KEY`
-- **Value:** (paste your anon public key)
-- **Environment:** Select **Production**, **Preview**, and **Development**
+   #### 🍽️ Spoonacular API Key (for recipes):
+   
+   **Variable 3:**
+   - **Name:** `SPOONACULAR_KEY`
+   - **Value:** Your Spoonacular API key
+     - Get it from: https://spoonacular.com/food-api/console
+     - Or use your existing key if you have one
+   - **Environment:** Select all three:
+     - ✅ Production
+     - ✅ Preview
+     - ✅ Development
 
-**Variable 3 (for recipes to work):**
-- **Key:** `SPOONACULAR_KEY`
-- **Value:** (your Spoonacular API key)
-- **Environment:** Select **Production**, **Preview**, and **Development**
+4. **After adding all variables:**
+   - Click **"Save"** for each variable
+   - Go to **"Deployments"** tab
+   - Click the **"⋯"** (three dots) menu on the latest deployment
+   - Click **"Redeploy"**
+   - ✅ Check **"Use existing Build Cache"** (optional, faster)
+   - Click **"Redeploy"**
 
-6. Click **Save** for each one
+5. **Wait for deployment to complete** (~2-3 minutes)
 
-### Step 3: Redeploy
-
-1. Go to **Deployments** tab
-2. Find your latest deployment
-3. Click the **three dots** (⋯) menu
-4. Click **Redeploy**
-5. Wait for it to finish (about 30 seconds)
-6. Refresh your site!
-
-## That's It!
-
-After redeploying, your site should work! The error will be gone because the Supabase client will have the URL it needs.
+6. **Test your app:**
+   - Try logging in with Google
+   - Try searching for recipes
 
 ---
 
-## If You Don't Have a Spoonacular Key Yet:
+## 🔍 Where to Find Your Keys:
 
-1. Go to: https://spoonacular.com/food-api
-2. Sign up (free tier: 150 requests/day)
+### Supabase:
+1. Go to https://supabase.com/dashboard
+2. Select your project
+3. Go to **Settings** → **API**
+4. Copy:
+   - **Project URL** → Use for `VITE_SUPABASE_URL`
+   - **anon public** key → Use for `VITE_SUPABASE_ANON_KEY`
+
+### Spoonacular:
+1. Go to https://spoonacular.com/food-api/console
+2. Sign in or create an account
 3. Copy your API key from the dashboard
-4. Add it as `SPOONACULAR_KEY` in Vercel (Step 2 above)
+4. Use it for `SPOONACULAR_KEY`
 
 ---
 
-## Visual Guide:
+## ⚠️ Important Notes:
 
-**Vercel Dashboard Path:**
-```
-Dashboard → Your Project → Settings → Environment Variables → Add New
-```
+- **Variable names are CASE-SENSITIVE** - Make sure they match exactly:
+  - `VITE_SUPABASE_URL` (not `vite_supabase_url`)
+  - `VITE_SUPABASE_ANON_KEY` (not `VITE_SUPABASE_ANON_KEY_`)
+  - `SPOONACULAR_KEY` (not `SPOONACULAR_API_KEY` or `VITE_SPOONACULAR_KEY`)
 
-**Make sure to select ALL environments:**
-- ✅ Production
-- ✅ Preview  
-- ✅ Development
+- **You MUST redeploy** after adding/changing environment variables
+- Environment variables are only available **after redeployment**
 
-This ensures it works everywhere!
+---
 
+## 🐛 Still Not Working?
+
+If you still see errors after redeploying:
+
+1. **Check the console** (F12 → Console tab)
+2. **Verify the variable names** match exactly
+3. **Make sure you selected all environments** (Production, Preview, Development)
+4. **Try a fresh redeploy** (clear cache this time)
+
+---
+
+## 📝 Quick Checklist:
+
+- [ ] Added `VITE_SUPABASE_URL` to Vercel
+- [ ] Added `VITE_SUPABASE_ANON_KEY` to Vercel
+- [ ] Added `SPOONACULAR_KEY` to Vercel
+- [ ] Selected all 3 environments for each variable
+- [ ] Clicked "Save" for each variable
+- [ ] Redeployed the project
+- [ ] Tested login
+- [ ] Tested recipe search

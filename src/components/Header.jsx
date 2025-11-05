@@ -2,14 +2,12 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import * as LogoMod from "../assets/Logo.tsx";
+import Logo from "../assets/Logo.tsx";
 import { useAuth, signInWithEmail, signOut } from "../context/AuthContext.jsx";
 import AuthModal from "./AuthModal.jsx";
 import ProModal from "./ProModal.jsx";
 import UnitConverter from "./UnitConverter.jsx";
 import { exportFavorites, importFavorites } from "../helpers/favoritesIO";
-
-const Logo = LogoMod.default || LogoMod.Logo || (() => <span className="font-bold">W4D</span>);
 
 export default function Header({ theme, toggleTheme, favorites, setFavorites }) {
     const navigate = useNavigate();
