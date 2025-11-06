@@ -454,12 +454,15 @@ export default function RecipePage() {
             {/* Top bar */}
             <div className="sticky top-0 z-20 bg-white/70 dark:bg-slate-900/70 backdrop-blur border-b border-slate-200 dark:border-slate-800">
                 <div className="mx-auto max-w-4xl px-3 sm:px-4 lg:px-6 py-2 sm:py-3 flex items-center justify-between gap-2">
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.05, x: -2 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => navigate(-1)}
-                        className="px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-md border border-slate-300 dark:border-slate-700 text-sm sm:text-base hover:bg-slate-50 dark:hover:bg-slate-800 min-h-[44px] sm:min-h-0 touch-manipulation"
+                        className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-700 border border-slate-200 dark:border-slate-600 text-sm sm:text-base font-semibold hover:from-slate-200 hover:to-slate-100 dark:hover:from-slate-700 dark:hover:to-slate-600 shadow-sm hover:shadow-md transition-all min-h-[44px] sm:min-h-0 touch-manipulation flex items-center gap-2"
                     >
-                        ← <span className="hidden sm:inline">Back</span>
-                    </button>
+                        <span className="text-lg">←</span>
+                        <span className="hidden sm:inline">Back</span>
+                    </motion.button>
 
                     <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                         {/* Collections */}
@@ -469,7 +472,9 @@ export default function RecipePage() {
                         <RecipeNotes recipeId={id} ingredients={scaledIngredients} steps={steps} />
 
                         {/* Add to planner */}
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => {
                                 // Default to adding as dinner
                                 const currentDay = new Date().getDay() - 1;
@@ -477,12 +482,12 @@ export default function RecipePage() {
                                 setMealPlanDay(todayIdx, "dinner", recipe);
                                 triggerHaptic("success");
                             }}
-                            className="px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-md border border-slate-300 dark:border-slate-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-xs sm:text-sm min-h-[44px] sm:min-h-0 touch-manipulation"
+                            className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-all min-h-[44px] sm:min-h-0 touch-manipulation flex items-center gap-1.5 sm:gap-2"
                             title="Add to today's dinner"
                         >
+                            <span className="text-base sm:text-lg">📅</span>
                             <span className="hidden sm:inline">Add to Planner</span>
-                            <span className="sm:hidden">📅</span>
-                        </button>
+                        </motion.button>
 
                         {/* Track as made */}
                         <motion.button
@@ -525,7 +530,7 @@ export default function RecipePage() {
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.35 }}
-                        className="text-center text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight px-4 sm:px-6 md:px-8 break-words hyphens-auto bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-700 dark:from-emerald-300 dark:via-teal-300 dark:to-cyan-300 bg-clip-text text-transparent drop-shadow-lg mb-4 sm:mb-6 select-none"
+                        className="text-center text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight px-4 sm:px-6 md:px-8 break-words hyphens-auto bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-700 dark:from-emerald-300 dark:via-teal-300 dark:to-cyan-300 bg-clip-text text-transparent drop-shadow-lg mb-4 sm:mb-6 select-none"
                         style={{ wordBreak: 'break-word', overflowWrap: 'break-word', userSelect: 'none', WebkitUserSelect: 'none' }}
                     >
                         {title}

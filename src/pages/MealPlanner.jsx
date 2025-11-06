@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useGroceryList } from "../context/GroceryListContext.jsx";
 import { getRecipeInformation } from "../api/spoonacular.js";
@@ -78,6 +78,7 @@ export default function MealPlanner() {
     const { addMany, setOpen } = useGroceryList();
     const [loading, setLoading] = useState(false);
     const [smartSuggestions, setSmartSuggestions] = useState([]);
+    const navigate = useNavigate();
 
     // persist whenever plan changes
     useEffect(() => writeMealPlan(plan), [plan]);
@@ -252,56 +253,131 @@ export default function MealPlanner() {
         }
     };
 
+    // Duplicate a day's meals to another day
+    const duplicateDay = (fromDayIdx, toDayIdx) => {
+        const fromDay = DAYS_SHORT[fromDayIdx];
+        const toDay = DAYS_SHORT[toDayIdx];
+        const next = { ...plan };
+        if (next[fromDay]) {
+            next[toDay] = { ...next[fromDay] };
+            setPlan(next);
+        }
+    };
+
+    // Clear a specific day
+    const clearDay = (dayIdx) => {
+        const day = DAYS_SHORT[dayIdx];
+        const next = { ...plan };
+        next[day] = emptyDay();
+        setPlan(next);
+    };
+
+    // Calculate daily stats
+    const getDailyStats = useMemo(() => {
+        const stats = {};
+        DAYS_SHORT.forEach((day, idx) => {
+            const meals = plan[day] || emptyDay();
+            const filled = Object.values(meals).filter(Boolean).length;
+            stats[day] = { filled, total: MEALS.length, percentage: Math.round((filled / MEALS.length) * 100) };
+        });
+        return stats;
+    }, [plan]);
+
     return (
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
+        <div className="mx-auto max-w-6xl px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-10">
             {/* Header with Stats */}
-            <div className="mb-8">
-                <div className="flex items-center gap-3 mb-4">
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            <div className="mb-4 sm:mb-6 lg:mb-8">
+                <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                    <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                         📅 Smart Meal Planner
                     </h1>
                 </div>
 
                 {/* Progress Card */}
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-6 border-2 border-purple-200 dark:border-purple-800 shadow-lg"
-                >
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <p className="text-sm font-semibold text-purple-700 dark:text-purple-300 mb-1">
-                                Week Progress
-                            </p>
-                            <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-                                {nutritionStats.percentage}%
-                            </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 border-2 border-purple-200 dark:border-purple-800 shadow-lg"
+                    >
+                        <div className="flex items-center justify-between mb-3 sm:mb-4">
+                            <div>
+                                <p className="text-xs sm:text-sm font-semibold text-purple-700 dark:text-purple-300 mb-1">
+                                    Week Progress
+                                </p>
+                                <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">
+                                    {nutritionStats.percentage}%
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xl sm:text-2xl font-bold text-purple-600 dark:text-purple-400">
+                                    {nutritionStats.filled}/{nutritionStats.total}
+                                </p>
+                                <p className="text-xs sm:text-sm text-purple-600 dark:text-purple-400">meals planned</p>
+                            </div>
                         </div>
-                        <div className="text-right">
-                            <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                                {nutritionStats.filled}/{nutritionStats.total}
-                            </p>
-                            <p className="text-sm text-purple-600 dark:text-purple-400">meals planned</p>
+                        <div className="w-full bg-purple-200 dark:bg-purple-800 rounded-full h-3 overflow-hidden">
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${nutritionStats.percentage}%` }}
+                                transition={{ duration: 0.5 }}
+                                className="h-full bg-gradient-to-r from-purple-600 to-pink-600"
+                            />
                         </div>
-                    </div>
-                    <div className="w-full bg-purple-200 dark:bg-purple-800 rounded-full h-3 overflow-hidden">
-                        <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${nutritionStats.percentage}%` }}
-                            transition={{ duration: 0.5 }}
-                            className="h-full bg-gradient-to-r from-purple-600 to-pink-600"
-                        />
-                    </div>
-                </motion.div>
+                    </motion.div>
+
+                    {/* Quick Stats Card */}
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg"
+                    >
+                        <p className="text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-3">
+                            Quick Stats
+                        </p>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs sm:text-sm text-emerald-600 dark:text-emerald-400">📅 Days with meals:</span>
+                                <span className="text-sm sm:text-base font-bold text-emerald-700 dark:text-emerald-300">
+                                    {DAYS_SHORT.filter(day => {
+                                        const meals = plan[day] || emptyDay();
+                                        return Object.values(meals).some(Boolean);
+                                    }).length}/7
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs sm:text-sm text-emerald-600 dark:text-emerald-400">❤️ From favorites:</span>
+                                <span className="text-sm sm:text-base font-bold text-emerald-700 dark:text-emerald-300">
+                                    {DAYS_SHORT.reduce((count, day) => {
+                                        const meals = plan[day] || emptyDay();
+                                        return count + Object.values(meals).filter(meal => 
+                                            meal && favorites.some(fav => fav.id === meal.id)
+                                        ).length;
+                                    }, 0)}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs sm:text-sm text-emerald-600 dark:text-emerald-400">🔄 Complete days:</span>
+                                <span className="text-sm sm:text-base font-bold text-emerald-700 dark:text-emerald-300">
+                                    {DAYS_SHORT.filter(day => {
+                                        const meals = plan[day] || emptyDay();
+                                        return Object.values(meals).every(Boolean);
+                                    }).length}
+                                </span>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
 
                 {/* Action Buttons */}
-                <div className="flex flex-wrap gap-3 mt-6">
+                <div className="flex flex-wrap gap-2 sm:gap-3 mt-4 sm:mt-6">
                     <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={generateSmartPlan}
                         disabled={loading}
-                        className="flex items-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+                        className="flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm sm:text-base font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 min-h-[44px] touch-manipulation flex-1 sm:flex-none"
                     >
                         {loading ? (
                             <>
@@ -322,39 +398,41 @@ export default function MealPlanner() {
                     </motion.button>
 
                     <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={fillFromFavorites}
                         disabled={favorites.length === 0}
-                        className="px-4 py-3 rounded-xl border-2 border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-800 font-semibold hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all disabled:opacity-50"
+                        className="px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl border-2 border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-800 text-sm sm:text-base font-semibold hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all disabled:opacity-50 min-h-[44px] touch-manipulation flex-1 sm:flex-none"
                     >
-                        ❤️ Fill from Favorites
+                        <span className="hidden sm:inline">❤️ Fill from Favorites</span>
+                        <span className="sm:hidden">❤️ Favorites</span>
                     </motion.button>
 
                     <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={generateGroceryList}
                         disabled={nutritionStats.filled === 0}
-                        className="px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+                        className="px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm sm:text-base font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50 min-h-[44px] touch-manipulation flex-1 sm:flex-none"
                     >
-                        🛒 Generate Grocery List
+                        <span className="hidden sm:inline">🛒 Generate Grocery List</span>
+                        <span className="sm:hidden">🛒 Grocery</span>
                     </motion.button>
 
                     <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={clearAll}
                         disabled={nutritionStats.filled === 0}
-                        className="px-4 py-3 rounded-xl border-2 border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 bg-white dark:bg-slate-800 font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50"
+                        className="px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl border-2 border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 bg-white dark:bg-slate-800 text-sm sm:text-base font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50 min-h-[44px] touch-manipulation flex-1 sm:flex-none"
                     >
-                        ✕ Clear All
+                        ✕ Clear
                     </motion.button>
                 </div>
             </div>
 
             {/* Meal Grid - One week card per day */}
-            <div className="grid gap-4">
+            <div className="grid gap-3 sm:gap-4">
                 {DAYS_SHORT.map((dayKey, dayIdx) => {
                     const dayMeals = plan[dayKey] || emptyDay();
                     const mealEmojis = { breakfast: "🍳", lunch: "🥗", dinner: "🍽️" };
@@ -371,15 +449,58 @@ export default function MealPlanner() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: dayIdx * 0.05 }}
-                            className="rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md hover:shadow-xl transition-all overflow-hidden"
+                            className="rounded-xl sm:rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md hover:shadow-xl transition-all overflow-hidden"
                         >
                             {/* Day Header */}
-                            <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-4 text-white">
-                                <h3 className="font-bold text-xl">{DAYS[dayIdx]}</h3>
+                            <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-3 sm:p-4 text-white">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 sm:gap-3">
+                                        <h3 className="font-bold text-lg sm:text-xl">{DAYS[dayIdx]}</h3>
+                                        <span className="text-xs sm:text-sm opacity-90">
+                                            {getDailyStats[dayKey]?.filled || 0}/{MEALS.length} meals
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-1 sm:gap-2">
+                                        {/* Quick Actions */}
+                                        {dayIdx > 0 && (
+                                            <motion.button
+                                                whileHover={{ scale: 1.1 }}
+                                                whileTap={{ scale: 0.9 }}
+                                                onClick={() => duplicateDay(dayIdx - 1, dayIdx)}
+                                                className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-xs sm:text-sm font-semibold transition-all touch-manipulation"
+                                                title="Copy previous day"
+                                            >
+                                                📋 Copy
+                                            </motion.button>
+                                        )}
+                                        {getDailyStats[dayKey]?.filled > 0 && (
+                                            <motion.button
+                                                whileHover={{ scale: 1.1 }}
+                                                whileTap={{ scale: 0.9 }}
+                                                onClick={() => clearDay(dayIdx)}
+                                                className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-xs sm:text-sm font-semibold transition-all touch-manipulation"
+                                                title="Clear this day"
+                                            >
+                                                ✕ Clear
+                                            </motion.button>
+                                        )}
+                                    </div>
+                                </div>
+                                {/* Day Progress Bar */}
+                                {getDailyStats[dayKey] && (
+                                    <div className="mt-2 w-full bg-white/20 rounded-full h-1.5 overflow-hidden">
+                                        <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${getDailyStats[dayKey].percentage}%` }}
+                                            transition={{ duration: 0.5 }}
+                                            className="h-full bg-white rounded-full"
+                                        />
+                                    </div>
+                                )}
                             </div>
                             
                             {/* Meals Grid */}
-                            <div className="grid sm:grid-cols-3 gap-4 p-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 p-3 sm:p-4">
                                 {MEALS.map((mealType, mealIdx) => {
                                     const recipe = dayMeals[mealType];
                                     return (
@@ -392,36 +513,47 @@ export default function MealPlanner() {
                                             
                                             {/* Recipe Card */}
                                             {!recipe ? (
-                                                <div className="flex flex-col items-center justify-center h-40 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 group hover:border-purple-300 dark:hover:border-purple-700 transition-colors cursor-pointer relative">
-                                                    <svg className="w-8 h-8 text-slate-400 group-hover:text-purple-500 mb-2 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <motion.div
+                                                    whileHover={{ scale: 1.02 }}
+                                                    whileTap={{ scale: 0.98 }}
+                                                    onClick={() => navigate("/")}
+                                                    className="flex flex-col items-center justify-center h-32 sm:h-40 rounded-lg sm:rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 group hover:border-purple-300 dark:hover:border-purple-700 active:border-purple-400 dark:active:border-purple-600 transition-colors cursor-pointer relative touch-manipulation"
+                                                >
+                                                    <svg className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400 group-hover:text-purple-500 mb-1 sm:mb-2 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                                                     </svg>
-                                                </div>
+                                                    <span className="text-xs text-slate-500 dark:text-slate-400 mt-1">Tap to add</span>
+                                                </motion.div>
                                             ) : (
-                                                <Link to={`/recipe/${recipe.id}`} className="block group">
-                                                    <div className="relative overflow-hidden rounded-xl mb-2">
-                                                        <img
-                                                            src={recipe.image}
-                                                            alt=""
-                                                            className="w-full aspect-[4/3] object-cover group-hover:scale-110 transition-transform duration-300"
-                                                        />
-                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                    </div>
-                                                    <p className="text-xs font-semibold line-clamp-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors mb-2">
-                                                        {recipe.title}
-                                                    </p>
+                                                <div className="flex flex-col h-full relative group">
+                                                    {/* Remove Button - Top Right */}
                                                     <motion.button
-                                                        whileHover={{ scale: 1.1 }}
+                                                        whileHover={{ scale: 1.1, rotate: 90 }}
                                                         whileTap={{ scale: 0.9 }}
                                                         onClick={(e) => {
                                                             e.preventDefault();
                                                             setMeal(dayIdx, mealType, null);
                                                         }}
-                                                        className="w-full px-2 py-1 text-xs rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 font-semibold transition-colors"
+                                                        className="absolute top-1 right-1 z-10 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-red-500/90 dark:bg-red-600/90 hover:bg-red-600 dark:hover:bg-red-700 text-white flex items-center justify-center shadow-lg hover:shadow-xl transition-all opacity-80 hover:opacity-100 touch-manipulation"
+                                                        title="Remove recipe"
                                                     >
-                                                        Remove
+                                                        <span className="text-base sm:text-lg font-bold leading-none">×</span>
                                                     </motion.button>
-                                                </Link>
+                                                    
+                                                    <Link to={`/recipe/${recipe.id}`} className="block group flex-1">
+                                                        <div className="relative overflow-hidden rounded-lg sm:rounded-xl mb-2">
+                                                            <img
+                                                                src={recipe.image}
+                                                                alt=""
+                                                                className="w-full aspect-[4/3] object-cover group-hover:scale-110 transition-transform duration-300"
+                                                            />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                        </div>
+                                                        <p className="text-xs sm:text-sm font-semibold line-clamp-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors min-h-[2.5rem]">
+                                                            {recipe.title}
+                                                        </p>
+                                                    </Link>
+                                                </div>
                                             )}
                                         </div>
                                     );
