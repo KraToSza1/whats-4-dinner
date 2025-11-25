@@ -13,6 +13,13 @@ export default function AdminDashboard() {
   const toast = useToast();
 
   useEffect(() => {
+    // PRODUCTION: Require environment variable
+    if (import.meta.env.PROD && import.meta.env.VITE_ENABLE_ADMIN !== 'true') {
+      toast.error('Admin access is disabled in production');
+      navigate('/');
+      return;
+    }
+
     const isDevMode = import.meta.env.DEV || import.meta.env.MODE === 'development';
     const isExplicitlyEnabled = import.meta.env.VITE_ENABLE_ADMIN === 'true';
 
@@ -28,9 +35,9 @@ export default function AdminDashboard() {
       return;
     }
 
-    // Check URL parameter
+    // Check URL parameter (dev only)
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('admin') === 'true') {
+    if (urlParams.get('admin') === 'true' && !import.meta.env.PROD) {
       import('../utils/admin.js').then(({ forceEnableAdmin }) => {
         forceEnableAdmin();
       });

@@ -15,7 +15,7 @@ import Terms from './pages/Terms.jsx';
 import Privacy from './pages/Privacy.jsx';
 import Analytics from './pages/Analytics.jsx';
 import BillingManagement from './pages/BillingManagement.jsx';
-import AdminDashboard from './pages/AdminDashboard.jsx';
+import ProtectedAdminRoute from './components/ProtectedAdminRoute.jsx';
 
 import Filters from './components/Filters.jsx';
 import PantryChips from './components/PantryChips.jsx';
@@ -485,7 +485,7 @@ const App = () => {
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/billing" element={<BillingManagement />} />
-            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin" element={<ProtectedAdminRoute />} />
             <Route
               path="/favorites"
               element={

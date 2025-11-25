@@ -26,11 +26,14 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
   const userEmail = typeof user === 'object' && user?.email ? user.email : null;
   const planName = getPlanName();
   const isFree = isFreePlan();
-  const showAdmin =
-    adminModeEnabled ||
-    isAdminModeEnabled() ||
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1';
+  // COMPLETELY HIDE admin in production - only show if explicitly enabled via env var
+  // In production, admin is COMPLETELY HIDDEN unless VITE_ENABLE_ADMIN=true
+  const showAdmin = import.meta.env.PROD
+    ? import.meta.env.VITE_ENABLE_ADMIN === 'true'
+    : adminModeEnabled ||
+      isAdminModeEnabled() ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1';
 
   useEffect(() => {
     if (showMenu) {

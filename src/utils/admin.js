@@ -86,12 +86,25 @@ export function getAdminEmails() {
 /**
  * Check if admin mode is enabled (local dev only)
  * MULTIPLE WAYS TO ENABLE:
- * 1. URL query parameter: ?admin=true
- * 2. localStorage flag: admin:force:enabled
- * 3. Dev mode (import.meta.env.DEV)
- * 4. Always enabled in localhost
+ * 1. Environment variable: VITE_ENABLE_ADMIN=true (production only)
+ * 2. URL query parameter: ?admin=true (dev only)
+ * 3. localStorage flag: admin:force:enabled (dev only)
+ * 4. Dev mode (import.meta.env.DEV)
+ * 5. Always enabled in localhost
  */
 export function isAdminModeEnabled() {
+  // PRODUCTION: Only allow via environment variable
+  if (import.meta.env.PROD) {
+    const envEnabled = import.meta.env.VITE_ENABLE_ADMIN === 'true';
+    if (envEnabled) {
+      console.log('🔑 [ADMIN] ✅ Enabled via VITE_ENABLE_ADMIN (production)');
+      return true;
+    }
+    console.log('🔑 [ADMIN] ❌ Disabled in production (set VITE_ENABLE_ADMIN=true to enable)');
+    return false;
+  }
+
+  // DEVELOPMENT: Allow multiple ways
   // Check URL parameter first (easiest way)
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('admin') === 'true') {
