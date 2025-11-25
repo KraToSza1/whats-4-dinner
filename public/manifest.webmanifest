@@ -1,0 +1,18 @@
+{
+  "name": "What's 4 Dinner",
+  "short_name": "W4D",
+  "description": "Personalized meal planning, grocery tools, and cooking inspiration.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
+

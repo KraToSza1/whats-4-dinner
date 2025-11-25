@@ -1,0 +1,265 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------ Base + theme polish ------------ */
+@layer base {
+  :root {
+    --ring: 0 200 0; /* emerald-ish ring */
+  }
+
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+  }
+
+  /* soft pattern backdrop */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(16, 185, 129, 0.12), transparent 50%),
+      radial-gradient(800px 400px at 10% 110%, rgba(59, 130, 246, 0.1), transparent 50%),
+      linear-gradient(transparent, transparent);
+    opacity: 0.6;
+    z-index: -1;
+  }
+
+  /* nice scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(71 85 105 / 0.6) transparent;
+  }
+  *::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgb(71 85 105 / 0.6);
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Better touch targets for mobile - ensure all interactive elements are touch-friendly */
+  @media (max-width: 640px) {
+    button,
+    a,
+    input[type='checkbox'],
+    input[type='radio'],
+    select,
+    label[role='button'] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    /* Ensure text is readable on small screens */
+    body {
+      font-size: 16px; /* Prevents zoom on iOS */
+    }
+
+    /* Prevent horizontal overflow */
+    * {
+      max-width: 100%;
+    }
+
+    img,
+    video,
+    iframe {
+      max-width: 100%;
+      height: auto;
+    }
+  }
+
+  /* Touch manipulation for better mobile performance */
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role='button'],
+  [tabindex] {
+    touch-action: manipulation;
+  }
+
+  /* Prevent text size adjustment on iOS */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  @media (max-width: 640px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important; /* Prevent iOS zoom */
+    }
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ------------ Components (design tokens) ------------ */
+@layer components {
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors;
+  }
+  .btn-primary {
+    @apply btn bg-emerald-600 text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400/60;
+  }
+  .btn-ghost {
+    @apply btn border border-slate-300 dark:border-slate-700 hover:bg-slate-100/80 dark:hover:bg-slate-800/60;
+  }
+  .btn-danger {
+    @apply btn bg-rose-600 text-white hover:bg-rose-700;
+  }
+  .btn-muted {
+    @apply btn bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-300/70 dark:hover:bg-slate-700/70;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full rounded-xl bg-white dark:bg-slate-800 ring-1 ring-black/10 dark:ring-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400/70;
+  }
+  .select {
+    @apply input pr-8;
+  }
+  .field {
+    @apply flex flex-col gap-1 text-sm;
+  }
+
+  /* Surfaces / cards */
+  .surface {
+    @apply rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-800/70 shadow-sm;
+  }
+  .card {
+    @apply surface overflow-hidden;
+  }
+  .card-hover {
+    @apply transition hover:shadow-lg hover:-translate-y-0.5;
+  }
+
+  /* Badges & chips */
+  .badge {
+    @apply inline-flex items-center rounded-full text-xs px-2 py-0.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full text-sm px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700;
+  }
+  .chip-active {
+    @apply bg-emerald-50 border-emerald-300 text-emerald-700;
+  }
+
+  /* Section wrapper */
+  .section {
+    @apply mx-auto max-w-7xl px-4 sm:px-6;
+  }
+
+  /* Shared page shells - fully responsive */
+  .page-shell {
+    @apply w-full mx-auto max-w-6xl px-2 xs:px-3 sm:px-4 md:px-5 lg:px-6 xl:px-8;
+  }
+  .page-shell-tight {
+    @apply w-full mx-auto max-w-4xl px-2 xs:px-3 sm:px-4 md:px-5 lg:px-8;
+  }
+
+  /* Responsive layout helpers */
+  .stack-responsive {
+    @apply flex flex-col gap-3 xs:gap-4 sm:gap-5 md:gap-6;
+  }
+  .stack-responsive-lg {
+    @apply flex flex-col gap-4 xs:gap-5 sm:gap-6 md:gap-8;
+  }
+  .card-cluster {
+    @apply grid gap-2 xs:gap-3 sm:gap-4 md:gap-5;
+  }
+  .card-cluster.auto-fit-sm {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+  @media (min-width: 640px) {
+    .card-cluster.auto-fit-sm {
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    }
+  }
+  .card-cluster.auto-fit-md {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  @media (min-width: 768px) {
+    .card-cluster.auto-fit-md {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+  }
+
+  /* Responsive text scaling */
+  .text-responsive-xs {
+    @apply text-[10px] xs:text-xs sm:text-sm;
+  }
+  .text-responsive-sm {
+    @apply text-xs xs:text-sm sm:text-base;
+  }
+  .text-responsive-base {
+    @apply text-sm xs:text-base sm:text-lg;
+  }
+  .text-responsive-lg {
+    @apply text-base xs:text-lg sm:text-xl md:text-2xl;
+  }
+  .text-responsive-xl {
+    @apply text-lg xs:text-xl sm:text-2xl md:text-3xl;
+  }
+
+  /* Responsive spacing */
+  .spacing-responsive {
+    @apply p-2 xs:p-3 sm:p-4 md:p-6;
+  }
+  .spacing-responsive-sm {
+    @apply p-1.5 xs:p-2 sm:p-3 md:p-4;
+  }
+  .spacing-responsive-lg {
+    @apply p-4 xs:p-5 sm:p-6 md:p-8;
+  }
+
+  /* Responsive gaps */
+  .gap-responsive {
+    @apply gap-2 xs:gap-3 sm:gap-4 md:gap-6;
+  }
+  .gap-responsive-sm {
+    @apply gap-1 xs:gap-2 sm:gap-3;
+  }
+  .gap-responsive-lg {
+    @apply gap-4 xs:gap-5 sm:gap-6 md:gap-8;
+  }
+}
+
+/* ------------ Utilities polish ------------ */
+@layer utilities {
+  .ring-brand {
+    box-shadow: 0 0 0 2px rgb(16 185 129 / 0.45);
+  }
+
+  .safe-px {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+  .safe-pb {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+  .clamp-title {
+    font-size: clamp(1.5rem, 1.2rem + 1vw, 2.25rem);
+  }
+}

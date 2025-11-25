@@ -1,0 +1,46 @@
+{
+  "recipe_id": "REPLACE_WITH_UUID",
+  "title": "Recipe Title Here",
+  "description": "A clear, appetizing description of the recipe in 1-3 sentences.",
+  "prep_minutes": 15,
+  "cook_minutes": 30,
+  "servings": 4,
+  "difficulty": "easy",
+  "author": "Community",
+  "cuisine": ["Cuisine Type"],
+  "meal_types": ["breakfast", "lunch", "dinner"],
+  "diets": ["vegetarian", "gluten-free"],
+  "ingredients": [
+    {
+      "ingredient_name": "ingredient name",
+      "quantity": 1,
+      "unit": "cup",
+      "preparation": "chopped"
+    }
+  ],
+  "steps": [
+    {
+      "position": 1,
+      "instruction": "Clear, actionable instruction here.",
+      "timer_seconds": null
+    }
+  ],
+  "nutrition": {
+    "calories": 300,
+    "protein": 20,
+    "fat": 10,
+    "carbs": 30,
+    "fiber": 5,
+    "sugar": 5,
+    "sodium": 500,
+    "cholesterol": 50,
+    "saturated_fat": 3,
+    "vitamin_a": 400,
+    "vitamin_c": 30,
+    "potassium": 600,
+    "calcium": 150,
+    "iron": 2
+  },
+  "image_prompt": "Detailed description of the finished dish, plating style, lighting, food photography style, 1024x1024",
+  "image": "[1024×1024 image file]"
+}
