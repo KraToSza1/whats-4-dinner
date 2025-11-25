@@ -1,10 +1,15 @@
 /**
  * Subscription Management Utilities
  * Handles subscription status, ad display, and feature access
+ * ENFORCES STRICT LIMITS - Makes people want to upgrade!
  */
+
+import { supabase } from '../lib/supabaseClient';
 
 const SUBSCRIPTION_KEY = 'subscription:plan:v1';
 const AD_DISABLED_KEY = 'ads:disabled';
+const SEARCH_COUNT_KEY = 'subscription:searches:count:v1';
+const SEARCH_DATE_KEY = 'subscription:searches:date:v1';
 
 // Subscription plans
 export const PLANS = {
@@ -14,7 +19,7 @@ export const PLANS = {
   FAMILY: 'family',
 };
 
-// Plan details
+// Plan details with EXTREME limits to drive upgrades
 export const PLAN_DETAILS = {
   [PLANS.FREE]: {
     name: 'Free',
@@ -22,9 +27,21 @@ export const PLAN_DETAILS = {
     priceMonthly: 0,
     priceYearly: 0,
     hasAds: true,
-    searchLimit: 10,
-    favoritesLimit: 20,
-    features: ['Basic features', '10 searches/day', '20 favorites', 'Ads'],
+    searchLimit: 5, // EXTREME: Only 5 searches per day!
+    favoritesLimit: 10, // EXTREME: Only 10 favorites total!
+    groceryListsLimit: 1, // EXTREME: Only 1 grocery list!
+    mealPlannerDays: 0, // EXTREME: Meal planner DISABLED!
+    collectionsLimit: 0, // EXTREME: Collections DISABLED!
+    analyticsEnabled: false, // EXTREME: Analytics DISABLED!
+    nutritionDetails: 'basic', // EXTREME: Basic nutrition only!
+    filtersEnabled: false, // EXTREME: Advanced filters DISABLED!
+    exportEnabled: false, // EXTREME: Export DISABLED!
+    importEnabled: false, // EXTREME: Import DISABLED!
+    challengesPerWeek: 1, // EXTREME: Only 1 challenge per week!
+    streaksEnabled: false, // EXTREME: Streaks DISABLED!
+    xpMultiplier: 1.0, // EXTREME: No XP bonus!
+    familyMembers: 0, // EXTREME: No family features!
+    features: ['Basic features', '5 searches/day', '10 favorites', 'Ads', 'Limited features'],
   },
   [PLANS.SUPPORTER]: {
     name: 'Supporter',
@@ -32,9 +49,21 @@ export const PLAN_DETAILS = {
     priceMonthly: 2.99,
     priceYearly: 29.99, // ~$2.50/mo (save 17%)
     hasAds: false,
-    searchLimit: 50,
-    favoritesLimit: 100,
-    features: ['No ads', '50 searches/day', '100 favorites', 'Cloud sync'],
+    searchLimit: 30, // Better: 30 searches per day
+    favoritesLimit: 50, // Better: 50 favorites
+    groceryListsLimit: 5, // Better: 5 grocery lists
+    mealPlannerDays: 3, // Better: 3 days meal planner
+    collectionsLimit: 3, // Better: 3 collections
+    analyticsEnabled: true, // Better: Basic analytics
+    nutritionDetails: 'full', // Better: Full nutrition details
+    filtersEnabled: true, // Better: All filters enabled
+    exportEnabled: true, // Better: Export enabled
+    importEnabled: true, // Better: Import enabled
+    challengesPerWeek: 3, // Better: 3 challenges per week
+    streaksEnabled: true, // Better: Streaks enabled
+    xpMultiplier: 1.5, // Better: 1.5x XP multiplier
+    familyMembers: 0,
+    features: ['No ads', '30 searches/day', '50 favorites', 'Cloud sync', 'Basic premium features'],
   },
   [PLANS.UNLIMITED]: {
     name: 'Unlimited',
@@ -44,6 +73,18 @@ export const PLAN_DETAILS = {
     hasAds: false,
     searchLimit: -1, // unlimited
     favoritesLimit: -1, // unlimited
+    groceryListsLimit: -1, // unlimited
+    mealPlannerDays: -1, // unlimited
+    collectionsLimit: -1, // unlimited
+    analyticsEnabled: true, // Full analytics
+    nutritionDetails: 'full', // Full nutrition details
+    filtersEnabled: true, // All filters
+    exportEnabled: true, // Export enabled
+    importEnabled: true, // Import enabled
+    challengesPerWeek: -1, // unlimited
+    streaksEnabled: true, // Streaks enabled
+    xpMultiplier: 2.0, // 2x XP multiplier
+    familyMembers: 0,
     features: ['No ads', 'Unlimited searches', 'Unlimited favorites', 'All premium features'],
   },
   [PLANS.FAMILY]: {
@@ -52,29 +93,114 @@ export const PLAN_DETAILS = {
     priceMonthly: 9.99,
     priceYearly: 99.99, // ~$8.33/mo (save 17%)
     hasAds: false,
-    searchLimit: -1,
-    favoritesLimit: -1,
+    searchLimit: -1, // unlimited
+    favoritesLimit: -1, // unlimited
+    groceryListsLimit: -1, // unlimited
+    mealPlannerDays: -1, // unlimited
+    collectionsLimit: -1, // unlimited
+    analyticsEnabled: true, // Full analytics
+    nutritionDetails: 'full', // Full nutrition details
+    filtersEnabled: true, // All filters
+    exportEnabled: true, // Export enabled
+    importEnabled: true, // Import enabled
+    challengesPerWeek: -1, // unlimited
+    streaksEnabled: true, // Streaks enabled
+    xpMultiplier: 2.0, // 2x XP multiplier
+    familyMembers: 10, // 10 family members
     features: ['No ads', 'Everything in Unlimited', '10 family members', 'Family features'],
   },
 };
 
-// Get current subscription plan - FOR NOW, EVERYONE GETS UNLIMITED FOR FREE
-export function getCurrentPlan() {
-  // TEMPORARY: Give everyone unlimited plan for free during development
-  return PLANS.UNLIMITED;
+// Cache for current plan (to avoid repeated Supabase calls)
+let cachedPlan = null;
+let planCacheTime = 0;
+const PLAN_CACHE_TTL = 60000; // 1 minute cache
 
-  // Original code (commented out for now):
-  // try {
-  //     const plan = localStorage.getItem(SUBSCRIPTION_KEY);
-  //     return plan || PLANS.FREE;
-  // } catch {
-  //     return PLANS.FREE;
-  // }
+/**
+ * Get current subscription plan from Supabase profiles table
+ * Falls back to localStorage if not authenticated
+ */
+export async function getCurrentPlan() {
+  try {
+    // Check cache first
+    if (cachedPlan && Date.now() - planCacheTime < PLAN_CACHE_TTL) {
+      return cachedPlan;
+    }
+
+    // Try to get from Supabase if authenticated
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('plan')
+        .eq('id', user.id)
+        .single();
+
+      if (!error && profile?.plan) {
+        const plan = profile.plan.toLowerCase();
+        // Validate plan
+        if (Object.values(PLANS).includes(plan)) {
+          cachedPlan = plan;
+          planCacheTime = Date.now();
+          // Sync to localStorage for offline access
+          try {
+            localStorage.setItem(SUBSCRIPTION_KEY, plan);
+          } catch {}
+          return plan;
+        }
+      }
+    }
+
+    // Fallback to localStorage
+    try {
+      const plan = localStorage.getItem(SUBSCRIPTION_KEY);
+      if (plan && Object.values(PLANS).includes(plan)) {
+        cachedPlan = plan;
+        planCacheTime = Date.now();
+        return plan;
+      }
+    } catch {}
+
+    // Default to FREE plan
+    cachedPlan = PLANS.FREE;
+    planCacheTime = Date.now();
+    return PLANS.FREE;
+  } catch (error) {
+    console.error('[Subscription] Error getting plan:', error);
+    // Fallback to localStorage
+    try {
+      const plan = localStorage.getItem(SUBSCRIPTION_KEY);
+      if (plan && Object.values(PLANS).includes(plan)) {
+        return plan;
+      }
+    } catch {}
+    return PLANS.FREE;
+  }
+}
+
+/**
+ * Get current plan synchronously (uses cache or localStorage)
+ * Use this for UI rendering, use getCurrentPlan() for actual checks
+ */
+export function getCurrentPlanSync() {
+  if (cachedPlan) return cachedPlan;
+  try {
+    const plan = localStorage.getItem(SUBSCRIPTION_KEY);
+    if (plan && Object.values(PLANS).includes(plan)) {
+      return plan;
+    }
+  } catch {}
+  return PLANS.FREE;
 }
 
 // Set subscription plan
 export function setCurrentPlan(plan) {
   try {
+    cachedPlan = plan;
+    planCacheTime = Date.now();
     localStorage.setItem(SUBSCRIPTION_KEY, plan);
     // If upgrading from free, disable ads
     if (plan !== PLANS.FREE) {
@@ -86,27 +212,23 @@ export function setCurrentPlan(plan) {
   }
 }
 
-// Check if user has ads disabled - FOR NOW, NO ADS FOR ANYONE
+// Check if user has ads disabled
 export function hasAdsDisabled() {
-  // TEMPORARY: No ads for anyone during development
-  return true;
+  try {
+    const plan = getCurrentPlanSync();
+    const planDetails = PLAN_DETAILS[plan];
 
-  // Original code (commented out for now):
-  // try {
-  //     const plan = getCurrentPlan();
-  //     const planDetails = PLAN_DETAILS[plan];
-  //
-  //     // Paid plans don't have ads
-  //     if (!planDetails.hasAds) {
-  //         return true;
-  //     }
-  //
-  //     // Check if ads were manually disabled
-  //     const adsDisabled = localStorage.getItem(AD_DISABLED_KEY);
-  //     return adsDisabled === "true";
-  // } catch {
-  //     return false;
-  // }
+    // Paid plans don't have ads
+    if (!planDetails.hasAds) {
+      return true;
+    }
+
+    // Check if ads were manually disabled
+    const adsDisabled = localStorage.getItem(AD_DISABLED_KEY);
+    return adsDisabled === 'true';
+  } catch {
+    return false;
+  }
 }
 
 // Check if ads should be shown
@@ -116,147 +238,159 @@ export function shouldShowAds() {
 
 // Check if user has access to a feature
 export function hasFeature(feature) {
-  // TEMPORARY: Everyone gets all features for free during development
-  // Uncomment below to enable premium features
-  // const plan = getCurrentPlan();
-  // const planDetails = PLAN_DETAILS[plan];
+  const plan = getCurrentPlanSync();
+  const planDetails = PLAN_DETAILS[plan];
 
-  // Premium feature gates
   const premiumFeatures = {
-    // Existing features
-    unlimited_searches: () => {
-      // TEMP: return true;
-      const plan = getCurrentPlan();
-      return PLAN_DETAILS[plan].searchLimit === -1;
-    },
-    unlimited_favorites: () => {
-      // TEMP: return true;
-      const plan = getCurrentPlan();
-      return PLAN_DETAILS[plan].favoritesLimit === -1;
-    },
-    no_ads: () => {
-      // TEMP: return true;
-      const plan = getCurrentPlan();
-      return !PLAN_DETAILS[plan].hasAds;
-    },
-    cloud_sync: () => {
-      // TEMP: return true;
-      const plan = getCurrentPlan();
-      return plan !== PLANS.FREE;
-    },
-    analytics: () => {
-      // TEMP: return true;
-      const plan = getCurrentPlan();
-      return plan !== PLANS.FREE;
-    },
-    family_plan: () => {
-      // TEMP: return true;
-      const plan = getCurrentPlan();
-      return plan === PLANS.FAMILY;
-    },
-    // New gamification features
-    streak_freeze: () => {
-      // TEMP: return true;
-      const plan = getCurrentPlan();
-      return plan !== PLANS.FREE;
-    },
-    streak_recovery: () => {
-      // TEMP: return true;
-      const plan = getCurrentPlan();
-      return plan === PLANS.UNLIMITED || plan === PLANS.FAMILY;
-    },
-    unlimited_challenges: () => {
-      // TEMP: return true;
-      const plan = getCurrentPlan();
-      return plan !== PLANS.FREE;
-    },
-    xp_multiplier: () => {
-      // TEMP: return true;
-      const plan = getCurrentPlan();
-      return plan === PLANS.UNLIMITED || plan === PLANS.FAMILY;
-    },
-    animated_badges: () => {
-      // TEMP: return true;
-      const plan = getCurrentPlan();
-      return plan !== PLANS.FREE;
-    },
-    badge_showcase: () => {
-      // TEMP: return true;
-      const plan = getCurrentPlan();
-      return plan !== PLANS.FREE;
-    },
-    leaderboards: () => {
-      // TEMP: return true;
-      const plan = getCurrentPlan();
-      return plan === PLANS.UNLIMITED || plan === PLANS.FAMILY;
-    },
+    unlimited_searches: () => planDetails.searchLimit === -1,
+    unlimited_favorites: () => planDetails.favoritesLimit === -1,
+    no_ads: () => !planDetails.hasAds,
+    cloud_sync: () => plan !== PLANS.FREE,
+    analytics: () => planDetails.analyticsEnabled,
+    family_plan: () => plan === PLANS.FAMILY,
+    streak_freeze: () => planDetails.streaksEnabled,
+    streak_recovery: () => plan !== PLANS.FREE,
+    unlimited_challenges: () => planDetails.challengesPerWeek === -1,
+    xp_multiplier: () => planDetails.xpMultiplier > 1.0,
+    animated_badges: () => plan !== PLANS.FREE,
+    badge_showcase: () => plan !== PLANS.FREE,
+    leaderboards: () => plan === PLANS.UNLIMITED || plan === PLANS.FAMILY,
+    meal_planner: () => planDetails.mealPlannerDays > 0,
+    collections: () => planDetails.collectionsLimit > 0,
+    export_data: () => planDetails.exportEnabled,
+    import_data: () => planDetails.importEnabled,
+    advanced_filters: () => planDetails.filtersEnabled,
+    full_nutrition: () => planDetails.nutritionDetails === 'full',
+    grocery_lists: () => planDetails.groceryListsLimit > 0,
   };
 
-  // TEMP: Return true for all features during development
   if (premiumFeatures[feature]) {
-    return true; // TEMP: Change to premiumFeatures[feature]() when ready
+    return premiumFeatures[feature]();
   }
 
-  return true; // Default to true during development
+  return false; // Default to false - feature locked
 }
 
-// Check if user can perform an action - FOR NOW, UNLIMITED FOR EVERYONE
-export function canPerformAction(action, currentCount) {
-  // TEMPORARY: Unlimited actions for everyone during development
-  return true;
+/**
+ * Check if user can perform an action (searches, favorites, etc.)
+ * ENFORCES LIMITS STRICTLY
+ */
+export function canPerformAction(action, currentCount = 0) {
+  const plan = getCurrentPlanSync();
+  const planDetails = PLAN_DETAILS[plan];
 
-  // Original code (commented out for now):
-  // const plan = getCurrentPlan();
-  // const planDetails = PLAN_DETAILS[plan];
-  //
-  // switch (action) {
-  //     case "search":
-  //         if (planDetails.searchLimit === -1) return true;
-  //         return currentCount < planDetails.searchLimit;
-  //     case "favorite":
-  //         if (planDetails.favoritesLimit === -1) return true;
-  //         return currentCount < planDetails.favoritesLimit;
-  //     default:
-  //         return true;
-  // }
+  switch (action) {
+    case 'search':
+      if (planDetails.searchLimit === -1) return true; // unlimited
+      const today = new Date().toDateString();
+      const lastSearchDate = localStorage.getItem(SEARCH_DATE_KEY);
+      let searchCount = parseInt(localStorage.getItem(SEARCH_COUNT_KEY) || '0', 10);
+
+      // Reset count if new day
+      if (lastSearchDate !== today) {
+        searchCount = 0;
+        localStorage.setItem(SEARCH_COUNT_KEY, '0');
+        localStorage.setItem(SEARCH_DATE_KEY, today);
+      }
+
+      return searchCount < planDetails.searchLimit;
+
+    case 'favorite':
+      if (planDetails.favoritesLimit === -1) return true; // unlimited
+      return currentCount < planDetails.favoritesLimit;
+
+    case 'grocery_list':
+      if (planDetails.groceryListsLimit === -1) return true; // unlimited
+      return currentCount < planDetails.groceryListsLimit;
+
+    case 'collection':
+      if (planDetails.collectionsLimit === -1) return true; // unlimited
+      if (planDetails.collectionsLimit === 0) return false; // disabled
+      return currentCount < planDetails.collectionsLimit;
+
+    case 'meal_planner':
+      return planDetails.mealPlannerDays > 0;
+
+    case 'challenge':
+      if (planDetails.challengesPerWeek === -1) return true; // unlimited
+      return true; // TODO: Track weekly challenge count
+
+    default:
+      return true;
+  }
 }
 
-// Get remaining actions for today - FOR NOW, UNLIMITED FOR EVERYONE
-export function getRemainingActions(action, currentCount) {
-  // TEMPORARY: Unlimited for everyone during development
-  return 'Unlimited';
+/**
+ * Record that a search was performed
+ */
+export function recordSearch() {
+  const today = new Date().toDateString();
+  const lastSearchDate = localStorage.getItem(SEARCH_DATE_KEY);
+  let searchCount = parseInt(localStorage.getItem(SEARCH_COUNT_KEY) || '0', 10);
 
-  // Original code (commented out for now):
-  // const plan = getCurrentPlan();
-  // const planDetails = PLAN_DETAILS[plan];
-  //
-  // switch (action) {
-  //     case "search":
-  //         if (planDetails.searchLimit === -1) return "Unlimited";
-  //         return Math.max(0, planDetails.searchLimit - currentCount);
-  //     case "favorite":
-  //         if (planDetails.favoritesLimit === -1) return "Unlimited";
-  //         return Math.max(0, planDetails.favoritesLimit - currentCount);
-  //     default:
-  //         return 0;
-  // }
+  // Reset count if new day
+  if (lastSearchDate !== today) {
+    searchCount = 0;
+  }
+
+  searchCount++;
+  localStorage.setItem(SEARCH_COUNT_KEY, searchCount.toString());
+  localStorage.setItem(SEARCH_DATE_KEY, today);
 }
 
-// Get plan display name - FOR NOW, SHOW UNLIMITED
+/**
+ * Get remaining actions for today
+ */
+export function getRemainingActions(action, currentCount = 0) {
+  const plan = getCurrentPlanSync();
+  const planDetails = PLAN_DETAILS[plan];
+
+  switch (action) {
+    case 'search':
+      if (planDetails.searchLimit === -1) return 'Unlimited';
+      const today = new Date().toDateString();
+      const lastSearchDate = localStorage.getItem(SEARCH_DATE_KEY);
+      let searchCount = parseInt(localStorage.getItem(SEARCH_COUNT_KEY) || '0', 10);
+
+      // Reset count if new day
+      if (lastSearchDate !== today) {
+        searchCount = 0;
+      }
+
+      const remaining = Math.max(0, planDetails.searchLimit - searchCount);
+      return remaining;
+
+    case 'favorite':
+      if (planDetails.favoritesLimit === -1) return 'Unlimited';
+      return Math.max(0, planDetails.favoritesLimit - currentCount);
+
+    case 'grocery_list':
+      if (planDetails.groceryListsLimit === -1) return 'Unlimited';
+      return Math.max(0, planDetails.groceryListsLimit - currentCount);
+
+    case 'collection':
+      if (planDetails.collectionsLimit === -1) return 'Unlimited';
+      if (planDetails.collectionsLimit === 0) return 0;
+      return Math.max(0, planDetails.collectionsLimit - currentCount);
+
+    default:
+      return 0;
+  }
+}
+
+// Get plan display name
 export function getPlanName() {
-  // TEMPORARY: Show "Unlimited" for everyone during development
-  return 'Unlimited';
-
-  // Original code (commented out for now):
-  // const plan = getCurrentPlan();
-  // return PLAN_DETAILS[plan].name;
+  const plan = getCurrentPlanSync();
+  return PLAN_DETAILS[plan].name;
 }
 
-// Check if user is on free plan - FOR NOW, NO ONE IS ON FREE PLAN
+// Check if user is on free plan
 export function isFreePlan() {
-  // TEMPORARY: No one is on free plan during development
-  return false;
+  return getCurrentPlanSync() === PLANS.FREE;
+}
 
-  // Original code (commented out for now):
-  // return getCurrentPlan() === PLANS.FREE;
+// Get plan details
+export function getPlanDetails(plan = null) {
+  const currentPlan = plan || getCurrentPlanSync();
+  return PLAN_DETAILS[currentPlan] || PLAN_DETAILS[PLANS.FREE];
 }

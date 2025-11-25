@@ -1,4 +1,5 @@
 ﻿import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
+import { canPerformAction, getPlanDetails, hasFeature } from '../utils/subscription.js';
 
 const KEY = 'grocery:list:v2'; // Updated version
 const DrawerContext = createContext(null);
@@ -184,6 +185,15 @@ export function GroceryListProvider({ children }) {
 
   /** Merge new items with existing, normalize for aggregation, case-insensitive dedupe */
   const addMany = (arr, keepQuantities = false) => {
+    // ENFORCE GROCERY LISTS LIMIT - Check if user can add more items
+    if (!hasFeature('grocery_lists')) {
+      // Grocery lists disabled for free plan
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('openProModal'));
+      }
+      return;
+    }
+
     const cleaned = (arr || [])
       .map(s => {
         if (keepQuantities) {
@@ -194,6 +204,17 @@ export function GroceryListProvider({ children }) {
       .filter(Boolean);
 
     if (!cleaned.length) return;
+
+    // Check limit before adding
+    const currentCount = items.length;
+    const canAdd = canPerformAction('grocery_list', currentCount);
+    if (!canAdd) {
+      const planDetails = getPlanDetails();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('openProModal'));
+      }
+      return;
+    }
 
     setItems(cur => {
       const seen = new Set(cur.map(normForCompare));

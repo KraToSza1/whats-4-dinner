@@ -9,6 +9,7 @@ import { recipeImg, fallbackOnce } from '../utils/img.ts';
 import { CompactRecipeLoader } from '../components/FoodLoaders.jsx';
 import BackToHome from '../components/BackToHome.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { hasFeature, canPerformAction } from '../utils/subscription.js';
 import {
   Sparkles,
   Heart,
@@ -133,6 +134,16 @@ export default function MealPlanner() {
   const [swapState, setSwapState] = useState(null); // { dayIdx, mealType, recipe }
   const toast = useToast();
   const navigate = useNavigate();
+
+  // ENFORCE MEAL PLANNER LIMIT - Check access on mount
+  useEffect(() => {
+    const canAccess = canPerformAction('meal_planner');
+    if (!canAccess) {
+      toast.error('Meal Planner is a premium feature! Upgrade to unlock meal planning.');
+      navigate('/');
+      window.dispatchEvent(new CustomEvent('openProModal'));
+    }
+  }, [navigate, toast]);
 
   // Persist whenever plan changes
   useEffect(() => writeMealPlan(plan), [plan]);

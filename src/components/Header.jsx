@@ -27,13 +27,22 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
   const planName = getPlanName();
   const isFree = isFreePlan();
   // COMPLETELY HIDE admin in production - only show if explicitly enabled via env var
-  // In production, admin is COMPLETELY HIDDEN unless VITE_ENABLE_ADMIN=true
-  const showAdmin = import.meta.env.PROD
+  // Check hostname instead of env vars for more reliable detection
+  const isLocalhost =
+    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  const isProduction =
+    !isLocalhost &&
+    (window.location.hostname.includes('vercel.app') ||
+      window.location.hostname.includes('vercel.com') ||
+      (!window.location.hostname.includes('localhost') &&
+        !window.location.hostname.includes('127.0.0.1')));
+
+  // In production, COMPLETELY HIDE unless VITE_ENABLE_ADMIN=true
+  // In localhost/dev, show if admin mode is enabled
+  const showAdmin = isProduction
     ? import.meta.env.VITE_ENABLE_ADMIN === 'true'
-    : adminModeEnabled ||
-      isAdminModeEnabled() ||
-      window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1';
+    : isLocalhost || adminModeEnabled || isAdminModeEnabled();
 
   useEffect(() => {
     if (showMenu) {

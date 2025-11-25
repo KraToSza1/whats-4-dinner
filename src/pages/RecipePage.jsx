@@ -30,6 +30,7 @@ import { getLeftoverIdeasFromRecipe } from '../utils/leftoverIdeas.js';
 import { getSimilarRecipes, getCompleteMealSuggestions } from '../utils/recipeRecommendations.js';
 import { FEATURES } from '../config';
 import { useToast } from '../components/Toast.jsx';
+import { hasFeature } from '../utils/subscription.js';
 import { IngredientReveal, FoodConfetti } from '../components/animations/FoodParticles.jsx';
 import CookMode from '../components/CookMode.jsx';
 import MealPrepMode from '../components/MealPrepMode.jsx';
@@ -1373,7 +1374,17 @@ export default function RecipePage() {
               <motion.button
                 whileHover={{ scale: 1.08, y: -2 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => setShowNutritionLabel(true)}
+                onClick={() => {
+                  // ENFORCE NUTRITION LIMIT - Check if user has full nutrition access
+                  if (!hasFeature('full_nutrition')) {
+                    toast.error(
+                      'Full nutrition details are a premium feature! Upgrade to unlock detailed nutrition information.'
+                    );
+                    window.dispatchEvent(new CustomEvent('openProModal'));
+                    return;
+                  }
+                  setShowNutritionLabel(true);
+                }}
                 className="group relative px-5 py-3 rounded-xl bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2 overflow-hidden"
                 title="View full FDA-style nutrition label"
               >

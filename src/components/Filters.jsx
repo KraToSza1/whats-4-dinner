@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from './Toast.jsx';
+import { hasFeature } from '../utils/subscription.js';
 
 const DIETS = [
   '',
@@ -737,17 +738,31 @@ export default function Filters({
                   Cuisine
                 </span>
               </div>
-              <select
-                value={cuisine}
-                onChange={e => setCuisine(e.target.value)}
-                className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium shadow-sm"
-              >
-                {CUISINES.map(c => (
-                  <option key={c} value={c}>
-                    {c || 'Any Cuisine'}
-                  </option>
-                ))}
-              </select>
+              {hasFeature('advanced_filters') ? (
+                <select
+                  value={cuisine}
+                  onChange={e => setCuisine(e.target.value)}
+                  className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium shadow-sm"
+                >
+                  {CUISINES.map(c => (
+                    <option key={c} value={c}>
+                      {c || 'Any Cuisine'}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div
+                  className="px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 cursor-pointer text-sm"
+                  onClick={() => {
+                    toast.error(
+                      'Advanced filters are a premium feature! Upgrade to unlock cuisine filtering.'
+                    );
+                    window.dispatchEvent(new CustomEvent('openProModal'));
+                  }}
+                >
+                  Upgrade to unlock cuisine filter
+                </div>
+              )}
             </label>
           </motion.div>
         </div>
@@ -921,17 +936,31 @@ export default function Filters({
                           Difficulty
                         </span>
                       </div>
-                      <select
-                        value={difficulty}
-                        onChange={e => setDifficulty(e.target.value)}
-                        className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium shadow-sm"
-                      >
-                        {DIFFICULTY_LEVELS.map(d => (
-                          <option key={d.value} value={d.value}>
-                            {d.icon} {d.label}
-                          </option>
-                        ))}
-                      </select>
+                      {hasFeature('advanced_filters') ? (
+                        <select
+                          value={difficulty}
+                          onChange={e => setDifficulty(e.target.value)}
+                          className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium shadow-sm"
+                        >
+                          {DIFFICULTY_LEVELS.map(d => (
+                            <option key={d.value} value={d.value}>
+                              {d.icon} {d.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div
+                          className="px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 cursor-pointer text-sm"
+                          onClick={() => {
+                            toast.error(
+                              'Advanced filters are a premium feature! Upgrade to unlock difficulty filtering.'
+                            );
+                            window.dispatchEvent(new CustomEvent('openProModal'));
+                          }}
+                        >
+                          Upgrade to unlock difficulty filter
+                        </div>
+                      )}
                     </label>
                   </motion.div>
 

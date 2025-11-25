@@ -279,6 +279,14 @@ export default function Profile() {
   };
 
   const handleExportData = async () => {
+    // ENFORCE EXPORT LIMIT - Check if user has export feature
+    const { hasFeature } = await import('../utils/subscription.js');
+    if (!hasFeature('export_data')) {
+      showMessage('error', 'Export is a premium feature! Upgrade to unlock data export.');
+      window.dispatchEvent(new CustomEvent('openProModal'));
+      return;
+    }
+
     try {
       setLoading(true);
       const data = {
@@ -322,6 +330,14 @@ export default function Profile() {
   };
 
   const handleImportData = async () => {
+    // ENFORCE IMPORT LIMIT - Check if user has import feature
+    const { hasFeature } = await import('../utils/subscription.js');
+    if (!hasFeature('import_data')) {
+      showMessage('error', 'Import is a premium feature! Upgrade to unlock data import.');
+      window.dispatchEvent(new CustomEvent('openProModal'));
+      return;
+    }
+
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';

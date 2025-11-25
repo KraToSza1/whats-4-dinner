@@ -166,10 +166,11 @@ export async function signInWithEmail(email) {
   console.log('🔐 [AUTH CONTEXT] Email:', email);
   console.debug('[Supabase][AuthContext] signInWithEmail:start', { email });
   // Force localhost for local development
+  // In production, use the actual current origin (Vercel URL)
   const redirectTo =
     window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? `http://${window.location.hostname}:${window.location.port || '5173'}`
-      : window.location.origin;
+      : window.location.origin; // This will be the actual Vercel URL in production
   console.log('🔐 [AUTH CONTEXT] Redirect URL:', redirectTo);
   const { data, error } = await supabase.auth.signInWithOtp({
     email,

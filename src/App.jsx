@@ -37,7 +37,12 @@ import { GroceryListProvider } from './context/GroceryListContext.jsx';
 import { searchSupabaseRecipes } from './api/supabaseRecipes.js';
 import { getPreferenceSummary } from './utils/preferenceAnalyzer.js';
 import { trackRecipeInteraction } from './utils/analytics.js';
-import { shouldShowAds } from './utils/subscription.js';
+import {
+  shouldShowAds,
+  canPerformAction,
+  recordSearch,
+  getPlanDetails,
+} from './utils/subscription.js';
 import { checkPaymentSuccess } from './utils/paymentProviders.js';
 import AdBanner, { InlineAd } from './components/AdBanner.jsx';
 import ProModalWrapper from './components/ProModalWrapper.jsx';
@@ -196,6 +201,20 @@ const App = () => {
       );
       const shouldShowDefaultFeed = !trimmedQuery && includeIngredients.length === 0;
 
+      // ENFORCE SEARCH LIMIT - Check if user can perform search
+      if (!allowEmpty && !shouldShowDefaultFeed) {
+        const canSearch = canPerformAction('search');
+        if (!canSearch) {
+          const planDetails = getPlanDetails();
+          toast.error(
+            `Search limit reached! You've used all ${planDetails.searchLimit} daily searches. Upgrade to unlock more!`
+          );
+          // Trigger upgrade modal
+          window.dispatchEvent(new CustomEvent('openProModal'));
+          return;
+        }
+      }
+
       const normalizedDiet = diet && diet.toLowerCase() !== 'any diet' ? diet : '';
       const normalizedMealType = mealType && mealType.toLowerCase() !== 'any meal' ? mealType : '';
       const normalizedMaxTime = maxTime && maxTime.toLowerCase() !== 'any time' ? maxTime : '';
@@ -209,6 +228,11 @@ const App = () => {
       setLoading(true);
       setError(null);
       setLastSearch(raw ?? '');
+
+      // Record search if it's an actual search (not default feed)
+      if (!shouldShowDefaultFeed) {
+        recordSearch();
+      }
 
       try {
         // Read additional filters from localStorage (managed by Filters component)
@@ -300,6 +324,21 @@ const App = () => {
   const toggleFavorite = useCallback(
     recipe => {
       const exists = favorites.some(f => f.id === recipe.id);
+
+      // ENFORCE FAVORITES LIMIT - Check if user can add more favorites
+      if (!exists) {
+        const canFavorite = canPerformAction('favorite', favorites.length);
+        if (!canFavorite) {
+          const planDetails = getPlanDetails();
+          toast.error(
+            `Favorites limit reached! You can only save ${planDetails.favoritesLimit} favorites on the Free plan. Upgrade to unlock more!`
+          );
+          // Trigger upgrade modal
+          window.dispatchEvent(new CustomEvent('openProModal'));
+          return;
+        }
+      }
+
       const updated = exists ? favorites.filter(f => f.id !== recipe.id) : [recipe, ...favorites];
       setFavorites(updated);
       localStorage.setItem('favorites', JSON.stringify(updated));
@@ -312,7 +351,7 @@ const App = () => {
         });
       }
     },
-    [favorites]
+    [favorites, toast]
   );
 
   // Memoize favorite IDs set for O(1) lookup instead of O(n) some() calls

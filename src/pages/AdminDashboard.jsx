@@ -13,43 +13,42 @@ export default function AdminDashboard() {
   const toast = useToast();
 
   useEffect(() => {
-    // PRODUCTION: Require environment variable
-    if (import.meta.env.PROD && import.meta.env.VITE_ENABLE_ADMIN !== 'true') {
+    // Check if we're on localhost (dev)
+    const isLocalhost =
+      window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    // Check if we're on a Vercel/production domain
+    const isProduction =
+      !isLocalhost &&
+      (window.location.hostname.includes('vercel.app') ||
+        window.location.hostname.includes('vercel.com') ||
+        (!window.location.hostname.includes('localhost') &&
+          !window.location.hostname.includes('127.0.0.1')));
+
+    // PRODUCTION: Require environment variable - BLOCK IMMEDIATELY
+    if (isProduction && import.meta.env.VITE_ENABLE_ADMIN !== 'true') {
       toast.error('Admin access is disabled in production');
-      navigate('/');
+      navigate('/', { replace: true });
       return;
     }
 
-    const isDevMode = import.meta.env.DEV || import.meta.env.MODE === 'development';
-    const isExplicitlyEnabled = import.meta.env.VITE_ENABLE_ADMIN === 'true';
-
-    if (isDevMode || isExplicitlyEnabled) {
-      return;
-    }
-
-    // Auto-enable admin if on localhost
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    // LOCALHOST: Always allow
+    if (isLocalhost) {
       import('../utils/admin.js').then(({ forceEnableAdmin }) => {
         forceEnableAdmin();
       });
       return;
     }
 
-    // Check URL parameter (dev only)
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('admin') === 'true' && !import.meta.env.PROD) {
-      import('../utils/admin.js').then(({ forceEnableAdmin }) => {
-        forceEnableAdmin();
-      });
+    // EXPLICITLY ENABLED: Allow
+    if (import.meta.env.VITE_ENABLE_ADMIN === 'true') {
       return;
     }
 
-    if (!adminModeEnabled) {
-      toast.error('Admin mode is not enabled. Add ?admin=true to URL or use localhost');
-      navigate('/');
-      return;
-    }
-  }, [adminModeEnabled, navigate, toast]);
+    // DEFAULT: Block access
+    toast.error('Admin access is disabled');
+    navigate('/', { replace: true });
+  }, [navigate, toast]);
 
   // Login check already handled above - this is just for rendering
   return (

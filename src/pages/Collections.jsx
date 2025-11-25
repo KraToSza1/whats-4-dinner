@@ -14,10 +14,21 @@ import { getSupabaseRecipeById } from '../api/supabaseRecipes.js';
 import { InlineRecipeLoader } from '../components/FoodLoaders.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { Search, Plus, X, FolderPlus, Trash2 } from 'lucide-react';
+import { canPerformAction, getPlanDetails, hasFeature } from '../utils/subscription.js';
 
 export default function Collections() {
   const navigate = useNavigate();
   const toast = useToast();
+
+  // ENFORCE COLLECTIONS LIMIT - Check access on mount
+  useEffect(() => {
+    if (!hasFeature('collections')) {
+      toast.error('Collections is a premium feature! Upgrade to unlock recipe collections.');
+      navigate('/');
+      window.dispatchEvent(new CustomEvent('openProModal'));
+    }
+  }, [navigate, toast]);
+
   const [collections, setCollections] = useState(getCollections());
   const [selectedCollection, setSelectedCollection] = useState(null);
   const [recipes, setRecipes] = useState([]);
@@ -81,6 +92,20 @@ export default function Collections() {
       toast.error('Please enter a collection name');
       return;
     }
+
+    // ENFORCE COLLECTIONS LIMIT - Check if user can create more collections
+    const currentCollections = getCollections().filter(c => c.custom);
+    const canCreate = canPerformAction('collection', currentCollections.length);
+
+    if (!canCreate) {
+      const planDetails = getPlanDetails();
+      toast.error(
+        `Collections limit reached! You can only create ${planDetails.collectionsLimit} collections on the Free plan. Upgrade to unlock more!`
+      );
+      window.dispatchEvent(new CustomEvent('openProModal'));
+      return;
+    }
+
     const newCollection = addCollection(name);
     setCollections(getCollections());
     setNewCollectionName('');

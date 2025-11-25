@@ -28,11 +28,21 @@ import {
 } from '../utils/analytics.js';
 import { BarChart, LineChart, ProgressRing, DonutChart } from '../components/SimpleChart.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { hasFeature } from '../utils/subscription.js';
 
 export default function Analytics() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const toast = useToast();
+
+  // ENFORCE ANALYTICS LIMIT - Check access on mount
+  useEffect(() => {
+    if (!hasFeature('analytics')) {
+      toast.error('Analytics is a premium feature! Upgrade to unlock detailed insights.');
+      navigate('/');
+      window.dispatchEvent(new CustomEvent('openProModal'));
+    }
+  }, [navigate, toast]);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(false);
   const [timeRange, setTimeRange] = useState('30'); // 7, 30, 90, 365
