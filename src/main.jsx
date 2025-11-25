@@ -7,6 +7,7 @@ import { AdminProvider } from './context/AdminContext.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 import ErrorBoundary from './ErrorBoundary.jsx';
 import { validateEnvironment } from './utils/envValidation.js';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import './index.css';
 
 // Import admin utils early to trigger auto-enable in dev mode
@@ -41,6 +42,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <ToastProvider>
           <ErrorBoundary onRetry={() => window.location.reload()}>
             <App />
+            <SpeedInsights />
           </ErrorBoundary>
         </ToastProvider>
       </AdminProvider>
