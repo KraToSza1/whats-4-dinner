@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useLanguage } from '../context/LanguageContext.jsx';
 
 const LS_KEY = 'w4d:lastQuery';
 
-export default function SearchForm({
-  onSearch,
-  placeholder = 'Enter ingredients (e.g. chicken, rice, tomato)',
-}) {
+export default function SearchForm({ onSearch, placeholder }) {
+  const { language, languageInfo, t } = useLanguage();
+  const defaultPlaceholder = placeholder || t('searchPlaceholder');
   const [ingredients, setIngredients] = useState('');
   const [listening, setListening] = useState(false);
   const inputRef = useRef(null);
@@ -17,25 +17,35 @@ export default function SearchForm({
     try {
       const last = localStorage.getItem(LS_KEY);
       if (last) setIngredients(last);
-    } catch {}
+    } catch (_e) {
+      // Ignore localStorage errors
+    }
   }, []);
 
-  // Web Speech API (best-effort)
+  // Web Speech API (best-effort) - Update language when it changes
   useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    const r = new SR();
-    r.lang = 'en-US';
-    r.interimResults = false;
-    r.maxAlternatives = 1;
-    r.onresult = e => {
-      const text = (e.results?.[0]?.[0]?.transcript || '').trim();
-      if (text) setIngredients(cur => (cur ? `${cur}, ${text}` : text));
+    if (!SR) {
+      return;
+    }
+
+    const setupRecognition = () => {
+      const locale = languageInfo?.locale || 'en-US';
+      const r = new SR();
+      r.lang = locale;
+      r.interimResults = false;
+      r.maxAlternatives = 1;
+      r.onresult = e => {
+        const text = (e.results?.[0]?.[0]?.transcript || '').trim();
+        if (text) setIngredients(cur => (cur ? `${cur}, ${text}` : text));
+      };
+      r.onend = () => setListening(false);
+      r.onerror = () => setListening(false);
+      recogRef.current = r;
     };
-    r.onend = () => setListening(false);
-    r.onerror = () => setListening(false);
-    recogRef.current = r;
-  }, []);
+
+    setupRecognition();
+  }, [language, languageInfo]);
 
   const handleSubmit = e => {
     e.preventDefault();
@@ -43,7 +53,9 @@ export default function SearchForm({
     if (!q) return;
     try {
       localStorage.setItem(LS_KEY, q);
-    } catch {}
+    } catch (_e) {
+      // Ignore localStorage errors
+    }
     onSearch(q);
   };
 
@@ -99,7 +111,7 @@ export default function SearchForm({
             ref={inputRef}
             type="text"
             className="flex-1 min-w-0 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl bg-white dark:bg-slate-800 ring-2 ring-emerald-300 dark:ring-emerald-700 focus:outline-none focus:ring-emerald-500 focus:border-transparent shadow-sm transition-all text-sm sm:text-base min-h-[44px] sm:min-h-0"
-            placeholder={placeholder}
+            placeholder={defaultPlaceholder}
             value={ingredients}
             onChange={e => setIngredients(e.target.value)}
             onPaste={onPaste}

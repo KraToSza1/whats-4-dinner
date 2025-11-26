@@ -230,16 +230,18 @@ export default function MealReminders() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 dark:from-purple-900/20 dark:via-pink-900/20 dark:to-orange-900/20 rounded-2xl p-6 border-2 border-purple-200 dark:border-purple-800 shadow-lg"
+      className="bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 dark:from-purple-900/20 dark:via-pink-900/20 dark:to-orange-900/20 rounded-xl xs:rounded-2xl p-3 xs:p-4 sm:p-5 md:p-6 border-2 border-purple-200 dark:border-purple-800 shadow-lg"
     >
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-md">
-            <span className="text-2xl">⏰</span>
+      <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-3 xs:gap-4 mb-4 xs:mb-5 sm:mb-6">
+        <div className="flex items-center gap-2 xs:gap-3 min-w-0 flex-1">
+          <div className="w-10 h-10 xs:w-12 xs:h-12 rounded-lg xs:rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-md flex-shrink-0">
+            <span className="text-xl xs:text-2xl">⏰</span>
           </div>
-          <div>
-            <h3 className="font-bold text-xl text-slate-900 dark:text-white">Meal Reminders</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+          <div className="min-w-0 flex-1">
+            <h3 className="font-bold text-lg xs:text-xl text-slate-900 dark:text-white truncate">
+              Meal Reminders
+            </h3>
+            <p className="text-xs xs:text-sm text-slate-600 dark:text-slate-400 truncate">
               Never miss a meal with smart reminders
             </p>
           </div>
@@ -257,7 +259,7 @@ export default function MealReminders() {
               setShowAdd(true);
             }
           }}
-          className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold shadow-md transition-all"
+          className="w-full xs:w-auto px-4 xs:px-5 sm:px-6 py-2.5 xs:py-2 sm:py-2.5 text-sm xs:text-base rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold shadow-md transition-all min-h-[44px] xs:min-h-0 touch-manipulation whitespace-nowrap"
         >
           {showAdd ? 'Cancel' : '+ Add Reminder'}
         </motion.button>
@@ -265,7 +267,7 @@ export default function MealReminders() {
 
       {/* Quick Add Buttons */}
       {!showAdd && (
-        <div className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="mb-4 xs:mb-5 sm:mb-6 grid grid-cols-2 sm:grid-cols-4 gap-2 xs:gap-2.5 sm:gap-3">
           {Object.entries(MEAL_TYPES)
             .filter(([key]) => key !== 'custom')
             .map(([key, meal]) => (
@@ -274,10 +276,10 @@ export default function MealReminders() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => quickAddMeal(key)}
-                className="px-3 py-2 rounded-lg bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 border border-purple-200 dark:border-purple-800 transition-colors"
+                className="px-2.5 xs:px-3 sm:px-4 py-2.5 xs:py-3 rounded-lg bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 border border-purple-200 dark:border-purple-800 transition-colors min-h-[60px] xs:min-h-[70px] sm:min-h-0 touch-manipulation flex flex-col items-center justify-center"
               >
-                <div className="text-lg">{meal.emoji}</div>
-                <div className="text-xs font-medium mt-1">{meal.name}</div>
+                <div className="text-xl xs:text-2xl sm:text-lg">{meal.emoji}</div>
+                <div className="text-xs xs:text-sm font-medium mt-1">{meal.name}</div>
               </motion.button>
             ))}
         </div>
@@ -290,36 +292,36 @@ export default function MealReminders() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="mb-4 p-4 bg-white/90 dark:bg-slate-800/90 rounded-xl border border-purple-200 dark:border-purple-800"
+            className="mb-3 xs:mb-4 p-3 xs:p-4 sm:p-5 bg-white/90 dark:bg-slate-800/90 rounded-lg xs:rounded-xl border border-purple-200 dark:border-purple-800"
           >
-            <div className="space-y-4">
+            <div className="space-y-3 xs:space-y-4">
               <div>
-                <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+                <label className="block text-xs xs:text-sm font-semibold mb-1.5 xs:mb-2 text-slate-700 dark:text-slate-300">
                   Reminder Name
                 </label>
                 <input
                   type="text"
                   value={newReminder.name}
                   onChange={e => setNewReminder({ ...newReminder, name: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 focus:border-purple-500 focus:outline-none"
+                  className="w-full px-3 xs:px-4 py-2.5 xs:py-2 text-sm xs:text-base rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 focus:border-purple-500 focus:outline-none min-h-[44px] xs:min-h-0"
                   placeholder="e.g. Breakfast, Lunch, Dinner"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 xs:gap-4">
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+                  <label className="block text-xs xs:text-sm font-semibold mb-1.5 xs:mb-2 text-slate-700 dark:text-slate-300">
                     Time
                   </label>
                   <input
                     type="time"
                     value={newReminder.time}
                     onChange={e => setNewReminder({ ...newReminder, time: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 focus:border-purple-500 focus:outline-none"
+                    className="w-full px-3 xs:px-4 py-2.5 xs:py-2 text-sm xs:text-base rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 focus:border-purple-500 focus:outline-none min-h-[44px] xs:min-h-0"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+                  <label className="block text-xs xs:text-sm font-semibold mb-1.5 xs:mb-2 text-slate-700 dark:text-slate-300">
                     Remind Before (minutes)
                   </label>
                   <input
@@ -331,7 +333,7 @@ export default function MealReminders() {
                         advanceMinutes: parseInt(e.target.value) || 0,
                       })
                     }
-                    className="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 focus:border-purple-500 focus:outline-none"
+                    className="w-full px-3 xs:px-4 py-2.5 xs:py-2 text-sm xs:text-base rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 focus:border-purple-500 focus:outline-none min-h-[44px] xs:min-h-0"
                     min="0"
                     max="60"
                   />
@@ -339,10 +341,10 @@ export default function MealReminders() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+                <label className="block text-xs xs:text-sm font-semibold mb-1.5 xs:mb-2 text-slate-700 dark:text-slate-300">
                   Days
                 </label>
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-1.5 xs:gap-2 flex-wrap">
                   {DAYS.map((day, idx) => (
                     <motion.button
                       key={idx}
@@ -354,7 +356,7 @@ export default function MealReminders() {
                           : [...newReminder.days, idx];
                         setNewReminder({ ...newReminder, days });
                       }}
-                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                      className={`px-2.5 xs:px-3 py-1.5 xs:py-1 rounded-lg text-xs xs:text-sm font-medium transition-colors min-h-[44px] xs:min-h-0 touch-manipulation ${
                         newReminder.days.includes(idx)
                           ? 'bg-purple-600 text-white'
                           : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
@@ -367,36 +369,40 @@ export default function MealReminders() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+                <label className="block text-xs xs:text-sm font-semibold mb-1.5 xs:mb-2 text-slate-700 dark:text-slate-300">
                   Custom Message (optional)
                 </label>
                 <input
                   type="text"
                   value={newReminder.message}
                   onChange={e => setNewReminder({ ...newReminder, message: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 focus:border-purple-500 focus:outline-none"
+                  className="w-full px-3 xs:px-4 py-2.5 xs:py-2 text-sm xs:text-base rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 focus:border-purple-500 focus:outline-none min-h-[44px] xs:min-h-0"
                   placeholder="e.g. Don't forget to hydrate!"
                 />
               </div>
 
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
+              <div className="flex flex-col xs:flex-row items-start xs:items-center gap-3 xs:gap-4">
+                <label className="flex items-center gap-2 cursor-pointer min-h-[44px] xs:min-h-0 touch-manipulation">
                   <input
                     type="checkbox"
                     checked={newReminder.repeat}
                     onChange={e => setNewReminder({ ...newReminder, repeat: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-300"
+                    className="w-4 h-4 xs:w-5 xs:h-5 rounded border-slate-300"
                   />
-                  <span className="text-sm text-slate-700 dark:text-slate-300">Repeat weekly</span>
+                  <span className="text-xs xs:text-sm text-slate-700 dark:text-slate-300">
+                    Repeat weekly
+                  </span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer min-h-[44px] xs:min-h-0 touch-manipulation">
                   <input
                     type="checkbox"
                     checked={newReminder.enabled}
                     onChange={e => setNewReminder({ ...newReminder, enabled: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-300"
+                    className="w-4 h-4 xs:w-5 xs:h-5 rounded border-slate-300"
                   />
-                  <span className="text-sm text-slate-700 dark:text-slate-300">Enabled</span>
+                  <span className="text-xs xs:text-sm text-slate-700 dark:text-slate-300">
+                    Enabled
+                  </span>
                 </label>
               </div>
 
@@ -404,7 +410,7 @@ export default function MealReminders() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleAddReminder}
-                className="w-full px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold"
+                className="w-full px-4 xs:px-5 sm:px-6 py-2.5 xs:py-3 text-sm xs:text-base rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold min-h-[44px] xs:min-h-0 touch-manipulation"
               >
                 {editingId ? 'Update Reminder' : 'Add Reminder'}
               </motion.button>
@@ -415,7 +421,7 @@ export default function MealReminders() {
 
       {/* Reminders List */}
       {reminders.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-2.5 xs:space-y-3">
           {reminders.map(reminder => {
             const nextTime = getNextReminderTime(reminder);
             const mealInfo = MEAL_TYPES[reminder.mealType] || MEAL_TYPES.custom;
@@ -425,42 +431,46 @@ export default function MealReminders() {
                 key={reminder.id}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="p-4 bg-white/90 dark:bg-slate-800/90 rounded-xl border border-purple-200 dark:border-purple-800"
+                className="p-3 xs:p-4 sm:p-5 bg-white/90 dark:bg-slate-800/90 rounded-lg xs:rounded-xl border border-purple-200 dark:border-purple-800"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                <div className="flex flex-col xs:flex-row items-start xs:items-start justify-between gap-3 xs:gap-4">
+                  <div className="flex-1 min-w-0 w-full xs:w-auto">
+                    <div className="flex items-center gap-2 xs:gap-3 mb-2">
                       <div
-                        className={`w-3 h-3 rounded-full ${reminder.enabled ? 'bg-green-500' : 'bg-slate-400'}`}
+                        className={`w-2.5 h-2.5 xs:w-3 xs:h-3 rounded-full flex-shrink-0 ${reminder.enabled ? 'bg-green-500' : 'bg-slate-400'}`}
                       />
-                      <div className="text-lg">{mealInfo.emoji}</div>
-                      <div className="font-semibold text-slate-900 dark:text-white">
+                      <div className="text-base xs:text-lg flex-shrink-0">{mealInfo.emoji}</div>
+                      <div className="font-semibold text-sm xs:text-base text-slate-900 dark:text-white truncate">
                         {reminder.name}
                       </div>
                     </div>
-                    <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1 ml-6">
-                      <div>
+                    <div className="text-xs xs:text-sm text-slate-600 dark:text-slate-400 space-y-1 ml-5 xs:ml-6">
+                      <div className="break-words">
                         ⏰ {reminder.time}{' '}
                         {reminder.advanceMinutes > 0 &&
                           `(remind ${reminder.advanceMinutes} min before)`}
                       </div>
-                      <div>📅 {reminder.days.map(d => DAYS[d]).join(', ')}</div>
+                      <div className="break-words">
+                        📅 {reminder.days.map(d => DAYS[d]).join(', ')}
+                      </div>
                       {nextTime && (
-                        <div className="text-xs text-purple-600 dark:text-purple-400">
+                        <div className="text-[10px] xs:text-xs text-purple-600 dark:text-purple-400 break-words">
                           Next: {nextTime.toLocaleString()}
                         </div>
                       )}
                       {reminder.message && (
-                        <div className="text-xs italic">💬 "{reminder.message}"</div>
+                        <div className="text-[10px] xs:text-xs italic break-words">
+                          💬 "{reminder.message}"
+                        </div>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 xs:gap-2 w-full xs:w-auto flex-wrap xs:flex-nowrap">
                     <motion.button
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => handleEdit(reminder)}
-                      className="px-3 py-1 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium"
+                      className="px-2.5 xs:px-3 py-1.5 xs:py-1 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs xs:text-sm font-medium min-h-[44px] xs:min-h-0 touch-manipulation flex-1 xs:flex-none"
                     >
                       Edit
                     </motion.button>
@@ -468,7 +478,7 @@ export default function MealReminders() {
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => handleToggleReminder(reminder.id)}
-                      className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                      className={`px-2.5 xs:px-3 py-1.5 xs:py-1 rounded-lg text-xs xs:text-sm font-medium min-h-[44px] xs:min-h-0 touch-manipulation flex-1 xs:flex-none ${
                         reminder.enabled
                           ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
                           : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
@@ -480,7 +490,7 @@ export default function MealReminders() {
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => handleDeleteReminder(reminder.id)}
-                      className="px-3 py-1 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm font-medium"
+                      className="px-2.5 xs:px-3 py-1.5 xs:py-1 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs xs:text-sm font-medium min-h-[44px] xs:min-h-0 touch-manipulation flex-1 xs:flex-none"
                     >
                       Delete
                     </motion.button>
@@ -491,13 +501,13 @@ export default function MealReminders() {
           })}
         </div>
       ) : (
-        <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-          <p className="text-lg mb-2">No reminders set</p>
-          <p className="text-sm">
+        <div className="text-center py-6 xs:py-8 px-2 text-slate-500 dark:text-slate-400">
+          <p className="text-base xs:text-lg mb-2">No reminders set</p>
+          <p className="text-xs xs:text-sm break-words">
             Click "Add Reminder" or use quick add buttons above to get started!
           </p>
           {Notification.permission === 'denied' && (
-            <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+            <p className="text-[10px] xs:text-xs text-red-600 dark:text-red-400 mt-2 break-words">
               ⚠️ Notifications are blocked. Please enable them in your browser settings.
             </p>
           )}

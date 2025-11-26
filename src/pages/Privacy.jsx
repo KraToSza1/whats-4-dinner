@@ -64,13 +64,8 @@ export default function Privacy() {
           <section>
             <h2 className="text-2xl font-bold mb-4">4. Third-Party Services</h2>
             <p>
-              <strong>Spoonacular API:</strong> Recipe data is provided by Spoonacular. When you
-              search for recipes, your search queries are sent to Spoonacular. Please review their
-              privacy policy.
-            </p>
-            <p>
-              <strong>Supabase:</strong> We use Supabase for authentication. Your authentication
-              data is handled by Supabase according to their privacy policy.
+              <strong>Supabase:</strong> We use Supabase for authentication and database storage.
+              Your authentication data is handled by Supabase according to their privacy policy.
             </p>
             <p>
               <strong>Google OAuth:</strong> If you sign in with Google, Google handles the

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/Toast.jsx';
+import { hasFeature } from '../utils/subscription.js';
 import {
   Calendar,
   ShoppingCart,
@@ -107,15 +108,32 @@ export default function FamilyPlan() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const hasChecked = useRef(false);
   const [members, setMembers] = useState(() => {
     const saved = readFamilyMembers();
-    console.log('👨‍👩‍👧‍👦 [FAMILY PLAN] Loaded members from storage:', saved);
     return saved;
   });
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
   const [mealLogs, setMealLogs] = useState(readMealLogs);
+
+  // ENFORCE FAMILY PLAN ACCESS - Check access on mount (only once)
+  useEffect(() => {
+    if (hasChecked.current) return;
+    hasChecked.current = true;
+
+    if (!hasFeature('family_plan')) {
+      navigate('/');
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent('openPremiumFeatureModal', {
+            detail: { feature: 'family_plan' },
+          })
+        );
+      }, 300);
+    }
+  }, [navigate]);
 
   // Calculate BMI for children/adults
   const calculateBMI = (weight, height, weightUnit, heightUnit) => {
@@ -295,18 +313,12 @@ export default function FamilyPlan() {
   });
 
   useEffect(() => {
-    console.log('👨‍👩‍👧‍👦 [FAMILY PLAN] Members changed, saving to localStorage:', members);
     writeFamilyMembers(members);
   }, [members]);
 
   useEffect(() => {
     writeMealLogs(mealLogs);
   }, [mealLogs]);
-
-  // Debug: Log when component mounts
-  useEffect(() => {
-    console.log('👨‍👩‍👧‍👦 [FAMILY PLAN] Component mounted, current members:', members);
-  }, []);
 
   const handleAddMember = () => {
     const defaultPortion = getPortionMultiplier('child', '').value;
@@ -340,10 +352,6 @@ export default function FamilyPlan() {
       return;
     }
 
-    console.log('👨‍👩‍👧‍👦 [FAMILY PLAN] Saving member:', formData);
-    console.log('👨‍👩‍👧‍👦 [FAMILY PLAN] Current members before save:', members);
-    console.log('👨‍👩‍👧‍👦 [FAMILY PLAN] Editing member ID:', editingMember);
-
     let updatedMembers;
     if (editingMember) {
       // Editing existing member
@@ -362,7 +370,6 @@ export default function FamilyPlan() {
       toast.success(`${formData.name} added to family!`);
     }
 
-    console.log('👨‍👩‍👧‍👦 [FAMILY PLAN] Updated members after save:', updatedMembers);
     setMembers(updatedMembers);
 
     // Reset form
@@ -524,23 +531,10 @@ export default function FamilyPlan() {
     return mealLogs[today] || [];
   };
 
-  // TEMPORARY: Allow access without login during development
-  // Login check disabled - everyone can access family plan
-  // if (!user) {
-  //     return (
-  //         <div className="min-h-screen flex items-center justify-center p-4">
-  //             <div className="text-center">
-  //                 <h2 className="text-2xl font-bold mb-4">Please sign in</h2>
-  //                 <button
-  //                     onClick={() => navigate("/")}
-  //                     className="px-4 py-2 rounded-md bg-emerald-600 text-white"
-  //                 >
-  //                     Go to Home
-  //                 </button>
-  //             </div>
-  //         </div>
-  //     );
-  // }
+  // Don't render if user doesn't have access
+  if (!hasFeature('family_plan')) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -716,29 +710,39 @@ export default function FamilyPlan() {
           </motion.section>
         )}
 
-        {/* Family Servings Summary */}
+        {/* Family Servings Summary - Enhanced */}
         {members.length > 0 && (
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl shadow-sm border border-emerald-200 dark:border-emerald-800 p-6 mb-6"
+            className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-emerald-900/20 dark:via-teal-900/20 dark:to-cyan-900/20 rounded-2xl shadow-lg border-2 border-emerald-200 dark:border-emerald-800 p-6 sm:p-8 mb-6"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <Users className="w-5 h-5 text-emerald-600" />
-                Family Servings Summary
-              </h2>
-              <span className="text-2xl">🍽️</span>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-bold flex items-center gap-3 mb-2">
+                  <Users className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" />
+                  Family Servings Summary
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Comprehensive overview of your family's meal planning needs
+                </p>
+              </div>
+              <span className="text-4xl sm:text-5xl">🍽️</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
-                <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">
-                  Total Family Members
+
+            {/* Main Stats Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-md border border-emerald-100 dark:border-emerald-900/30 hover:shadow-lg transition-shadow">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                    Total Family Members
+                  </div>
+                  <span className="text-xl">👨‍👩‍👧‍👦</span>
                 </div>
-                <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                <div className="text-4xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">
                   {members.length}
                 </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                <div className="text-xs text-slate-500 dark:text-slate-400">
                   {
                     members.filter(
                       m =>
@@ -749,14 +753,30 @@ export default function FamilyPlan() {
                         m.role === 'teen'
                     ).length
                   }{' '}
-                  children
+                  children •{' '}
+                  {
+                    members.filter(
+                      m =>
+                        m.role === 'mom' ||
+                        m.role === 'dad' ||
+                        m.role === 'parent' ||
+                        m.role === 'grandparent' ||
+                        m.role === 'grandma' ||
+                        m.role === 'grandpa'
+                    ).length
+                  }{' '}
+                  adults
                 </div>
               </div>
-              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
-                <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">
-                  Total Servings Needed
+
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-md border border-teal-100 dark:border-teal-900/30 hover:shadow-lg transition-shadow">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                    Total Servings Needed
+                  </div>
+                  <span className="text-xl">🥘</span>
                 </div>
-                <div className="text-3xl font-bold text-teal-600 dark:text-teal-400">
+                <div className="text-4xl font-bold text-teal-600 dark:text-teal-400 mb-2">
                   {Math.ceil(
                     members.reduce((sum, m) => {
                       const multiplier =
@@ -765,15 +785,27 @@ export default function FamilyPlan() {
                     }, 0)
                   )}
                 </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  For a 4-serving recipe
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  For a 4-serving recipe •{' '}
+                  {Math.ceil(
+                    members.reduce((sum, m) => {
+                      const multiplier =
+                        PORTION_SIZES.find(s => s.value === m.portionSize)?.multiplier || 1.0;
+                      return sum + multiplier;
+                    }, 0) / 4
+                  )}{' '}
+                  recipes needed
                 </div>
               </div>
-              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 shadow-sm">
-                <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">
-                  Average Per Person
+
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-md border border-blue-100 dark:border-blue-900/30 hover:shadow-lg transition-shadow">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                    Average Per Person
+                  </div>
+                  <span className="text-xl">📊</span>
                 </div>
-                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                   {(
                     members.reduce((sum, m) => {
                       const multiplier =
@@ -781,37 +813,134 @@ export default function FamilyPlan() {
                       return sum + multiplier;
                     }, 0) / members.length
                   ).toFixed(2)}
-                  x
+                  <span className="text-2xl">x</span>
                 </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Portion multiplier
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  Portion multiplier •{' '}
+                  {members.length > 0 &&
+                    (() => {
+                      const avgMultiplier =
+                        members.reduce((sum, m) => {
+                          const multiplier =
+                            PORTION_SIZES.find(s => s.value === m.portionSize)?.multiplier || 1.0;
+                          return sum + multiplier;
+                        }, 0) / members.length;
+                      if (avgMultiplier < 0.5) return 'Small portions';
+                      if (avgMultiplier < 0.75) return 'Light portions';
+                      if (avgMultiplier < 1.0) return 'Moderate portions';
+                      if (avgMultiplier < 1.25) return 'Standard portions';
+                      return 'Large portions';
+                    })()}
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-md border border-purple-100 dark:border-purple-900/30 hover:shadow-lg transition-shadow">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                    Daily Meals Needed
+                  </div>
+                  <span className="text-xl">🍴</span>
+                </div>
+                <div className="text-4xl font-bold text-purple-600 dark:text-purple-400 mb-2">
+                  {members.reduce((sum, member) => {
+                    const meals = getMealsForMember(member);
+                    return sum + meals.filter(m => m.required).length;
+                  }, 0)}
+                </div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  Required meals per day •{' '}
+                  {members.reduce((sum, member) => {
+                    const meals = getMealsForMember(member);
+                    return sum + meals.length;
+                  }, 0)}{' '}
+                  total (including snacks)
                 </div>
               </div>
             </div>
-            <div className="mt-4 p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
-              <p className="text-sm text-emerald-800 dark:text-emerald-200 flex items-start gap-2">
-                <span className="text-lg">💡</span>
+
+            {/* Detailed Breakdown */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                  <span className="text-lg">📈</span>
+                  Portion Size Breakdown
+                </h3>
+                <div className="space-y-2">
+                  {(() => {
+                    const portionGroups = members.reduce((acc, m) => {
+                      const portionLabel =
+                        PORTION_SIZES.find(s => s.value === m.portionSize)?.label || m.portionSize;
+                      acc[portionLabel] = (acc[portionLabel] || 0) + 1;
+                      return acc;
+                    }, {});
+                    return Object.entries(portionGroups).map(([label, count]) => (
+                      <div key={label} className="flex items-center justify-between text-xs">
+                        <span className="text-slate-600 dark:text-slate-400">{label}</span>
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          {count} {count === 1 ? 'person' : 'people'}
+                        </span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                  <span className="text-lg">🎯</span>
+                  Meal Planning Tips
+                </h3>
+                <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-400">
+                  <li className="flex items-start gap-2">
+                    <span className="text-emerald-500 mt-0.5">•</span>
+                    <span>
+                      Recipes automatically adjust servings based on family member portion sizes
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-emerald-500 mt-0.5">•</span>
+                    <span>Use the Meal Planner to schedule meals for the week ahead</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-emerald-500 mt-0.5">•</span>
+                    <span>Track daily meals to ensure everyone gets proper nutrition</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-4 p-4 bg-gradient-to-r from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-xl border border-emerald-200 dark:border-emerald-800">
+              <p className="text-sm text-emerald-800 dark:text-emerald-200 flex items-start gap-3">
+                <span className="text-2xl flex-shrink-0">💡</span>
                 <span>
-                  Recipe servings will automatically adjust based on your family members when
-                  viewing recipes. Perfect for meal planning!
+                  <strong>Smart Serving Adjustment:</strong> When viewing recipes, the serving size
+                  will automatically calculate based on your family members' portion needs. For
+                  example, if a recipe serves 4 and you have 2 adults (1x each) and 1 child (0.75x),
+                  the app will suggest making 2.75 servings, which rounds up to 3 servings for
+                  practical cooking.
                 </span>
               </p>
             </div>
           </motion.section>
         )}
 
-        {/* Today's Meals Summary */}
+        {/* Today's Meals Summary - Enhanced */}
         {members.length > 0 && (
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-4 sm:p-6 mb-6"
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg border-2 border-slate-200 dark:border-slate-800 p-5 sm:p-8 mb-6"
           >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
-              <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
-                <ChefHat className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-                Today's Meals & Snacks
-              </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-bold flex items-center gap-3 mb-2">
+                  <ChefHat className="w-6 h-6 sm:w-7 sm:h-7 text-purple-600" />
+                  Today's Meals & Snacks
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Track meal completion for each family member
+                </p>
+              </div>
               {(() => {
                 const today = new Date().toISOString().split('T')[0];
                 const todayMeals = mealLogs[today] || [];
@@ -829,15 +958,29 @@ export default function FamilyPlan() {
                     : 0;
 
                 return (
-                  <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                    <div className="flex items-center gap-2">
-                      <span>
-                        {completedMeals}/{totalRequiredMeals} required meals
-                      </span>
-                      <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full font-medium">
-                        {percentage}%
-                      </span>
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                      Today's Progress
                     </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">
+                        {completedMeals}/{totalRequiredMeals}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          required meals
+                        </span>
+                        <span className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full font-bold text-sm">
+                          {percentage}% Complete
+                        </span>
+                      </div>
+                    </div>
+                    {percentage === 100 && (
+                      <div className="mt-2 text-xs text-green-600 dark:text-green-400 font-medium flex items-center gap-1">
+                        <span>🎉</span>
+                        <span>All meals completed today!</span>
+                      </div>
+                    )}
                   </div>
                 );
               })()}

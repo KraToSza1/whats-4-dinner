@@ -1,41 +1,43 @@
 import { Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { isAdmin } from '../utils/admin';
 import AdminDashboard from '../pages/AdminDashboard';
 
 /**
  * Protected Admin Route
- * Completely hides admin in production unless VITE_ENABLE_ADMIN=true
+ * SECURE: Only allows access if user is authenticated AND is an admin
+ * Completely blocks non-admin users from accessing admin dashboard
  */
 export default function ProtectedAdminRoute() {
-  // Check if we're on localhost (dev)
-  const isLocalhost =
-    typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const { user, loading } = useAuth();
 
-  // Check if we're on a Vercel/production domain
-  const isProduction =
-    typeof window !== 'undefined' &&
-    !isLocalhost &&
-    (window.location.hostname.includes('vercel.app') ||
-      window.location.hostname.includes('vercel.com') ||
-      (!window.location.hostname.includes('localhost') &&
-        !window.location.hostname.includes('127.0.0.1')));
+  // Wait for auth to load
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
-  // In production, completely block unless explicitly enabled
-  if (isProduction && import.meta.env.VITE_ENABLE_ADMIN !== 'true') {
-    // Silently redirect - don't show any admin UI
+  // Check if user is authenticated
+  if (!user) {
+    console.log('🔑 [PROTECTED ADMIN] ❌ No user, redirecting to home');
     return <Navigate to="/" replace />;
   }
 
-  // In development/localhost, allow access
-  if (isLocalhost) {
-    return <AdminDashboard />;
+  // STRICT CHECK: Only allow if user email is in admin allowlist
+  const userIsAdmin = isAdmin(user);
+  if (!userIsAdmin) {
+    console.log('🔑 [PROTECTED ADMIN] ❌ User is not an admin:', user.email);
+    console.log('🔑 [PROTECTED ADMIN] Redirecting to home');
+    // Silently redirect - don't show any error to non-admin users
+    return <Navigate to="/" replace />;
   }
 
-  // If explicitly enabled via env var, allow access
-  if (import.meta.env.VITE_ENABLE_ADMIN === 'true') {
-    return <AdminDashboard />;
-  }
-
-  // Default: block access
-  return <Navigate to="/" replace />;
+  console.log('🔑 [PROTECTED ADMIN] ✅ User is admin, allowing access:', user.email);
+  return <AdminDashboard />;
 }

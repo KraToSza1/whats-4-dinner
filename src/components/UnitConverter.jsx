@@ -32,7 +32,11 @@ export default function UnitConverter({ isInMenu = false, onClose = null }) {
   const savePreference = system => {
     try {
       localStorage.setItem('unitSystem', system);
-    } catch {}
+      // Dispatch event to notify other components
+      window.dispatchEvent(new CustomEvent('unitSystemChanged', { detail: { system } }));
+    } catch {
+      // Ignore storage errors
+    }
   };
 
   const handleSystemChange = system => {
@@ -41,20 +45,33 @@ export default function UnitConverter({ isInMenu = false, onClose = null }) {
     setIsDetecting(false);
   };
 
-  // Auto-detect location on first load
+  // Auto-detect location on first load using currency detection
   useEffect(() => {
     if (selectedSystem || !isDetecting) return;
 
     const detectSystem = async () => {
       try {
-        // First try using Intl API (browser language/locale)
+        // Use the same currency detection system for consistency
+        const { initializeCurrency } = await import('../utils/currency.js');
+        const { getMeasurementSystemForCountry } = await import('../utils/measurementSystems.js');
+
+        const currency = await initializeCurrency();
+        if (currency?.country) {
+          const detectedSystem = getMeasurementSystemForCountry(currency.country);
+          setSelectedSystem(detectedSystem);
+          savePreference(detectedSystem);
+          setIsDetecting(false);
+          return;
+        }
+
+        // Fallback to browser locale
         const locale = navigator.language || navigator.languages?.[0] || 'en-US';
         const country = locale.split('-')[1] || locale.split('_')[1];
 
         let detectedSystem = 'metric'; // default
 
         // US territories
-        const usCountries = ['US', 'PR', 'GU', 'AS', 'VI', 'UM'];
+        const usCountries = ['US', 'PR', 'GU', 'AS', 'VI', 'UM', 'MH', 'FM', 'PW', 'LR', 'MM'];
         if (usCountries.includes(country?.toUpperCase())) {
           detectedSystem = 'us';
         }
@@ -73,25 +90,6 @@ export default function UnitConverter({ isInMenu = false, onClose = null }) {
         // UK by language
         else if (locale.toLowerCase() === 'en-gb' || locale.toLowerCase().includes('en-gb')) {
           detectedSystem = 'uk';
-        }
-        // Try geolocation API (requires permission)
-        else {
-          try {
-            const geo = await fetch(`https://ipapi.co/json/`)
-              .then(r => r.json())
-              .catch(() => null);
-
-            if (geo?.country_code) {
-              const code = geo.country_code.toUpperCase();
-              if (usCountries.includes(code)) {
-                detectedSystem = 'us';
-              } else if (code === 'GB') {
-                detectedSystem = 'uk';
-              }
-            }
-          } catch (e) {
-            // Silent fallback
-          }
         }
 
         setSelectedSystem(detectedSystem);

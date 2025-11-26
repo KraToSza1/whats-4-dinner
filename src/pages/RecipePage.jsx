@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { getRecipeInformation } from '../api/spoonacular';
+// Spoonacular removed - using Supabase recipes only
 import { getSupabaseRecipeById } from '../api/supabaseRecipes.js';
 import { recipeImg, fallbackOnce, isUuid } from '../utils/img.ts';
 import { useGroceryList } from '../context/GroceryListContext.jsx';
@@ -41,6 +41,7 @@ import { formatCurrency } from '../utils/currency.js';
 import { useAchievements, AchievementUnlock } from '../components/animations/Achievements.jsx';
 import { AnimatePresence } from 'framer-motion';
 import { EmptyStateAnimation } from '../components/LottieFoodAnimations.jsx';
+import MiniGamePrompt from '../components/MiniGamePrompt.jsx';
 
 const MEASUREMENT_OPTIONS = [
   {
@@ -178,14 +179,7 @@ export default function RecipePage() {
         }
 
         if (!full) {
-          console.log('🔄 [RECIPE PAGE] Falling back to Spoonacular for:', id);
-          full = await getRecipeInformation(id); // fallback to Spoonacular
-        }
-
-        if (!full) {
-          const reason = FEATURES.disableSpoonacular
-            ? 'Recipe details unavailable while Spoonacular is disabled.'
-            : 'Recipe not found.';
+          const reason = 'Recipe not found.';
           console.error('❌ [RECIPE PAGE] Recipe not found:', { id, reason });
           throw new Error(reason);
         }
@@ -301,13 +295,11 @@ export default function RecipePage() {
 
   // Track recipe made (add to history)
   const handleRecipeMade = () => {
-    console.log('✅ [RECIPE PAGE] handleRecipeMade called', { recipeId: recipe?.id });
     if (!recipe?.id) {
-      console.warn('⚠️ [RECIPE PAGE] No recipe ID, returning early');
+      toast.error('Recipe not loaded yet. Please wait.');
       return;
     }
 
-    console.log('✅ [RECIPE PAGE] Adding recipe to history');
     addRecipeToHistory(recipe.id, {
       servings: targetServings,
       success: true,
@@ -317,7 +309,7 @@ export default function RecipePage() {
     const result = trackRecipeCook(recipe);
     if (result?.leveledUp) {
       // Level up will be handled by GamificationDashboard
-      toast.success(`Level Up! You're now Level ${result.xpResult.newLevel}!`);
+      toast.success(`Level Up! You're now Level ${result.xpResult.newLevel}! 🎉`);
     }
     if (result?.newBadges && result.newBadges.length > 0) {
       result.newBadges.forEach(badge => {
@@ -325,9 +317,10 @@ export default function RecipePage() {
       });
     }
 
-    triggerHaptic('success');
+    // Show success message
+    toast.success(`Marked "${title}" as made! ✅`);
 
-    console.log('✅ [RECIPE PAGE] Updating confetti trigger');
+    triggerHaptic('success');
     setConfettiTrigger(prev => {
       const newValue = prev + 1;
       console.log('✅ [RECIPE PAGE] Confetti trigger:', { prev, newValue });
@@ -1195,11 +1188,25 @@ export default function RecipePage() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => {
+                if (!recipe?.id) {
+                  toast.error('Recipe not loaded yet. Please wait.');
+                  return;
+                }
                 // Default to adding as dinner
                 const currentDay = new Date().getDay() - 1;
                 const todayIdx = currentDay >= 0 ? currentDay : 6;
+                const dayName = [
+                  'Monday',
+                  'Tuesday',
+                  'Wednesday',
+                  'Thursday',
+                  'Friday',
+                  'Saturday',
+                  'Sunday',
+                ][todayIdx];
                 setMealPlanDay(todayIdx, 'dinner', recipe);
                 triggerHaptic('success');
+                toast.success(`Added to ${dayName}'s dinner! 📅`);
               }}
               className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-all min-h-[44px] sm:min-h-0 touch-manipulation flex items-center gap-1.5 sm:gap-2"
               title="Add to today's dinner"
@@ -1222,9 +1229,11 @@ export default function RecipePage() {
 
             {/* Share */}
             <ShareButton
-              title={title}
-              text={`Check out this recipe: ${title}`}
-              url={window.location.href}
+              title={title || recipe?.title || 'Recipe'}
+              text={`Check out this recipe: ${title || recipe?.title || 'Recipe'}`}
+              url={
+                recipe?.id ? `${window.location.origin}/recipe/${recipe.id}` : window.location.href
+              }
             />
           </div>
         </div>
@@ -1297,7 +1306,7 @@ export default function RecipePage() {
           )}
 
           {steps.length > 0 && (
-            <div className="mt-6 flex justify-center gap-3 flex-wrap">
+            <div className="mt-4 xs:mt-6 flex justify-center gap-2 xs:gap-3 flex-wrap">
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: '0 10px 25px rgba(5, 150, 105, 0.4)' }}
                 whileTap={{ scale: 0.95 }}
@@ -1308,31 +1317,46 @@ export default function RecipePage() {
                     toast.error('No cooking instructions available for this recipe.');
                   }
                 }}
-                className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-base shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                className="px-4 xs:px-6 py-2.5 xs:py-3 rounded-lg xs:rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm xs:text-base shadow-lg hover:shadow-xl transition-all flex items-center gap-1.5 xs:gap-2 touch-manipulation min-h-[44px] xs:min-h-0"
                 title="Open step-by-step Cook Mode with timer"
               >
-                <span className="text-xl">👨‍🍳</span>
-                Start Cook Mode
+                <span className="text-lg xs:text-xl">👨‍🍳</span>
+                <span className="hidden xs:inline">Start Cook Mode</span>
+                <span className="xs:hidden">Cook</span>
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: '0 10px 25px rgba(255, 140, 0, 0.4)' }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowMealPrepMode(true)}
-                className="px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold text-base shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                className="px-4 xs:px-6 py-2.5 xs:py-3 rounded-lg xs:rounded-xl bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold text-sm xs:text-base shadow-lg hover:shadow-xl transition-all flex items-center gap-1.5 xs:gap-2 touch-manipulation min-h-[44px] xs:min-h-0"
                 title="Open Meal Prep Mode for batch cooking"
               >
-                <span className="text-xl">🍱</span>
-                Meal Prep Mode
+                <span className="text-lg xs:text-xl">🍱</span>
+                <span className="hidden xs:inline">Meal Prep Mode</span>
+                <span className="xs:hidden">Prep</span>
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: '0 10px 25px rgba(139, 92, 246, 0.4)' }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowCookingSkills(true)}
-                className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold text-base shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                className="px-4 xs:px-6 py-2.5 xs:py-3 rounded-lg xs:rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold text-sm xs:text-base shadow-lg hover:shadow-xl transition-all flex items-center gap-1.5 xs:gap-2 touch-manipulation min-h-[44px] xs:min-h-0"
                 title="Learn cooking techniques and skills"
               >
-                <span className="text-xl">📚</span>
-                Cooking Skills
+                <span className="text-lg xs:text-xl">📚</span>
+                <span className="hidden xs:inline">Cooking Skills</span>
+                <span className="xs:hidden">Skills</span>
+              </motion.button>
+              {/* Mini-Games Button */}
+              <motion.button
+                whileHover={{ scale: 1.05, boxShadow: '0 10px 25px rgba(139, 92, 246, 0.4)' }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => window.dispatchEvent(new CustomEvent('openMiniGames'))}
+                className="px-4 xs:px-6 py-2.5 xs:py-3 rounded-lg xs:rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 hover:from-purple-600 hover:via-pink-600 hover:to-orange-600 text-white font-bold text-sm xs:text-base shadow-lg hover:shadow-xl transition-all flex items-center gap-1.5 xs:gap-2 touch-manipulation min-h-[44px] xs:min-h-0"
+                title="Play fun cooking mini-games while you cook!"
+              >
+                <span className="text-lg xs:text-xl">🎮</span>
+                <span className="hidden xs:inline">Mini-Games</span>
+                <span className="xs:hidden">Games</span>
               </motion.button>
             </div>
           )}
@@ -1375,14 +1399,7 @@ export default function RecipePage() {
                 whileHover={{ scale: 1.08, y: -2 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => {
-                  // ENFORCE NUTRITION LIMIT - Check if user has full nutrition access
-                  if (!hasFeature('full_nutrition')) {
-                    toast.error(
-                      'Full nutrition details are a premium feature! Upgrade to unlock detailed nutrition information.'
-                    );
-                    window.dispatchEvent(new CustomEvent('openProModal'));
-                    return;
-                  }
+                  // Full nutrition label is now FREE for everyone!
                   setShowNutritionLabel(true);
                 }}
                 className="group relative px-5 py-3 rounded-xl bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2 overflow-hidden"
@@ -1585,41 +1602,43 @@ export default function RecipePage() {
         {/* Ingredients checklist + Grocery */}
         <section className="bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl xs:rounded-2xl p-3 xs:p-4 sm:p-5 md:p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg overflow-hidden">
           <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between mb-4 gap-3 xs:gap-2">
-            <div className="w-full xs:w-auto">
+            <div className="w-full xs:w-auto flex-1 min-w-0">
               <h2 className="text-lg xs:text-xl sm:text-2xl md:text-3xl font-extrabold text-center xs:text-left bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-300 dark:to-teal-300 bg-clip-text text-transparent break-words">
                 🧂 Ingredients
               </h2>
               {recipeCost && (
-                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                <p className="text-xs xs:text-sm text-slate-600 dark:text-slate-400 mt-1 break-words">
                   💰 Estimated cost: {formatCurrency(recipeCost.total)} total (
                   {formatCurrency(recipeCost.perServing)} per serving)
                 </p>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="w-full xs:w-auto flex flex-col xs:flex-row gap-2 xs:gap-2">
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: '0 5px 15px rgba(34, 197, 94, 0.3)' }}
                 whileTap={{ scale: 0.95 }}
-                className="px-4 py-2 rounded-lg border-2 border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 font-semibold shadow-md hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all"
+                className="flex-1 xs:flex-none px-3 xs:px-4 py-2.5 xs:py-2 rounded-lg border-2 border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 font-semibold text-xs xs:text-sm shadow-md hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all touch-manipulation min-h-[44px] xs:min-h-0 flex items-center justify-center gap-1.5 xs:gap-2"
                 onClick={() => setOpen(true)}
                 title="Open grocery list"
               >
-                🛒 Open List
+                <span className="text-base xs:text-lg">🛒</span>
+                <span>Open List</span>
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: '0 5px 15px rgba(5, 150, 105, 0.4)' }}
                 whileTap={{ scale: 0.95 }}
-                className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold shadow-lg hover:shadow-xl transition-all"
+                className="flex-1 xs:flex-none px-3 xs:px-4 py-2.5 xs:py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs xs:text-sm shadow-lg hover:shadow-xl transition-all touch-manipulation min-h-[44px] xs:min-h-0 flex items-center justify-center gap-1.5 xs:gap-2"
                 onClick={addAllToGrocery}
                 title="Add all ingredients to grocery list"
               >
-                ➕ Add All to List
+                <span className="text-base xs:text-lg">➕</span>
+                <span>Add All to List</span>
               </motion.button>
               {nutrient('Calories') && (
                 <motion.button
                   whileHover={{ scale: 1.05, boxShadow: '0 5px 15px rgba(139, 92, 246, 0.4)' }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold shadow-lg hover:shadow-xl transition-all"
+                  className="flex-1 xs:flex-none px-3 xs:px-4 py-2.5 xs:py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold text-xs xs:text-sm shadow-lg hover:shadow-xl transition-all touch-manipulation min-h-[44px] xs:min-h-0 flex items-center justify-center gap-1.5 xs:gap-2"
                   onClick={() => {
                     // nutrient() already returns scaled value for targetServings
                     // This ensures the calories match what the user actually consumed
@@ -1643,7 +1662,8 @@ export default function RecipePage() {
                   }}
                   title="Add to calorie tracker"
                 >
-                  📊 Add to Tracker
+                  <span className="text-base xs:text-lg">📊</span>
+                  <span>Add to Tracker</span>
                 </motion.button>
               )}
             </div>
@@ -1702,9 +1722,9 @@ export default function RecipePage() {
                           </motion.svg>
                         )}
                       </motion.div>
-                      <div className="flex-1 flex items-start justify-between gap-2">
+                      <div className="flex-1 flex items-start justify-between gap-2 min-w-0">
                         <motion.span
-                          className={isChecked ? 'line-through opacity-70' : ''}
+                          className={`text-sm xs:text-base break-words ${isChecked ? 'line-through opacity-70' : ''}`}
                           animate={
                             isChecked
                               ? {
@@ -1716,7 +1736,9 @@ export default function RecipePage() {
                         >
                           {ing.displayText}
                         </motion.span>
-                        <SmartSwaps ingredientName={ing.displayText} />
+                        <div className="flex-shrink-0">
+                          <SmartSwaps ingredientName={ing.displayText} />
+                        </div>
                       </div>
                     </motion.li>
                   </IngredientReveal>
@@ -1732,23 +1754,23 @@ export default function RecipePage() {
 
         {/* Steps */}
         {steps.length > 0 && (
-          <section className="print:break-inside-avoid bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-2xl p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg">
-            <h2 className="text-2xl font-extrabold mb-4 text-center bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-300 dark:to-teal-300 bg-clip-text text-transparent">
+          <section className="print:break-inside-avoid bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl xs:rounded-2xl p-3 xs:p-4 sm:p-5 md:p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg">
+            <h2 className="text-lg xs:text-xl sm:text-2xl font-extrabold mb-3 xs:mb-4 text-center bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-300 dark:to-teal-300 bg-clip-text text-transparent">
               📋 Instructions
             </h2>
-            <ol className="mx-auto max-w-3xl space-y-4">
+            <ol className="mx-auto max-w-3xl space-y-2 xs:space-y-3 sm:space-y-4">
               {steps.map((s, i) => (
                 <motion.li
                   key={i}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.1 }}
-                  className="flex gap-4 items-start bg-white/80 dark:bg-slate-800/80 rounded-xl p-4 border-2 border-emerald-200 dark:border-emerald-800 shadow-md"
+                  className="flex gap-2 xs:gap-3 sm:gap-4 items-start bg-white/80 dark:bg-slate-800/80 rounded-lg xs:rounded-xl p-3 xs:p-4 border-2 border-emerald-200 dark:border-emerald-800 shadow-md"
                 >
-                  <span className="shrink-0 mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-bold shadow-lg">
+                  <span className="shrink-0 mt-0.5 xs:mt-1 inline-flex h-7 w-7 xs:h-8 xs:w-8 items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs xs:text-sm font-bold shadow-lg">
                     {i + 1}
                   </span>
-                  <p className="leading-relaxed text-slate-700 dark:text-slate-200 font-medium">
+                  <p className="flex-1 min-w-0 leading-relaxed text-sm xs:text-base text-slate-700 dark:text-slate-200 font-medium break-words">
                     {s}
                   </p>
                 </motion.li>
@@ -2076,9 +2098,21 @@ export default function RecipePage() {
                   </motion.button>
                 )}
               </div>
+
+              {/* Mini-Game Prompt when timer is running */}
+              {ticking && secondsLeft > 30 && (
+                <div className="mt-4">
+                  <MiniGamePrompt variant="inline" context="timer" delay={2000} autoShow={true} />
+                </div>
+              )}
             </div>
           </motion.div>
         </motion.div>
+      )}
+
+      {/* Floating Mini-Game Prompt - appears after viewing recipe for a while */}
+      {recipe && !ticking && (
+        <MiniGamePrompt variant="floating" context="cooking" delay={15000} autoShow={true} />
       )}
     </div>
   );

@@ -113,7 +113,7 @@ export function normalizeIngredient(raw) {
   if (!raw) return '';
   let s = String(raw).toLowerCase();
   // remove parentheses
-  s = s.replace(/\([^\)]*\)/g, ' ');
+  s = s.replace(/\([^)]*\)/g, ' ');
   // remove fractions and numbers (including unicode ¼½¾ etc.)
   s = s.replace(/[0-9]+(?:\.[0-9]+)?/g, ' ').replace(/[¼½¾⅓⅔⅛⅜⅝⅞]/g, ' ');
   // split tokens and remove units/descriptors/punctuation
@@ -185,14 +185,8 @@ export function GroceryListProvider({ children }) {
 
   /** Merge new items with existing, normalize for aggregation, case-insensitive dedupe */
   const addMany = (arr, keepQuantities = false) => {
-    // ENFORCE GROCERY LISTS LIMIT - Check if user can add more items
-    if (!hasFeature('grocery_lists')) {
-      // Grocery lists disabled for free plan
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('openProModal'));
-      }
-      return;
-    }
+    // Note: Grocery lists are now unlimited for all plans
+    // No need to check feature access or limits anymore
 
     const cleaned = (arr || [])
       .map(s => {
@@ -204,17 +198,6 @@ export function GroceryListProvider({ children }) {
       .filter(Boolean);
 
     if (!cleaned.length) return;
-
-    // Check limit before adding
-    const currentCount = items.length;
-    const canAdd = canPerformAction('grocery_list', currentCount);
-    if (!canAdd) {
-      const planDetails = getPlanDetails();
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('openProModal'));
-      }
-      return;
-    }
 
     setItems(cur => {
       const seen = new Set(cur.map(normForCompare));

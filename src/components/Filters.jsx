@@ -175,7 +175,9 @@ function saveFilterPreset(name, filters) {
       createdAt: new Date().toISOString(),
     });
     localStorage.setItem('filterPresets', JSON.stringify(presets.slice(-10))); // Keep last 10
-  } catch {}
+  } catch {
+    // Ignore localStorage errors
+  }
 }
 
 // Load saved filter presets
@@ -190,8 +192,8 @@ function loadFilterPresets() {
 export default function Filters({
   diet,
   setDiet,
-  intolerances,
-  setIntolerances,
+  _intolerances,
+  setIntolerances: _setIntolerances,
   maxTime,
   setMaxTime,
   mealType,
@@ -252,31 +254,41 @@ export default function Filters({
   useEffect(() => {
     try {
       localStorage.setItem('filters:selectedIntolerances', JSON.stringify(selectedIntolerances));
-    } catch {}
+    } catch {
+      // Ignore localStorage errors
+    }
   }, [selectedIntolerances]);
 
   useEffect(() => {
     try {
       localStorage.setItem('filters:cuisine', cuisine);
-    } catch {}
+    } catch {
+      // Ignore localStorage errors
+    }
   }, [cuisine]);
 
   useEffect(() => {
     try {
       localStorage.setItem('filters:difficulty', difficulty);
-    } catch {}
+    } catch {
+      // Ignore localStorage errors
+    }
   }, [difficulty]);
 
   useEffect(() => {
     try {
       localStorage.setItem('filters:minProtein', minProtein);
-    } catch {}
+    } catch {
+      // Ignore localStorage errors
+    }
   }, [minProtein]);
 
   useEffect(() => {
     try {
       localStorage.setItem('filters:maxCarbs', maxCarbs);
-    } catch {}
+    } catch {
+      // Ignore localStorage errors
+    }
   }, [maxCarbs]);
 
   // Notify parent of filter changes
@@ -378,7 +390,7 @@ export default function Filters({
 
   const reset = () => {
     setDiet('');
-    setIntolerances('');
+    _setIntolerances('');
     setMaxTime('');
     setMealType('');
     setMaxCalories('');
@@ -416,6 +428,8 @@ export default function Filters({
     maxCarbs,
   ].filter(Boolean).length;
 
+  const hasFiltersAccess = hasFeature('advanced_filters');
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -433,7 +447,12 @@ export default function Filters({
             <div>
               <h3 className="font-bold text-lg sm:text-xl text-slate-900 dark:text-white flex items-center gap-2">
                 Smart Filters
-                {activeFilterCount > 0 && (
+                {!hasFiltersAccess && (
+                  <span className="px-2 py-0.5 bg-amber-500 text-white text-xs font-bold rounded-full">
+                    Premium
+                  </span>
+                )}
+                {hasFiltersAccess && activeFilterCount > 0 && (
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
@@ -444,9 +463,11 @@ export default function Filters({
                 )}
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                {hasActiveFilters
-                  ? `${activeFilterCount} active filter${activeFilterCount !== 1 ? 's' : ''}`
-                  : 'Refine your search'}
+                {!hasFiltersAccess
+                  ? 'Upgrade to unlock advanced filtering options!'
+                  : hasActiveFilters
+                    ? `${activeFilterCount} active filter${activeFilterCount !== 1 ? 's' : ''}`
+                    : 'Refine your search'}
               </p>
             </div>
           </div>
@@ -512,7 +533,7 @@ export default function Filters({
         </div>
 
         {/* Active Filter Chips */}
-        {hasActiveFilters && (
+        {hasFiltersAccess && hasActiveFilters && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -665,333 +686,370 @@ export default function Filters({
         </div>
 
         {/* Main Filters */}
-        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-4">
-          {/* Meal Type */}
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
-          >
-            <label className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🍽️</span>
-                <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
-                  Meal Type
-                </span>
-                {timeBasedMeal && !mealType && (
-                  <motion.button
-                    onClick={() => setMealType(timeBasedMeal)}
-                    className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
-                  >
-                    (Suggest: {timeBasedMeal})
-                  </motion.button>
-                )}
-              </div>
-              <select
-                value={mealType}
-                onChange={e => setMealType(e.target.value)}
-                className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium shadow-sm"
-              >
-                {MEAL_TYPES.map(m => (
-                  <option key={m} value={m}>
-                    {m ? m.charAt(0).toUpperCase() + m.slice(1) : 'Any Meal'}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </motion.div>
-
-          {/* Diet */}
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
-          >
-            <label className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🥗</span>
-                <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
-                  Diet
-                </span>
-              </div>
-              <select
-                value={diet}
-                onChange={e => setDiet(e.target.value)}
-                className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium shadow-sm"
-              >
-                {DIETS.map(d => (
-                  <option key={d} value={d}>
-                    {d ? d.charAt(0).toUpperCase() + d.slice(1) : 'Any Diet'}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </motion.div>
-
-          {/* Cuisine */}
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
-          >
-            <label className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🌍</span>
-                <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
-                  Cuisine
-                </span>
-              </div>
-              {hasFeature('advanced_filters') ? (
+        {hasFeature('advanced_filters') ? (
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-4">
+            {/* Meal Type */}
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
+            >
+              <label className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🍽️</span>
+                  <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
+                    Meal Type
+                  </span>
+                  {timeBasedMeal && !mealType && (
+                    <motion.button
+                      onClick={() => setMealType(timeBasedMeal)}
+                      className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
+                    >
+                      (Suggest: {timeBasedMeal})
+                    </motion.button>
+                  )}
+                </div>
                 <select
-                  value={cuisine}
-                  onChange={e => setCuisine(e.target.value)}
+                  value={mealType}
+                  onChange={e => setMealType(e.target.value)}
                   className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium shadow-sm"
                 >
-                  {CUISINES.map(c => (
-                    <option key={c} value={c}>
-                      {c || 'Any Cuisine'}
+                  {MEAL_TYPES.map(m => (
+                    <option key={m} value={m}>
+                      {m ? m.charAt(0).toUpperCase() + m.slice(1) : 'Any Meal'}
                     </option>
                   ))}
                 </select>
-              ) : (
-                <div
-                  className="px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 cursor-pointer text-sm"
-                  onClick={() => {
-                    toast.error(
-                      'Advanced filters are a premium feature! Upgrade to unlock cuisine filtering.'
-                    );
-                    window.dispatchEvent(new CustomEvent('openProModal'));
-                  }}
-                >
-                  Upgrade to unlock cuisine filter
+              </label>
+            </motion.div>
+
+            {/* Diet */}
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
+            >
+              <label className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🥗</span>
+                  <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
+                    Diet
+                  </span>
                 </div>
-              )}
-            </label>
-          </motion.div>
-        </div>
+                <select
+                  value={diet}
+                  onChange={e => setDiet(e.target.value)}
+                  className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium shadow-sm"
+                >
+                  {DIETS.map(d => (
+                    <option key={d} value={d}>
+                      {d ? d.charAt(0).toUpperCase() + d.slice(1) : 'Any Diet'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </motion.div>
+
+            {/* Cuisine */}
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
+            >
+              <label className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🌍</span>
+                  <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
+                    Cuisine
+                  </span>
+                </div>
+                {hasFeature('advanced_filters') ? (
+                  <select
+                    value={cuisine}
+                    onChange={e => setCuisine(e.target.value)}
+                    className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium shadow-sm"
+                  >
+                    {CUISINES.map(c => (
+                      <option key={c} value={c}>
+                        {c || 'Any Cuisine'}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div
+                    className="px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 cursor-pointer text-sm"
+                    onClick={() => {
+                      window.dispatchEvent(
+                        new CustomEvent('openPremiumFeatureModal', {
+                          detail: { feature: 'cuisine_filter' },
+                        })
+                      );
+                    }}
+                  >
+                    Upgrade to unlock cuisine filter
+                  </div>
+                )}
+              </label>
+            </motion.div>
+          </div>
+        ) : (
+          <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border-2 border-amber-200 dark:border-amber-800">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-2xl">🔒</span>
+              <div>
+                <h3 className="font-bold text-amber-900 dark:text-amber-100">
+                  Filters are a Premium Feature
+                </h3>
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  Upgrade to unlock advanced filtering options including diet, cuisine, difficulty,
+                  and more!
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                toast.error(
+                  '🔍 Advanced Filters are a premium feature! Filter recipes by diet, cuisine, difficulty, time, calories, and more. Upgrade to unlock powerful filtering options!',
+                  { duration: 5000 }
+                );
+                window.dispatchEvent(new CustomEvent('openProModal'));
+              }}
+              className="mt-3 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold text-sm transition-colors"
+            >
+              Upgrade to Unlock Filters →
+            </button>
+          </div>
+        )}
 
         {/* Quick Time Presets */}
-        <div className="mb-4 flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-            Quick time:
-          </span>
-          {[15, 30, 45, 60, 90].map(m => (
-            <motion.button
-              key={m}
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-              type="button"
-              onClick={() => setMaxTime(String(m))}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm ${
-                maxTime === String(m)
-                  ? 'bg-emerald-600 text-white shadow-md'
-                  : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-2 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 dark:hover:border-emerald-600'
-              }`}
-            >
-              {m}m
-            </motion.button>
-          ))}
-        </div>
-
-        {/* Intolerances - Multi-select */}
-        <div className="mb-4">
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-            ⚠️ Intolerances (select multiple)
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {INTOLERANCES.map(int => (
+        {hasFeature('advanced_filters') && (
+          <div className="mb-4 flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+              Quick time:
+            </span>
+            {[15, 30, 45, 60, 90].map(m => (
               <motion.button
-                key={int}
-                whileHover={{ scale: 1.05 }}
+                key={m}
+                whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
                 type="button"
-                onClick={() => toggleIntolerance(int)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                  selectedIntolerances.includes(int)
-                    ? 'bg-red-500 text-white shadow-md'
-                    : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-2 border-slate-200 dark:border-slate-700 hover:border-red-400 dark:hover:border-red-600'
+                onClick={() => setMaxTime(String(m))}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm ${
+                  maxTime === String(m)
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-2 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 dark:hover:border-emerald-600'
                 }`}
               >
-                {int}
+                {m}m
               </motion.button>
             ))}
           </div>
-        </div>
+        )}
+
+        {/* Intolerances - Multi-select */}
+        {hasFeature('advanced_filters') && (
+          <div className="mb-4">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+              ⚠️ Intolerances (select multiple)
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {INTOLERANCES.map(int => (
+                <motion.button
+                  key={int}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                  onClick={() => toggleIntolerance(int)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    selectedIntolerances.includes(int)
+                      ? 'bg-red-500 text-white shadow-md'
+                      : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-2 border-slate-200 dark:border-slate-700 hover:border-red-400 dark:hover:border-red-600'
+                  }`}
+                >
+                  {int}
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Advanced Filters */}
-        <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="pt-4 border-t border-emerald-200 dark:border-emerald-800">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-lg">💚</span>
-                  <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white">
-                    Advanced Filters
-                  </h3>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {/* Max Time */}
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
-                  >
-                    <label className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">⏱️</span>
-                        <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
-                          Max Time (min)
-                        </span>
-                      </div>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="e.g. 30"
-                        value={maxTime}
-                        onChange={e => setMaxTime(e.target.value)}
-                        className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
-                      />
-                    </label>
-                  </motion.div>
-
-                  {/* Max Calories */}
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
-                  >
-                    <label className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">🔥</span>
-                        <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
-                          Max Calories
-                        </span>
-                      </div>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="e.g. 500"
-                        value={maxCalories}
-                        onChange={e => setMaxCalories(e.target.value)}
-                        className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
-                      />
-                    </label>
-                  </motion.div>
-
-                  {/* Min Protein */}
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
-                  >
-                    <label className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">💪</span>
-                        <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
-                          Min Protein (g)
-                        </span>
-                      </div>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="e.g. 20"
-                        value={minProtein}
-                        onChange={e => setMinProtein(e.target.value)}
-                        className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
-                      />
-                    </label>
-                  </motion.div>
-
-                  {/* Max Carbs */}
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
-                  >
-                    <label className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">🍞</span>
-                        <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
-                          Max Carbs (g)
-                        </span>
-                      </div>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="e.g. 30"
-                        value={maxCarbs}
-                        onChange={e => setMaxCarbs(e.target.value)}
-                        className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
-                      />
-                    </label>
-                  </motion.div>
-
-                  {/* Difficulty */}
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
-                  >
-                    <label className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">🎯</span>
-                        <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
-                          Difficulty
-                        </span>
-                      </div>
-                      {hasFeature('advanced_filters') ? (
-                        <select
-                          value={difficulty}
-                          onChange={e => setDifficulty(e.target.value)}
-                          className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium shadow-sm"
-                        >
-                          {DIFFICULTY_LEVELS.map(d => (
-                            <option key={d.value} value={d.value}>
-                              {d.icon} {d.label}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div
-                          className="px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 cursor-pointer text-sm"
-                          onClick={() => {
-                            toast.error(
-                              'Advanced filters are a premium feature! Upgrade to unlock difficulty filtering.'
-                            );
-                            window.dispatchEvent(new CustomEvent('openProModal'));
-                          }}
-                        >
-                          Upgrade to unlock difficulty filter
+        {hasFeature('advanced_filters') && (
+          <AnimatePresence>
+            {isExpanded && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="pt-4 border-t border-emerald-200 dark:border-emerald-800">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-lg">💚</span>
+                    <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white">
+                      Advanced Filters
+                    </h3>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {/* Max Time */}
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
+                    >
+                      <label className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">⏱️</span>
+                          <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
+                            Max Time (min)
+                          </span>
                         </div>
-                      )}
-                    </label>
-                  </motion.div>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="e.g. 30"
+                          value={maxTime}
+                          onChange={e => setMaxTime(e.target.value)}
+                          className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                        />
+                      </label>
+                    </motion.div>
 
-                  {/* Health Score */}
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm sm:col-span-2 lg:col-span-1"
-                  >
-                    <label className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">🏥</span>
-                        <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
-                          Min Health Score (0-100)
-                        </span>
-                      </div>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        placeholder="e.g. 70"
-                        value={healthScore}
-                        onChange={e => setHealthScore(e.target.value)}
-                        className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
-                      />
-                    </label>
-                  </motion.div>
+                    {/* Max Calories */}
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
+                    >
+                      <label className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">🔥</span>
+                          <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
+                            Max Calories
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="e.g. 500"
+                          value={maxCalories}
+                          onChange={e => setMaxCalories(e.target.value)}
+                          className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                        />
+                      </label>
+                    </motion.div>
+
+                    {/* Min Protein */}
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
+                    >
+                      <label className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">💪</span>
+                          <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
+                            Min Protein (g)
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="e.g. 20"
+                          value={minProtein}
+                          onChange={e => setMinProtein(e.target.value)}
+                          className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                        />
+                      </label>
+                    </motion.div>
+
+                    {/* Max Carbs */}
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
+                    >
+                      <label className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">🍞</span>
+                          <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
+                            Max Carbs (g)
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="e.g. 30"
+                          value={maxCarbs}
+                          onChange={e => setMaxCarbs(e.target.value)}
+                          className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                        />
+                      </label>
+                    </motion.div>
+
+                    {/* Difficulty */}
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm"
+                    >
+                      <label className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">🎯</span>
+                          <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
+                            Difficulty
+                          </span>
+                        </div>
+                        {hasFeature('advanced_filters') ? (
+                          <select
+                            value={difficulty}
+                            onChange={e => setDifficulty(e.target.value)}
+                            className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium shadow-sm"
+                          >
+                            {DIFFICULTY_LEVELS.map(d => (
+                              <option key={d.value} value={d.value}>
+                                {d.icon} {d.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div
+                            className="px-4 py-2.5 rounded-lg bg-slate-100 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 cursor-pointer text-sm"
+                            onClick={() => {
+                              window.dispatchEvent(
+                                new CustomEvent('openPremiumFeatureModal', {
+                                  detail: { feature: 'difficulty_filter' },
+                                })
+                              );
+                            }}
+                          >
+                            Upgrade to unlock difficulty filter
+                          </div>
+                        )}
+                      </label>
+                    </motion.div>
+
+                    {/* Health Score */}
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm sm:col-span-2 lg:col-span-1"
+                    >
+                      <label className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">🏥</span>
+                          <span className="font-semibold text-sm text-slate-700 dark:text-slate-300">
+                            Min Health Score (0-100)
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          placeholder="e.g. 70"
+                          value={healthScore}
+                          onChange={e => setHealthScore(e.target.value)}
+                          className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 dark:focus:border-emerald-500 focus:outline-none transition-all text-sm font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                        />
+                      </label>
+                    </motion.div>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
 
         {/* Save Preset Modal */}
         <AnimatePresence>

@@ -614,9 +614,10 @@ function mapSupabaseRecipeDetail(
 
 export async function fetchLatestRecipes(limit = 6) {
   const t0 = now();
-  supabaseLog('fetchLatestRecipes:start', { limit });
+  const validatedLimit = Math.min(Math.max(Number(limit) || 6, 1), 100); // Clamp between 1-100
+  supabaseLog('fetchLatestRecipes:start', { limit, validatedLimit });
 
-  console.log('🔍 [SUPABASE] Fetching latest recipes from Supabase:', { limit });
+  console.log('🔍 [SUPABASE] Fetching latest recipes from Supabase:', { limit, validatedLimit });
 
   const { data, error } = await supabase
     .from('recipes')
@@ -626,7 +627,7 @@ export async function fetchLatestRecipes(limit = 6) {
     // Only show recipes with complete nutrition (for production)
     .eq('has_complete_nutrition', true)
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .limit(validatedLimit);
 
   if (error) {
     console.error('❌ [SUPABASE ERROR] fetchLatestRecipes failed:', {
@@ -643,7 +644,17 @@ export async function fetchLatestRecipes(limit = 6) {
     sampleIds: data?.slice(0, 3).map(r => r.id) || [],
   });
 
-  const mapped = (data || []).map(mapSupabaseRecipe);
+  const mapped = (data || []).map(mapSupabaseRecipe).filter(recipe => {
+    // Only show recipes with valid images
+    const hasImage = !!(recipe?.image || recipe?.heroImageUrl);
+    if (!hasImage) {
+      supabaseLog('fetchLatestRecipes:filtered', {
+        id: recipe?.id,
+        reason: 'missing_image',
+      });
+    }
+    return hasImage;
+  });
 
   console.log('✅ [SUPABASE] Mapped recipes:', {
     count: mapped.length,
@@ -724,20 +735,37 @@ export async function searchSupabaseRecipes({
 }) {
   const t0 = now();
   try {
+    // Validate and sanitize inputs
+    const validatedLimit = Math.min(Math.max(Number(limit) || 24, 1), 100); // Clamp between 1-100
+
     const debugPayload = {
       query,
       includeIngredients,
       diet,
       mealType,
       maxTime,
-      limit,
+      limit: validatedLimit,
     };
     supabaseLog('searchSupabaseRecipes:start', debugPayload);
 
-    const trimmedQuery = query?.trim();
-    const filteredIngredients = (includeIngredients || [])
-      .map(ing => ing?.trim().toLowerCase())
-      .filter(Boolean);
+    // Robust query parsing with validation
+    const trimmedQuery = typeof query === 'string' ? query.trim() : '';
+
+    // Validate query length to prevent extremely long queries
+    if (trimmedQuery.length > 200) {
+      console.warn('[searchSupabaseRecipes] Query too long, truncating:', trimmedQuery.length);
+      // Truncate but keep first 200 chars
+      query = trimmedQuery.substring(0, 200);
+    }
+
+    // Robust ingredient filtering with validation
+    const filteredIngredients = (Array.isArray(includeIngredients) ? includeIngredients : [])
+      .map(ing => {
+        if (typeof ing !== 'string') return null;
+        return ing.trim().toLowerCase();
+      })
+      .filter(Boolean)
+      .filter(ing => ing.length > 0 && ing.length <= 50); // Max ingredient name length
 
     // Removed verbose logging - only log errors
 
@@ -749,63 +777,117 @@ export async function searchSupabaseRecipes({
       // Only show recipes with complete nutrition (for production)
       .eq('has_complete_nutrition', true)
       .order('updated_at', { ascending: false })
-      .limit(limit);
+      .limit(validatedLimit);
 
     // Smart search: Split query into words and search for each
+    // Enhanced with better escaping and validation
     if (trimmedQuery) {
-      const queryWords = trimmedQuery
+      // Escape special characters that could break the query
+      const sanitizedQuery = trimmedQuery.replace(/[%_\\]/g, '\\$&');
+
+      const queryWords = sanitizedQuery
         .toLowerCase()
         .split(/\s+/)
-        .filter(w => w.length > 0);
+        .filter(w => w.length > 0 && w.length <= 50) // Filter out extremely long words
+        .slice(0, 10); // Limit to first 10 words to prevent query explosion
 
       if (queryWords.length > 0) {
-        // Build OR conditions for title and description matching any word
-        const titleClauses = queryWords.map(word => `title.ilike.%${word}%`);
-        const descClauses = queryWords.map(word => `description.ilike.%${word}%`);
+        try {
+          // Build OR conditions for title and description matching any word
+          const titleClauses = queryWords.map(word => {
+            const escapedWord = word.replace(/[%_\\]/g, '\\$&');
+            return `title.ilike.%${escapedWord}%`;
+          });
+          const descClauses = queryWords.map(word => {
+            const escapedWord = word.replace(/[%_\\]/g, '\\$&');
+            return `description.ilike.%${escapedWord}%`;
+          });
 
-        // Also try exact phrase match
-        const exactTitleMatch = `title.ilike.%${trimmedQuery}%`;
-        const exactDescMatch = `description.ilike.%${trimmedQuery}%`;
+          // Also try exact phrase match (with escaping)
+          const escapedQuery = sanitizedQuery.replace(/[%_\\]/g, '\\$&');
+          const exactTitleMatch = `title.ilike.%${escapedQuery}%`;
+          const exactDescMatch = `description.ilike.%${escapedQuery}%`;
 
-        // Combine: exact phrase OR (any word in title OR any word in description)
-        const allClauses = [exactTitleMatch, exactDescMatch, ...titleClauses, ...descClauses];
+          // Combine: exact phrase OR (any word in title OR any word in description)
+          const allClauses = [exactTitleMatch, exactDescMatch, ...titleClauses, ...descClauses];
 
-        builder = builder.or(allClauses.join(','));
+          builder = builder.or(allClauses.join(','));
+        } catch (queryError) {
+          console.warn('[searchSupabaseRecipes] Error building query clauses:', queryError);
+          // Fallback to simple exact match
+          const escapedQuery = sanitizedQuery.replace(/[%_\\]/g, '\\$&');
+          builder = builder.or(`title.ilike.%${escapedQuery}%,description.ilike.%${escapedQuery}%`);
+        }
       }
     } else if (filteredIngredients.length > 0) {
       // If only ingredient filters, search in title/description as initial filter
       // Then we'll refine by actual ingredients
-      const clauses = filteredIngredients.map(
-        term => `title.ilike.%${term}%,description.ilike.%${term}%`
-      );
-      builder = builder.or(clauses.join(','));
+      try {
+        const clauses = filteredIngredients
+          .slice(0, 10) // Limit to prevent query explosion
+          .map(term => {
+            const escapedTerm = term.replace(/[%_\\]/g, '\\$&');
+            return `title.ilike.%${escapedTerm}%,description.ilike.%${escapedTerm}%`;
+          });
+        if (clauses.length > 0) {
+          builder = builder.or(clauses.join(','));
+        }
+      } catch (ingredientError) {
+        console.warn('[searchSupabaseRecipes] Error building ingredient clauses:', ingredientError);
+        // Continue without ingredient text search
+      }
     }
 
-    const normalizedDiet = diet?.trim();
-    if (normalizedDiet) {
-      builder = builder.contains('diets', [normalizedDiet]);
+    // Apply filters with robust validation
+    const normalizedDiet = typeof diet === 'string' ? diet.trim() : '';
+    if (normalizedDiet && normalizedDiet.length > 0 && normalizedDiet.length <= 50) {
+      try {
+        builder = builder.contains('diets', [normalizedDiet]);
+      } catch (dietError) {
+        console.warn('[searchSupabaseRecipes] Error applying diet filter:', dietError);
+      }
     }
 
-    const normalizedMealType = mealType?.trim();
-    if (normalizedMealType) {
-      builder = builder.contains('meal_types', [normalizedMealType]);
+    const normalizedMealType = typeof mealType === 'string' ? mealType.trim() : '';
+    if (normalizedMealType && normalizedMealType.length > 0 && normalizedMealType.length <= 50) {
+      try {
+        builder = builder.contains('meal_types', [normalizedMealType]);
+      } catch (mealTypeError) {
+        console.warn('[searchSupabaseRecipes] Error applying meal type filter:', mealTypeError);
+      }
     }
 
     const maxTimeNumber = Number(maxTime);
-    if (!Number.isNaN(maxTimeNumber) && maxTimeNumber > 0) {
-      builder = builder.or(`prep_minutes.lte.${maxTimeNumber},cook_minutes.lte.${maxTimeNumber}`);
+    if (!Number.isNaN(maxTimeNumber) && maxTimeNumber > 0 && maxTimeNumber <= 10000) {
+      try {
+        builder = builder.or(`prep_minutes.lte.${maxTimeNumber},cook_minutes.lte.${maxTimeNumber}`);
+      } catch (timeError) {
+        console.warn('[searchSupabaseRecipes] Error applying time filter:', timeError);
+      }
     }
 
     // Cuisine filter
-    const normalizedCuisine = cuisine?.trim();
-    if (normalizedCuisine) {
-      builder = builder.contains('cuisine', [normalizedCuisine]);
+    const normalizedCuisine = typeof cuisine === 'string' ? cuisine.trim() : '';
+    if (normalizedCuisine && normalizedCuisine.length > 0 && normalizedCuisine.length <= 50) {
+      try {
+        builder = builder.contains('cuisine', [normalizedCuisine]);
+      } catch (cuisineError) {
+        console.warn('[searchSupabaseRecipes] Error applying cuisine filter:', cuisineError);
+      }
     }
 
     // Difficulty filter
-    const normalizedDifficulty = difficulty?.trim();
-    if (normalizedDifficulty) {
-      builder = builder.eq('difficulty', normalizedDifficulty);
+    const normalizedDifficulty = typeof difficulty === 'string' ? difficulty.trim() : '';
+    if (
+      normalizedDifficulty &&
+      normalizedDifficulty.length > 0 &&
+      normalizedDifficulty.length <= 20
+    ) {
+      try {
+        builder = builder.eq('difficulty', normalizedDifficulty);
+      } catch (difficultyError) {
+        console.warn('[searchSupabaseRecipes] Error applying difficulty filter:', difficultyError);
+      }
     }
 
     // Max calories filter (client-side filtering will be applied after fetch)
@@ -848,7 +930,17 @@ export async function searchSupabaseRecipes({
       throw error;
     }
 
-    let mapped = (data || []).map(mapSupabaseRecipe);
+    let mapped = (data || []).map(mapSupabaseRecipe).filter(recipe => {
+      // Only show recipes with valid images
+      const hasImage = !!(recipe?.image || recipe?.heroImageUrl);
+      if (!hasImage) {
+        supabaseLog('searchSupabaseRecipes:filtered', {
+          id: recipe?.id,
+          reason: 'missing_image',
+        });
+      }
+      return hasImage;
+    });
 
     // If we have a text query, score and sort results by relevance with STRICT prioritization
     if (trimmedQuery && mapped.length > 0) {
@@ -1261,7 +1353,7 @@ export async function getSupabaseRecipeById(id) {
     hasImage: !!(mapped?.image || mapped?.heroImageUrl),
     imageUrl:
       mapped?.image || mapped?.heroImageUrl
-        ? (mapped?.image || mapped?.heroImageUrl).substring(0, 100) + '...'
+        ? String(mapped?.image || mapped?.heroImageUrl || '').substring(0, 100) + '...'
         : 'MISSING',
     hasIngredients: ingredients.length > 0,
     hasSteps: steps.length > 0,

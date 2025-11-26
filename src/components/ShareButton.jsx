@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Share2, MessageCircle, Facebook, Mail, Link as LinkIcon } from 'lucide-react';
+import { useToast } from './Toast.jsx';
 
 export default function ShareButton({ title, text, url }) {
   const [showMenu, setShowMenu] = useState(false);
   const [position, setPosition] = useState({ right: 0, top: 0 });
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
+  const toast = useToast();
 
   const shareData = {
     title: title || 'Check this out!',
@@ -22,23 +24,29 @@ export default function ShareButton({ title, text, url }) {
       if (navigator.share) {
         try {
           await navigator.share(shareData);
+          toast.success('Shared successfully! 🎉');
           return;
         } catch (error) {
           if (error.name !== 'AbortError') {
             console.error('Share failed:', error);
+            toast.error('Failed to share. Please try again.');
           }
+          // If user cancels or share fails, don't show menu again
         }
       }
+      return;
     }
 
     if (type === 'copy') {
       // Copy to clipboard
       try {
-        await navigator.clipboard.writeText(url || window.location.href);
-        alert('Link copied to clipboard! 📋');
+        const shareUrl = url || window.location.href;
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success('Link copied to clipboard! 📋');
         return;
       } catch (error) {
-        alert('Failed to copy link');
+        console.error('Copy failed:', error);
+        toast.error('Failed to copy link. Please try again.');
       }
     }
 
@@ -113,12 +121,8 @@ export default function ShareButton({ title, text, url }) {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => {
-          // Try native share first
-          if (navigator.share) {
-            handleShare('native');
-          } else {
-            setShowMenu(!showMenu);
-          }
+          // Always show the menu so users can choose their preferred sharing method
+          setShowMenu(!showMenu);
         }}
         onTouchStart={e => {
           e.stopPropagation();
@@ -155,6 +159,17 @@ export default function ShareButton({ title, text, url }) {
               }}
             >
               <div className="p-1.5 sm:p-2 overflow-y-auto max-h-[calc(100vh-2rem)] sm:max-h-none overscroll-contain scrollbar-hide">
+                {/* Native Share (if available) */}
+                {navigator.share && (
+                  <button
+                    onClick={() => handleShare('native')}
+                    onTouchStart={e => e.stopPropagation()}
+                    className="w-full text-left px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600 flex items-center gap-2 text-xs sm:text-sm touch-manipulation min-h-[40px] sm:min-h-0 transition-colors"
+                  >
+                    <Share2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                    <span className="truncate">Share via...</span>
+                  </button>
+                )}
                 <button
                   onClick={() => handleShare('copy')}
                   onTouchStart={e => e.stopPropagation()}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from './Toast.jsx';
+import { hasFeature, getCurrentPlanSync } from '../utils/subscription.js';
 import { recipeImg, fallbackOnce } from '../utils/img.ts';
 import {
   initializeCurrency,
@@ -12,7 +13,15 @@ import {
   formatCurrency,
   getCurrencyInfo,
   getAvailableCurrencies,
+  getCurrencyForCountry,
 } from '../utils/currency.js';
+import {
+  getRegionalPriceMultiplier,
+  getCountryIngredientAdjustment,
+  getRecommendedBudget,
+  getCostOfLivingIndex,
+  getBudgetCategoryRecommendations,
+} from '../utils/regionalPricing.js';
 import {
   getSpendingHistory,
   getSpendingByCategory,
@@ -35,33 +44,154 @@ const PRICE_LOG_KEY = 'budget:prices:v1';
 const SPENDING_LOG_KEY = 'budget:spending:v1';
 const RECIPE_COST_KEY = 'budget:recipe:costs:v1';
 
-// Common ingredient price estimates (per unit) in USD
+// Comprehensive ingredient price estimates (per unit) in USD
+// Prices are per standard unit (per lb for proteins/produce, per unit for packaged items)
 const ESTIMATED_PRICES_USD = {
+  // Proteins
   chicken: 2.5,
+  'chicken breast': 3.5,
+  'chicken thigh': 2.0,
   beef: 4.0,
+  'ground beef': 3.5,
+  'beef steak': 6.0,
   pork: 3.0,
+  'pork chop': 3.5,
+  'ground pork': 2.8,
   fish: 5.0,
+  salmon: 8.0,
+  tuna: 4.0,
+  'white fish': 4.5,
+  shrimp: 6.0,
   tofu: 1.5,
+  tempeh: 2.0,
   eggs: 0.3,
+  'egg dozen': 3.5,
+  // Vegetables
   tomato: 1.5,
+  'cherry tomato': 2.5,
   onion: 0.8,
+  'red onion': 1.0,
   garlic: 2.0,
   potato: 0.6,
+  'sweet potato': 1.0,
   carrot: 0.7,
   broccoli: 1.2,
+  'broccoli florets': 2.0,
   spinach: 2.0,
+  'baby spinach': 2.5,
+  lettuce: 1.5,
+  'romaine lettuce': 1.8,
+  'iceberg lettuce': 1.2,
+  bell: 1.5,
+  'bell pepper': 1.5,
+  'red bell pepper': 2.0,
+  'green bell pepper': 1.2,
+  cucumber: 0.8,
+  zucchini: 1.2,
+  eggplant: 1.5,
+  mushrooms: 2.5,
+  'button mushrooms': 2.0,
+  'shiitake mushrooms': 4.0,
+  corn: 0.8,
+  peas: 1.5,
+  'green beans': 1.8,
+  asparagus: 3.0,
+  cauliflower: 1.5,
+  cabbage: 0.8,
+  kale: 2.0,
+  arugula: 3.0,
+  // Grains & Starches
   rice: 0.5,
+  'white rice': 0.5,
+  'brown rice': 0.7,
+  'jasmine rice': 0.8,
+  'basmati rice': 0.9,
   pasta: 0.8,
+  spaghetti: 0.8,
+  penne: 0.8,
+  macaroni: 0.7,
   flour: 0.4,
+  'all-purpose flour': 0.4,
+  'bread flour': 0.5,
+  'whole wheat flour': 0.6,
   bread: 1.0,
+  'white bread': 0.8,
+  'whole wheat bread': 1.2,
+  'sourdough bread': 2.0,
+  quinoa: 3.0,
+  oats: 0.6,
+  'rolled oats': 0.7,
+  barley: 0.8,
+  // Dairy
   milk: 0.6,
+  'whole milk': 0.6,
+  'skim milk': 0.6,
+  'almond milk': 1.5,
+  'oat milk': 1.8,
+  'soy milk': 1.2,
   cheese: 3.0,
+  'cheddar cheese': 3.5,
+  'mozzarella cheese': 3.0,
+  'parmesan cheese': 5.0,
+  'feta cheese': 4.0,
   butter: 2.5,
+  'unsalted butter': 2.5,
   yogurt: 1.0,
+  'greek yogurt': 1.5,
+  'plain yogurt': 0.8,
+  cream: 2.0,
+  'heavy cream': 2.5,
+  'sour cream': 1.5,
+  // Oils & Fats
   'olive oil': 3.0,
+  'extra virgin olive oil': 4.0,
   'vegetable oil': 1.5,
+  'canola oil': 1.5,
+  'coconut oil': 2.5,
+  'sesame oil': 4.0,
+  // Spices & Seasonings
   salt: 0.2,
+  'sea salt': 0.5,
   pepper: 2.0,
+  'black pepper': 2.0,
+  'red pepper flakes': 3.0,
+  'garlic powder': 2.5,
+  'onion powder': 2.5,
+  cumin: 3.0,
+  paprika: 2.5,
+  turmeric: 3.5,
+  cinnamon: 4.0,
+  oregano: 2.5,
+  basil: 3.0,
+  thyme: 3.5,
+  rosemary: 3.5,
+  // Legumes
+  beans: 0.8,
+  'black beans': 0.8,
+  'kidney beans': 0.8,
+  chickpeas: 0.9,
+  lentils: 0.7,
+  'red lentils': 0.8,
+  'green lentils': 0.7,
+  // Canned & Packaged
+  'canned tomatoes': 1.2,
+  'tomato paste': 1.5,
+  'canned beans': 1.0,
+  'coconut milk': 1.5,
+  'chicken broth': 1.2,
+  'vegetable broth': 1.0,
+  'soy sauce': 1.5,
+  'fish sauce': 2.0,
+  vinegar: 1.0,
+  'balsamic vinegar': 3.0,
+  // Nuts & Seeds
+  almonds: 5.0,
+  walnuts: 4.5,
+  peanuts: 2.5,
+  cashews: 6.0,
+  'sesame seeds': 4.0,
+  'chia seeds': 5.0,
+  'flax seeds': 3.0,
 };
 
 function readBudgetSettings() {
@@ -108,18 +238,61 @@ function estimateIngredientPriceUSD(ingredientName, amount, unit) {
     return savedPrice * (amount || 1);
   }
 
-  for (const [key, price] of Object.entries(ESTIMATED_PRICES_USD)) {
-    if (lowerName.includes(key)) {
-      let normalizedAmount = amount || 1;
-      if (unit?.toLowerCase().includes('kg')) normalizedAmount *= 10;
-      else if (unit?.toLowerCase().includes('g')) normalizedAmount /= 100;
-      else if (unit?.toLowerCase().includes('lb')) normalizedAmount *= 0.45;
-      else if (unit?.toLowerCase().includes('oz')) normalizedAmount *= 0.028;
-      return price * normalizedAmount;
+  // Get user's country for regional pricing
+  const currencySettings = getCurrencySettings();
+  const countryCode = currencySettings?.country || 'US';
+
+  // Check for country-specific adjustments first
+  const countryAdjustment = getCountryIngredientAdjustment(countryCode, ingredientName);
+  if (countryAdjustment !== null) {
+    let normalizedAmount = amount || 1;
+    if (unit?.toLowerCase().includes('kg'))
+      normalizedAmount *= 2.2; // kg to lbs
+    else if (unit?.toLowerCase().includes('g'))
+      normalizedAmount /= 453.6; // g to lbs
+    else if (unit?.toLowerCase().includes('oz')) normalizedAmount /= 16; // oz to lbs
+    return countryAdjustment * normalizedAmount;
+  }
+
+  // Try to match ingredient name to price database
+  let matchedPrice = null;
+
+  // Sort by key length (longest first) to match more specific ingredients first
+  const sortedKeys = Object.keys(ESTIMATED_PRICES_USD).sort((a, b) => b.length - a.length);
+
+  for (const key of sortedKeys) {
+    if (lowerName.includes(key.toLowerCase())) {
+      matchedPrice = ESTIMATED_PRICES_USD[key];
+      break;
     }
   }
 
-  return 1.0;
+  if (matchedPrice !== null) {
+    let normalizedAmount = amount || 1;
+    // Convert units to standard (lbs for most items)
+    if (unit?.toLowerCase().includes('kg')) {
+      normalizedAmount *= 2.2; // kg to lbs
+    } else if (unit?.toLowerCase().includes('g')) {
+      normalizedAmount /= 453.6; // g to lbs
+    } else if (unit?.toLowerCase().includes('oz')) {
+      normalizedAmount /= 16; // oz to lbs
+    } else if (unit?.toLowerCase().includes('cup')) {
+      // Approximate: 1 cup ≈ 0.5 lbs for most ingredients
+      normalizedAmount *= 0.5;
+    } else if (unit?.toLowerCase().includes('tbsp') || unit?.toLowerCase().includes('tablespoon')) {
+      normalizedAmount *= 0.03; // tbsp to lbs (approximate)
+    } else if (unit?.toLowerCase().includes('tsp') || unit?.toLowerCase().includes('teaspoon')) {
+      normalizedAmount *= 0.01; // tsp to lbs (approximate)
+    }
+
+    // Apply regional price multiplier
+    const regionalMultiplier = getRegionalPriceMultiplier(countryCode);
+    return matchedPrice * normalizedAmount * regionalMultiplier;
+  }
+
+  // Default fallback price (adjusted for region)
+  const regionalMultiplier = getRegionalPriceMultiplier(countryCode);
+  return 1.0 * regionalMultiplier;
 }
 
 export async function calculateRecipeCost(ingredients, servings, currency = null) {
@@ -173,6 +346,11 @@ export default function BudgetTracker() {
   const [timeRange, setTimeRange] = useState('30'); // 7, 30, 90, 365
   const [period, setPeriod] = useState('weekly'); // daily, weekly, monthly, yearly
 
+  // Check subscription access
+  const hasFullBudgetTracker = hasFeature('budget_tracker_full');
+  const hasLimitedBudgetTracker = hasFeature('budget_tracker_limited');
+  const plan = getCurrentPlanSync();
+
   // Analytics data
   const [spendingHistory, setSpendingHistory] = useState([]);
   const [spendingByCategory, setSpendingByCategory] = useState([]);
@@ -194,14 +372,26 @@ export default function BudgetTracker() {
       setLoading(false);
 
       if (!settings) {
+        // Get recommended budget based on country and cost of living
+        const recommendedBudget = getRecommendedBudget(currency.country || 'US', 1);
         const defaultSettings = {
           enabled: false,
-          weeklyBudget: 100,
+          weeklyBudget: recommendedBudget,
           currency: currency.currency,
+          country: currency.country || 'US',
         };
         setSettings(defaultSettings);
-      } else if (!settings.currency) {
-        setSettings({ ...settings, currency: currency.currency });
+      } else {
+        // Update currency if not set, but preserve existing budget
+        if (!settings.currency) {
+          setSettings({
+            ...settings,
+            currency: currency.currency,
+            country: currency.country || 'US',
+          });
+        } else if (!settings.country) {
+          setSettings({ ...settings, country: currency.country || 'US' });
+        }
       }
     });
   }, []);
@@ -501,11 +691,26 @@ export default function BudgetTracker() {
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-md">
             <span className="text-2xl">💰</span>
           </div>
-          <div>
+          <div className="flex-1">
             <h3 className="font-bold text-xl text-slate-900 dark:text-white">Budget Tracker</h3>
             <p className="text-sm text-slate-600 dark:text-slate-400">
               Track recipe costs and stay within budget
             </p>
+            {currencySettings?.country && (
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                <span className="text-xs px-2 py-1 bg-white/80 dark:bg-slate-800/80 rounded-full text-slate-700 dark:text-slate-300">
+                  🌍 {currencySettings.country}
+                </span>
+                <span className="text-xs px-2 py-1 bg-white/80 dark:bg-slate-800/80 rounded-full text-slate-700 dark:text-slate-300">
+                  {getCurrencyInfo(currentSettings.currency).symbol} {currentSettings.currency}
+                </span>
+                {currencySettings.autoDetected && (
+                  <span className="text-xs px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 rounded-full text-emerald-700 dark:text-emerald-300">
+                    ✓ Auto-detected
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -514,13 +719,90 @@ export default function BudgetTracker() {
             <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
               Weekly Food Budget
             </label>
-            <button
-              onClick={() => setShowCurrencySelector(!showCurrencySelector)}
-              className="text-xs px-2 py-1 rounded bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
-            >
-              {getCurrencyInfo(currentSettings.currency).symbol} {currentSettings.currency} ▼
-            </button>
+            <div className="flex items-center gap-2">
+              {currencySettings?.autoDetected && (
+                <span
+                  className="text-xs text-emerald-600 dark:text-emerald-400"
+                  title="Auto-detected from your location"
+                >
+                  🌍
+                </span>
+              )}
+              <button
+                onClick={() => setShowCurrencySelector(!showCurrencySelector)}
+                className="text-xs px-2 py-1 rounded bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+              >
+                {getCurrencyInfo(currentSettings.currency).symbol} {currentSettings.currency} ▼
+              </button>
+            </div>
           </div>
+
+          {/* Show recommended budget based on location */}
+          {currencySettings?.country && (
+            <div
+              className={`mb-3 p-3 rounded-lg border ${
+                currencySettings.country !== 'US'
+                  ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                  : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex-1">
+                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    {currencySettings.country !== 'US' ? (
+                      <>
+                        <span className="text-blue-600 dark:text-blue-400">💡</span> Recommended
+                        Budget for {currencySettings.country}:
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-slate-600 dark:text-slate-400">📍</span> Your
+                        Location: {currencySettings.country}
+                      </>
+                    )}
+                  </div>
+                  {currencySettings.country !== 'US' && (
+                    <div className="text-xs text-blue-700 dark:text-blue-300 mb-2">
+                      {formatCurrency(
+                        getRecommendedBudget(currencySettings.country, 1),
+                        currentSettings.currency
+                      )}{' '}
+                      per week (Cost of Living: {getCostOfLivingIndex(currencySettings.country)}
+                      /100)
+                    </div>
+                  )}
+                  {currencySettings.country === 'US' && (
+                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-2">
+                      Cost of Living Index: {getCostOfLivingIndex(currencySettings.country)}/100 (US
+                      average)
+                    </div>
+                  )}
+                </div>
+                {currencySettings.autoDetected && (
+                  <span
+                    className="text-lg flex-shrink-0"
+                    title="Location and currency auto-detected"
+                  >
+                    🌍
+                  </span>
+                )}
+              </div>
+              {currencySettings.country !== 'US' && (
+                <button
+                  onClick={() => {
+                    const recommended = getRecommendedBudget(currencySettings.country, 1);
+                    setSettings({ ...currentSettings, weeklyBudget: recommended });
+                    toast.success(
+                      `Budget updated to ${formatCurrency(recommended, currentSettings.currency)} per week!`
+                    );
+                  }}
+                  className="w-full px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                >
+                  Use Recommended Budget
+                </button>
+              )}
+            </div>
+          )}
 
           {showCurrencySelector && (
             <div className="mb-3 p-3 bg-white/90 dark:bg-slate-800/90 rounded-lg border border-green-200 dark:border-green-800 max-h-48 overflow-y-auto">
@@ -672,6 +954,83 @@ export default function BudgetTracker() {
               ))}
             </div>
           </div>
+        )}
+
+        {/* Location Info Banner */}
+        {currencySettings?.country && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg border border-blue-200 dark:border-blue-800 shadow-sm"
+          >
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-lg">🌍</span>
+                <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  Location:{' '}
+                  <span className="text-blue-600 dark:text-blue-400">
+                    {currencySettings.country}
+                  </span>
+                </span>
+                <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                  • Currency:{' '}
+                  <span className="font-medium">
+                    {getCurrencyInfo(currentSettings.currency).symbol} {currentSettings.currency}
+                  </span>
+                </span>
+                <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                  • Cost of Living:{' '}
+                  <span className="font-medium text-purple-600 dark:text-purple-400">
+                    {getCostOfLivingIndex(currencySettings.country)}/100
+                  </span>
+                </span>
+                {currencySettings.autoDetected && (
+                  <span className="text-xs px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-200 rounded-full font-medium border border-emerald-300 dark:border-emerald-700">
+                    ✓ Auto-detected
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={async () => {
+                  toast.info('Re-detecting location...', { duration: 2000 });
+                  setLoading(true);
+                  try {
+                    localStorage.removeItem('currency:settings:v1');
+                    const currency = await initializeCurrency();
+                    setCurrencySettings(currency);
+                    if (settings) {
+                      setSettings({
+                        ...settings,
+                        currency: currency.currency,
+                        country: currency.country || 'US',
+                      });
+                    }
+                    toast.success(`✅ Detected: ${currency.country} • ${currency.currency}`, {
+                      duration: 3000,
+                    });
+                  } catch (error) {
+                    console.error('Re-detection error:', error);
+                    toast.error('Detection failed. Using browser locale.', { duration: 3000 });
+                    // Fallback to browser locale
+                    const locale = navigator.language || 'en-US';
+                    const countryFromLocale = locale.split('-')[1]?.toUpperCase() || 'US';
+                    const currencyFromCountry = getCurrencyForCountry(countryFromLocale);
+                    setCurrencySettings({
+                      currency: currencyFromCountry,
+                      country: countryFromLocale,
+                      autoDetected: false,
+                    });
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                className="text-xs px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium shadow-sm"
+                title="Re-detect your location"
+              >
+                🔄 Re-detect
+              </button>
+            </div>
+          </motion.div>
         )}
 
         {/* Budget Progress */}
@@ -1308,6 +1667,141 @@ export default function BudgetTracker() {
             exit={{ opacity: 0, y: -20 }}
             className="space-y-6"
           >
+            {/* Location & Regional Info - Always Show */}
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl p-4 sm:p-6 border-2 border-blue-200 dark:border-blue-800 shadow-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base sm:text-lg font-bold flex items-center gap-2">
+                  <span className="text-2xl">🌍</span>
+                  Location & Regional Pricing
+                </h3>
+                <button
+                  onClick={async () => {
+                    toast.info('Re-detecting your location...');
+                    setLoading(true);
+                    try {
+                      localStorage.removeItem('currency:settings:v1');
+                      const currency = await initializeCurrency();
+                      setCurrencySettings(currency);
+                      if (settings) {
+                        setSettings({
+                          ...settings,
+                          currency: currency.currency,
+                          country: currency.country || 'US',
+                        });
+                      }
+                      toast.success(
+                        `✅ Detected: ${currency.country} • Currency: ${currency.currency}`
+                      );
+                    } catch (error) {
+                      console.error('Re-detection failed:', error);
+                      toast.error('Location detection failed. Using default (US).');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  className="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+                >
+                  🔄 Re-detect
+                </button>
+              </div>
+              {currencySettings?.country ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div className="bg-white dark:bg-slate-800 rounded-lg p-3 sm:p-4">
+                      <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-1">
+                        Detected Country
+                      </div>
+                      <div className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400">
+                        {currencySettings.country}
+                      </div>
+                      {currencySettings.autoDetected && (
+                        <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                          ✓ Auto-detected
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 rounded-lg p-3 sm:p-4">
+                      <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-1">
+                        Cost of Living Index
+                      </div>
+                      <div className="text-lg sm:text-xl font-bold text-purple-600 dark:text-purple-400">
+                        {getCostOfLivingIndex(currencySettings.country)}/100
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        {getCostOfLivingIndex(currencySettings.country) > 100
+                          ? 'Higher than US average'
+                          : getCostOfLivingIndex(currencySettings.country) < 80
+                            ? 'Lower than US average'
+                            : 'Similar to US average'}
+                      </div>
+                    </div>
+                  </div>
+                  {(() => {
+                    const regionalRecs = getBudgetCategoryRecommendations(currencySettings.country);
+                    return regionalRecs ? (
+                      <div className="bg-white dark:bg-slate-800 rounded-lg p-3 sm:p-4">
+                        <div className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                          💡 Regional Budget Tips
+                        </div>
+                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-2">
+                          {regionalRecs.tip}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {regionalRecs.focus.map((focus, idx) => (
+                            <span
+                              key={idx}
+                              className="text-[10px] sm:text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full"
+                            >
+                              {focus}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+                </>
+              ) : (
+                <div className="text-center py-6">
+                  <div className="text-5xl mb-3 animate-pulse">🌍</div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                    Detecting your location and currency...
+                  </p>
+                  <button
+                    onClick={async () => {
+                      toast.info('Detecting location...');
+                      setLoading(true);
+                      try {
+                        localStorage.removeItem('currency:settings:v1');
+                        const currency = await initializeCurrency();
+                        setCurrencySettings(currency);
+                        if (settings) {
+                          setSettings({
+                            ...settings,
+                            currency: currency.currency,
+                            country: currency.country || 'US',
+                          });
+                        }
+                        toast.success(`✅ Detected: ${currency.country} • ${currency.currency}`);
+                      } catch (error) {
+                        console.error('Detection failed:', error);
+                        toast.error('Detection failed. Using default (US, USD).');
+                        setCurrencySettings({
+                          currency: 'USD',
+                          country: 'US',
+                          autoDetected: false,
+                        });
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Detect Location Now
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Budget Health */}
             {budgetHealthScore !== null && (
               <div className="bg-white dark:bg-slate-900 rounded-xl p-4 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -1330,7 +1824,14 @@ export default function BudgetTracker() {
             {/* Savings Potential */}
             {savingsPotential && (
               <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl p-4 sm:p-6 text-white">
-                <h3 className="text-base sm:text-lg font-bold mb-4">💡 Savings Insights</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base sm:text-lg font-bold">💡 Savings Insights</h3>
+                  {hasLimitedBudgetTracker && (
+                    <span className="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full">
+                      Limited
+                    </span>
+                  )}
+                </div>
                 <div className="space-y-3">
                   <div>
                     <div className="text-xs sm:text-sm opacity-90 mb-1">
@@ -1410,7 +1911,9 @@ export async function getRecipeCost(recipe) {
         title: recipe.title || recipeCosts[recipe.id]?.title || null, // Preserve existing title if new one is missing
       };
       localStorage.setItem(RECIPE_COST_KEY, JSON.stringify(recipeCosts));
-    } catch {}
+    } catch {
+      // Ignore storage errors
+    }
   }
 
   return cost;

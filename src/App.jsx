@@ -26,12 +26,15 @@ import GamificationDashboard from './components/GamificationDashboard.jsx';
 import Favorites from './pages/Favorites.jsx';
 import MealRemindersPage from './pages/MealRemindersPage.jsx';
 import BudgetTrackerPage from './pages/BudgetTrackerPage.jsx';
+import WaterTrackerPage from './pages/WaterTrackerPage.jsx';
+import DieticianAIPage from './pages/DieticianAIPage.jsx';
 import { RecipeCardSkeletons } from './components/LoadingSkeleton.jsx';
 import { EmptyStateAnimation } from './components/LottieFoodAnimations.jsx';
 import { InlineRecipeLoader, FullPageRecipeLoader } from './components/FoodLoaders.jsx';
 import PullToRefresh from './components/PullToRefresh.jsx';
 import BackToTop from './components/BackToTop.jsx';
 import CookingAnimation from './components/CookingAnimation.jsx';
+import CookingMiniGames from './components/CookingMiniGames.jsx';
 import { GroceryListProvider } from './context/GroceryListContext.jsx';
 
 import { searchSupabaseRecipes } from './api/supabaseRecipes.js';
@@ -46,6 +49,7 @@ import {
 import { checkPaymentSuccess } from './utils/paymentProviders.js';
 import AdBanner, { InlineAd } from './components/AdBanner.jsx';
 import ProModalWrapper from './components/ProModalWrapper.jsx';
+import PremiumFeatureModalWrapper from './components/PremiumFeatureModalWrapper.jsx';
 import { useToast } from './components/Toast.jsx';
 import { AnimatePresence } from 'framer-motion';
 
@@ -59,6 +63,7 @@ const toIngredientArray = raw =>
 const App = () => {
   const toast = useToast();
   const [recipes, setRecipes] = useState([]);
+  const [showMiniGames, setShowMiniGames] = useState(false);
   const [favorites, setFavorites] = useState(() => {
     const saved = localStorage.getItem('favorites');
     return saved ? JSON.parse(saved) : [];
@@ -127,6 +132,44 @@ const App = () => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Initialize subscription plan on app load
+  useEffect(() => {
+    const initializePlan = async () => {
+      try {
+        const { getCurrentPlan } = await import('./utils/subscription.js');
+        const plan = await getCurrentPlan();
+        console.log('[App] Initial plan loaded:', plan);
+        // Dispatch event to notify components
+        window.dispatchEvent(new CustomEvent('subscriptionPlanChanged', { detail: { plan } }));
+      } catch (error) {
+        console.error('[App] Error initializing plan:', error);
+      }
+    };
+    initializePlan();
+  }, []);
+
+  // Listen for mini-games open event
+  useEffect(() => {
+    const handleOpenMiniGames = () => {
+      console.log('[App] Opening mini-games');
+      setShowMiniGames(true);
+    };
+    window.addEventListener('openMiniGames', handleOpenMiniGames);
+    return () => window.removeEventListener('openMiniGames', handleOpenMiniGames);
+  }, []);
+
+  // Listen for subscription plan changes (from auth, payments, etc.)
+  useEffect(() => {
+    const handlePlanChange = async event => {
+      const { plan } = event.detail || {};
+      console.log('[App] Subscription plan changed:', plan);
+      // Force refresh of plan-dependent features
+      // Components will re-check limits when they re-render
+    };
+    window.addEventListener('subscriptionPlanChanged', handlePlanChange);
+    return () => window.removeEventListener('subscriptionPlanChanged', handlePlanChange);
+  }, []);
+
   // Check for payment success on mount
   useEffect(() => {
     const paymentResult = checkPaymentSuccess();
@@ -142,6 +185,9 @@ const App = () => {
           6000
         );
 
+        // Dispatch plan change event
+        window.dispatchEvent(new CustomEvent('subscriptionPlanChanged', { detail: { plan } }));
+
         // Refresh to update UI after a short delay
         setTimeout(() => {
           window.location.reload();
@@ -151,6 +197,18 @@ const App = () => {
       // Payment canceled
       console.log('Payment canceled by user');
     }
+  }, [toast]);
+
+  // Listen for toast events from contexts (e.g., GroceryListContext)
+  useEffect(() => {
+    const handleShowToast = event => {
+      const { type, message, duration } = event.detail || {};
+      if (type && message) {
+        toast[type](message, duration || 5000);
+      }
+    };
+    window.addEventListener('showToast', handleShowToast);
+    return () => window.removeEventListener('showToast', handleShowToast);
   }, [toast]);
 
   // Persist filters and pantry chips (batched to reduce writes)
@@ -171,11 +229,17 @@ const App = () => {
   // Note: Notification permission should be requested on user interaction
   // We'll request it when user clicks a button or interacts with the app
 
-  // Cross-tab favorites sync
+  // Cross-tab sync for favorites and subscription plan
   useEffect(() => {
     const onStorage = e => {
       if (e.key === 'favorites' && e.newValue) {
         setFavorites(JSON.parse(e.newValue));
+      } else if (e.key === 'subscription:plan:v1' && e.newValue) {
+        // Plan changed in another tab - refresh
+        console.log('[App] Plan changed in another tab:', e.newValue);
+        window.dispatchEvent(
+          new CustomEvent('subscriptionPlanChanged', { detail: { plan: e.newValue } })
+        );
       }
     };
     window.addEventListener('storage', onStorage);
@@ -192,36 +256,47 @@ const App = () => {
   const filterDebounceRef = React.useRef(null);
 
   // Main search using the unified API wrapper (handles quota fallback)
+  // Enhanced with robust error handling, query validation, and smart fallbacks
   const fetchRecipes = useCallback(
     async (raw = '', options = {}) => {
       const { allowEmpty = false } = options;
-      const trimmedQuery = raw?.trim() || '';
-      const includeIngredients = [...toIngredientArray(raw), ...pantry.filter(Boolean)].filter(
-        Boolean
-      );
+
+      // Robust query parsing and validation
+      const trimmedQuery = typeof raw === 'string' ? raw.trim() : '';
+      const includeIngredients = [
+        ...toIngredientArray(raw || ''),
+        ...(Array.isArray(pantry) ? pantry : []).filter(Boolean),
+      ].filter(Boolean);
+
       const shouldShowDefaultFeed = !trimmedQuery && includeIngredients.length === 0;
 
-      // ENFORCE SEARCH LIMIT - Check if user can perform search
-      if (!allowEmpty && !shouldShowDefaultFeed) {
-        const canSearch = canPerformAction('search');
-        if (!canSearch) {
-          const planDetails = getPlanDetails();
-          toast.error(
-            `Search limit reached! You've used all ${planDetails.searchLimit} daily searches. Upgrade to unlock more!`
-          );
-          // Trigger upgrade modal
-          window.dispatchEvent(new CustomEvent('openProModal'));
-          return;
-        }
-      }
+      // Note: Searches are now unlimited for all plans, but we still record them for analytics
+      // No need to check limits anymore
 
-      const normalizedDiet = diet && diet.toLowerCase() !== 'any diet' ? diet : '';
-      const normalizedMealType = mealType && mealType.toLowerCase() !== 'any meal' ? mealType : '';
-      const normalizedMaxTime = maxTime && maxTime.toLowerCase() !== 'any time' ? maxTime : '';
+      // Normalize filter values with robust validation
+      const normalizedDiet =
+        diet && typeof diet === 'string' && diet.toLowerCase() !== 'any diet' ? diet.trim() : '';
+      const normalizedMealType =
+        mealType && typeof mealType === 'string' && mealType.toLowerCase() !== 'any meal'
+          ? mealType.trim()
+          : '';
+      const normalizedMaxTime =
+        maxTime && typeof maxTime === 'string' && maxTime.toLowerCase() !== 'any time'
+          ? maxTime.trim()
+          : '';
+
+      // Validate query length (prevent extremely long queries that could cause issues)
+      if (trimmedQuery.length > 200) {
+        setError('Search query is too long. Please use 200 characters or less.');
+        setRecipes([]);
+        setLoading(false);
+        return;
+      }
 
       if (!allowEmpty && shouldShowDefaultFeed && pantry.length === 0) {
         setError('Type a keyword, pick a pantry ingredient, or scroll through the featured feed.');
         setRecipes([]);
+        setLoading(false);
         return;
       }
 
@@ -231,59 +306,127 @@ const App = () => {
 
       // Record search if it's an actual search (not default feed)
       if (!shouldShowDefaultFeed) {
-        recordSearch();
+        try {
+          recordSearch();
+        } catch (recordError) {
+          // Silently fail analytics - don't block search
+          console.warn('[fetchRecipes] Failed to record search:', recordError);
+        }
       }
 
       try {
         // Read additional filters from localStorage (managed by Filters component)
-        const cuisine = localStorage.getItem('filters:cuisine') || '';
-        const difficulty = localStorage.getItem('filters:difficulty') || '';
-        const minProtein = localStorage.getItem('filters:minProtein') || '';
-        const maxCarbs = localStorage.getItem('filters:maxCarbs') || '';
-        const selectedIntolerances = JSON.parse(
-          localStorage.getItem('filters:selectedIntolerances') || '[]'
-        );
-        const intolerancesString =
-          selectedIntolerances.length > 0 ? selectedIntolerances.join(',') : '';
+        // Use try-catch for each localStorage access to prevent errors
+        let cuisine = '';
+        let difficulty = '';
+        let minProtein = '';
+        let maxCarbs = '';
+        let selectedIntolerances = [];
+        let intolerancesString = '';
 
-        const supabaseResults = await searchSupabaseRecipes({
+        try {
+          cuisine = localStorage.getItem('filters:cuisine') || '';
+          difficulty = localStorage.getItem('filters:difficulty') || '';
+          minProtein = localStorage.getItem('filters:minProtein') || '';
+          maxCarbs = localStorage.getItem('filters:maxCarbs') || '';
+          const intolerancesRaw = localStorage.getItem('filters:selectedIntolerances') || '[]';
+          selectedIntolerances = JSON.parse(intolerancesRaw);
+          if (!Array.isArray(selectedIntolerances)) {
+            selectedIntolerances = [];
+          }
+          intolerancesString =
+            selectedIntolerances.length > 0 ? selectedIntolerances.join(',') : '';
+        } catch (storageError) {
+          console.warn('[fetchRecipes] Error reading filters from localStorage:', storageError);
+          // Continue with empty filters
+        }
+
+        // Validate numeric filters
+        const validatedMaxCalories =
+          maxCalories && !isNaN(Number(maxCalories)) && Number(maxCalories) > 0
+            ? String(Number(maxCalories))
+            : '';
+        const validatedHealthScore =
+          healthScore && !isNaN(Number(healthScore)) && Number(healthScore) > 0
+            ? String(Number(healthScore))
+            : '';
+
+        // Execute search with timeout protection
+        const searchPromise = searchSupabaseRecipes({
           query: trimmedQuery,
           includeIngredients: shouldShowDefaultFeed ? [] : includeIngredients,
           diet: normalizedDiet,
           mealType: normalizedMealType,
           maxTime: normalizedMaxTime,
-          cuisine,
-          difficulty,
-          maxCalories: maxCalories || '',
-          healthScore: healthScore || '',
-          minProtein,
-          maxCarbs,
+          cuisine: cuisine || '',
+          difficulty: difficulty || '',
+          maxCalories: validatedMaxCalories,
+          healthScore: validatedHealthScore,
+          minProtein: minProtein || '',
+          maxCarbs: maxCarbs || '',
           intolerances: intolerancesString,
           limit: 24,
         });
 
+        // Add timeout to prevent hanging requests (30 seconds)
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Search request timed out. Please try again.')), 30000);
+        });
+
+        const supabaseResults = await Promise.race([searchPromise, timeoutPromise]);
+
         if (supabaseResults?.length) {
           setRecipes(supabaseResults);
+          // Clear any previous errors on success
+          setError(null);
+
+          // Optional: Show notification if permission granted
           if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification(`🍽 Found ${supabaseResults.length} recipes`);
+            try {
+              new Notification(`🍽 Found ${supabaseResults.length} recipes`);
+            } catch (notifError) {
+              // Silently fail notifications
+              console.warn('[fetchRecipes] Failed to show notification:', notifError);
+            }
           }
         } else {
           setRecipes([]);
-          setError(
-            'No recipes matched your filters in Supabase yet. Try adjusting the search or add more recipes.'
-          );
+          // Provide helpful error message based on search type
+          if (trimmedQuery || includeIngredients.length > 0) {
+            setError(
+              'No recipes found matching your search. Try different keywords, adjust your filters, or browse the featured recipes below.'
+            );
+          } else {
+            setError(
+              'No recipes matched your filters. Try adjusting your search criteria or browse the featured recipes below.'
+            );
+          }
         }
-      } catch (supabaseError) {
-        console.error('[fetchRecipes] Supabase search error', supabaseError);
+      } catch (searchError) {
+        console.error('[fetchRecipes] Search error:', searchError);
 
-        // Better error messages for common issues
-        let errorMessage = 'Failed to load recipes.';
-        if (supabaseError instanceof TypeError && supabaseError.message.includes('fetch')) {
-          errorMessage = 'Network error. Please check your internet connection.';
-        } else if (supabaseError.message) {
-          errorMessage = supabaseError.message;
-        } else if (supabaseError.error?.message) {
-          errorMessage = supabaseError.error.message;
+        // Enhanced error messages for different error types
+        let errorMessage = 'Failed to load recipes. Please try again.';
+
+        if (searchError instanceof TypeError) {
+          if (searchError.message.includes('fetch') || searchError.message.includes('network')) {
+            errorMessage = 'Network error. Please check your internet connection and try again.';
+          } else if (searchError.message.includes('Failed to fetch')) {
+            errorMessage = 'Unable to connect to the server. Please check your connection.';
+          }
+        } else if (searchError instanceof Error) {
+          if (
+            searchError.message.includes('timeout') ||
+            searchError.message.includes('timed out')
+          ) {
+            errorMessage = 'Search request timed out. Please try a simpler search or try again.';
+          } else if (searchError.message) {
+            errorMessage = searchError.message;
+          }
+        } else if (searchError?.error?.message) {
+          errorMessage = searchError.error.message;
+        } else if (searchError?.message) {
+          errorMessage = searchError.message;
         }
 
         setError(errorMessage);
@@ -331,7 +474,8 @@ const App = () => {
         if (!canFavorite) {
           const planDetails = getPlanDetails();
           toast.error(
-            `Favorites limit reached! You can only save ${planDetails.favoritesLimit} favorites on the Free plan. Upgrade to unlock more!`
+            `⭐ Favorites limit reached! You've saved ${favorites.length} recipes. The Free plan allows up to ${planDetails.favoritesLimit} favorites. Upgrade to save unlimited recipes!`,
+            { duration: 5000 }
           );
           // Trigger upgrade modal
           window.dispatchEvent(new CustomEvent('openProModal'));
@@ -378,6 +522,11 @@ const App = () => {
                   onRefresh={() => fetchRecipes(lastSearch || '', { allowEmpty: true })}
                 >
                   <main className="mx-auto max-w-7xl px-2 xs:px-3 sm:px-4 md:px-5 lg:px-6 xl:px-8 py-4 xs:py-6 sm:py-8">
+                    {/* Search Form - Moved to Top */}
+                    <div className="mb-4 xs:mb-5 sm:mb-6">
+                      <SearchForm onSearch={fetchRecipes} />
+                    </div>
+
                     {/* Daily Recipe Surprise */}
                     <div className="mb-4 xs:mb-6 sm:mb-8">
                       <DailyRecipe onRecipeSelect={toggleFavorite} />
@@ -386,10 +535,6 @@ const App = () => {
                     {/* Gamification Dashboard */}
                     <div className="mb-4 xs:mb-6 sm:mb-8">
                       <GamificationDashboard />
-                    </div>
-
-                    <div className="mb-4 xs:mb-5 sm:mb-6">
-                      <SearchForm onSearch={fetchRecipes} />
                     </div>
 
                     {/* Ad Banner (Top) */}
@@ -452,19 +597,25 @@ const App = () => {
                     )}
 
                     {error && (
-                      <p className="text-center mt-8 text-red-500 font-semibold">{error}</p>
+                      <div className="mt-6 xs:mt-8 px-3 xs:px-4 py-2.5 xs:py-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                        <p className="text-center text-sm xs:text-base text-red-600 dark:text-red-400 font-semibold break-words">
+                          {error}
+                        </p>
+                      </div>
                     )}
 
                     {recipes.length > 0 && (
                       <>
                         {/* Divider */}
-                        <div className="border-b border-slate-200 dark:border-slate-800 my-6" />
-                        <section className="mt-10">
-                          <div className="flex items-baseline justify-between mb-4">
-                            <h2 className="text-xl sm:text-2xl font-bold">Recipe Results</h2>
+                        <div className="border-b border-slate-200 dark:border-slate-800 my-4 xs:my-5 sm:my-6" />
+                        <section className="mt-6 xs:mt-8 sm:mt-10">
+                          <div className="flex items-baseline justify-between mb-3 xs:mb-4">
+                            <h2 className="text-lg xs:text-xl sm:text-2xl font-bold">
+                              Recipe Results
+                            </h2>
                           </div>
 
-                          <div className="grid gap-3 xs:gap-4 sm:gap-5 grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6">
+                          <div className="grid gap-3 xs:gap-4 sm:gap-5 grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                             {recipes.map((recipe, idx) => (
                               <RecipeCard
                                 key={recipe.id}
@@ -480,20 +631,23 @@ const App = () => {
                     )}
 
                     {!loading && !error && recipes.length === 0 && (
-                      <div className="mt-16 text-center text-slate-500 dark:text-slate-400">
-                        <div className="flex justify-center mb-6">
-                          <CookingAnimation type="recipe-book" className="w-32 h-32 opacity-50" />
+                      <div className="mt-10 xs:mt-12 sm:mt-16 text-center text-slate-500 dark:text-slate-400 px-4">
+                        <div className="flex justify-center mb-4 xs:mb-5 sm:mb-6">
+                          <CookingAnimation
+                            type="recipe-book"
+                            className="w-24 h-24 xs:w-28 xs:h-28 sm:w-32 sm:h-32 opacity-50"
+                          />
                         </div>
-                        <p className="mb-2 text-lg font-semibold">
+                        <p className="mb-2 text-base xs:text-lg font-semibold">
                           Ready to cook something delicious?
                         </p>
-                        <p className="mb-4 text-sm">Try something like:</p>
+                        <p className="mb-3 xs:mb-4 text-xs xs:text-sm">Try something like:</p>
                         <div className="flex flex-wrap gap-2 justify-center">
                           {['chicken, rice', 'eggs, tomato', 'pasta, bacon', 'tofu, broccoli'].map(
                             s => (
                               <button
                                 key={s}
-                                className="px-3 py-1 rounded-full bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+                                className="px-3 xs:px-4 py-1.5 xs:py-2 text-xs xs:text-sm rounded-full bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors min-h-[44px] xs:min-h-0 touch-manipulation"
                                 onClick={() => fetchRecipes(s)}
                               >
                                 {s}
@@ -537,16 +691,22 @@ const App = () => {
             />
             <Route path="/meal-reminders" element={<MealRemindersPage />} />
             <Route path="/budget-tracker" element={<BudgetTrackerPage />} />
+            <Route path="/water-tracker" element={<WaterTrackerPage />} />
+            <Route path="/dietician-ai" element={<DieticianAIPage />} />
           </Routes>
 
           {/* Pro Modal Wrapper - listen for open event */}
           <ProModalWrapper />
+          <PremiumFeatureModalWrapper />
 
           {/* Floating grocery list drawer */}
           <GroceryDrawer />
 
           {/* Back to top button */}
           <BackToTop />
+
+          {/* Mini-Games Modal */}
+          <CookingMiniGames isOpen={showMiniGames} onClose={() => setShowMiniGames(false)} />
         </div>
       </GroceryListProvider>
     </Router>

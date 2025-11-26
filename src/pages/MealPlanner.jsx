@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useGroceryList } from '../context/GroceryListContext.jsx';
@@ -134,16 +134,25 @@ export default function MealPlanner() {
   const [swapState, setSwapState] = useState(null); // { dayIdx, mealType, recipe }
   const toast = useToast();
   const navigate = useNavigate();
+  const hasChecked = useRef(false);
 
-  // ENFORCE MEAL PLANNER LIMIT - Check access on mount
+  // ENFORCE MEAL PLANNER LIMIT - Check access on mount (only once)
   useEffect(() => {
+    if (hasChecked.current) return;
+    hasChecked.current = true;
+
     const canAccess = canPerformAction('meal_planner');
     if (!canAccess) {
-      toast.error('Meal Planner is a premium feature! Upgrade to unlock meal planning.');
       navigate('/');
-      window.dispatchEvent(new CustomEvent('openProModal'));
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent('openPremiumFeatureModal', {
+            detail: { feature: 'meal_planner' },
+          })
+        );
+      }, 300);
     }
-  }, [navigate, toast]);
+  }, [navigate]);
 
   // Persist whenever plan changes
   useEffect(() => writeMealPlan(plan), [plan]);

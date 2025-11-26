@@ -61,21 +61,8 @@ export async function getLeftoverIdeas(ingredients = [], diet = '', intolerances
       return validResults;
     }
 
-    // Fallback to Spoonacular only if enabled and no Supabase results
-    if (!FEATURES.disableSpoonacular) {
-      console.log('🔄 [LEFTOVER IDEAS] Falling back to Spoonacular');
-      const { searchRecipes } = await import('../api/spoonacular.js');
-      const ingredientsString = validIngredients.join(',');
-      const results = await searchRecipes({
-        includeIngredients: ingredientsString,
-        number: 10,
-        diet: diet || undefined,
-        intolerances: intolerances || undefined,
-      });
-      return results || [];
-    }
-
-    console.log('⚠️ [LEFTOVER IDEAS] No recipes found and Spoonacular disabled');
+    // Spoonacular removed - no fallback
+    console.log('⚠️ [LEFTOVER IDEAS] No recipes found');
     return [];
   } catch (err) {
     console.error('❌ [LEFTOVER IDEAS] Error getting leftover ideas:', err);

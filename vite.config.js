@@ -10,11 +10,6 @@ export default defineConfig({
       workbox: {
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/api\.spoonacular\.com\//,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'spoonacular-api' },
-          },
-          {
             urlPattern: /^https:\/\/.*\.(?:png|jpg|jpeg|svg|gif|webp)$/,
             handler: 'CacheFirst',
             options: { cacheName: 'images' },
@@ -30,6 +25,11 @@ export default defineConfig({
       },
     }),
   ],
+  server: {
+    port: 5173,
+    // No proxy needed - vercel dev handles /api routes automatically
+    // For npm run dev, API calls will use the deployed Vercel URL
+  },
   build: {
     sourcemap: false, // Disable source maps to reduce warnings
   },

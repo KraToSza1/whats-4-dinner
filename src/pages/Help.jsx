@@ -675,25 +675,55 @@ export default function Help() {
               Can't find what you're looking for? We're here to help! Check out our resources or get
               in touch with our support team.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <motion.a
-                href="/profile"
+            <div className="flex flex-col sm:flex-row gap-4 justify-center relative z-10">
+              <motion.button
+                onMouseDown={e => {
+                  e.preventDefault();
+                  console.log('🔘 [Help] Account Settings button clicked (mousedown)');
+                }}
+                onClick={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔘 [Help] Account Settings button clicked (onClick)');
+                  navigate('/profile');
+                }}
+                onTouchStart={e => {
+                  e.stopPropagation();
+                  console.log('🔘 [Help] Account Settings button touched');
+                }}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-6 py-3 bg-white text-emerald-600 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                className="px-6 py-3 bg-white text-emerald-600 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer touch-manipulation min-h-[44px] relative z-10"
+                type="button"
+                style={{ pointerEvents: 'auto' }}
               >
                 <Settings className="w-5 h-5" />
                 Account Settings
-              </motion.a>
-              <motion.a
-                href="/terms"
+              </motion.button>
+              <motion.button
+                onMouseDown={e => {
+                  e.preventDefault();
+                  console.log('🔘 [Help] Terms & Privacy button clicked (mousedown)');
+                }}
+                onClick={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔘 [Help] Terms & Privacy button clicked (onClick)');
+                  navigate('/terms');
+                }}
+                onTouchStart={e => {
+                  e.stopPropagation();
+                  console.log('🔘 [Help] Terms & Privacy button touched');
+                }}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-6 py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl font-semibold hover:bg-white/20 transition-all flex items-center justify-center gap-2"
+                className="px-6 py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl font-semibold hover:bg-white/20 transition-all flex items-center justify-center gap-2 cursor-pointer touch-manipulation min-h-[44px] relative z-10"
+                type="button"
+                style={{ pointerEvents: 'auto' }}
               >
                 <FileText className="w-5 h-5" />
                 Terms & Privacy
-              </motion.a>
+              </motion.button>
             </div>
             <div className="mt-8 pt-8 border-t border-white/20">
               <p className="text-emerald-50 text-sm">

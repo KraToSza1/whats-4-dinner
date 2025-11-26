@@ -5,19 +5,32 @@ import { isAdmin, isAdminModeEnabled } from '../utils/admin';
 const AdminCtx = createContext(null);
 
 export function AdminProvider({ children }) {
-  // FORCE ADMIN - ALWAYS TRUE - NO STATE, NO CHECKS, NO CONDITIONS
-  console.log('🔑 [ADMIN CONTEXT] =========================================');
-  console.log('🔑 [ADMIN CONTEXT] PROVIDER RENDERING - FORCING ADMIN = TRUE');
-  console.log('🔑 [ADMIN CONTEXT] =========================================');
+  const { user } = useAuth();
+  const [adminModeEnabled, setAdminModeEnabled] = useState(false);
 
-  // ALWAYS return true - no state, no effects, no conditions
-  const value = useMemo(() => {
-    console.log('🔑 [ADMIN CONTEXT] useMemo - RETURNING ADMIN = TRUE');
-    return {
-      isAdmin: true, // FORCED TO TRUE
-      adminModeEnabled: true, // FORCED TO TRUE
-    };
-  }, []); // Empty deps - always returns true
+  // Check if user is an admin based on their email
+  const isAdminUser = useMemo(() => {
+    if (!user) {
+      return false;
+    }
+
+    const userIsAdmin = isAdmin(user);
+    return userIsAdmin;
+  }, [user]);
+
+  // Check if admin mode is enabled (for UI visibility)
+  useEffect(() => {
+    const enabled = isAdminModeEnabled();
+    setAdminModeEnabled(enabled);
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      isAdmin: isAdminUser,
+      adminModeEnabled: adminModeEnabled && isAdminUser, // Only enabled if user is actually an admin
+    }),
+    [isAdminUser, adminModeEnabled]
+  );
 
   return <AdminCtx.Provider value={value}>{children}</AdminCtx.Provider>;
 }

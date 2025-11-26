@@ -4,51 +4,42 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAdmin } from '../context/AdminContext';
 import { useToast } from '../components/Toast.jsx';
+import { isAdmin } from '../utils/admin';
 import RecipeEditor from '../components/RecipeEditor';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { isAdmin: isAdminUser, adminModeEnabled } = useAdmin();
   const toast = useToast();
 
+  // Double-check admin status using direct check
+  const userIsAdmin = user ? isAdmin(user) : false;
+
   useEffect(() => {
-    // Check if we're on localhost (dev)
-    const isLocalhost =
-      window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    // Wait for auth to load
+    if (authLoading) {
+      console.log('🔑 [ADMIN DASHBOARD] ⏳ Waiting for auth...');
+      return;
+    }
 
-    // Check if we're on a Vercel/production domain
-    const isProduction =
-      !isLocalhost &&
-      (window.location.hostname.includes('vercel.app') ||
-        window.location.hostname.includes('vercel.com') ||
-        (!window.location.hostname.includes('localhost') &&
-          !window.location.hostname.includes('127.0.0.1')));
-
-    // PRODUCTION: Require environment variable - BLOCK IMMEDIATELY
-    if (isProduction && import.meta.env.VITE_ENABLE_ADMIN !== 'true') {
-      toast.error('Admin access is disabled in production');
+    if (!user) {
+      console.log('🔑 [ADMIN DASHBOARD] ❌ No user, redirecting to home');
+      toast.error('Please sign in to access admin dashboard');
       navigate('/', { replace: true });
       return;
     }
 
-    // LOCALHOST: Always allow
-    if (isLocalhost) {
-      import('../utils/admin.js').then(({ forceEnableAdmin }) => {
-        forceEnableAdmin();
-      });
+    // STRICT CHECK: Only allow if user email is in admin allowlist
+    if (!userIsAdmin) {
+      console.log('🔑 [ADMIN DASHBOARD] ❌ User is not an admin:', user.email);
+      toast.error('Access denied. Admin privileges required.');
+      navigate('/', { replace: true });
       return;
     }
 
-    // EXPLICITLY ENABLED: Allow
-    if (import.meta.env.VITE_ENABLE_ADMIN === 'true') {
-      return;
-    }
-
-    // DEFAULT: Block access
-    toast.error('Admin access is disabled');
-    navigate('/', { replace: true });
-  }, [navigate, toast]);
+    console.log('🔑 [ADMIN DASHBOARD] ✅ User is admin, allowing access:', user.email);
+  }, [user, userIsAdmin, authLoading, navigate, toast]);
 
   // Login check already handled above - this is just for rendering
   return (

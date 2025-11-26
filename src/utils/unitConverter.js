@@ -50,7 +50,7 @@ const VOLUME_ALIASES = {
 const UNIT_ALIASES = { ...MASS_ALIASES, ...VOLUME_ALIASES };
 
 const SYSTEM_VOLUME = {
-  metric: { primary: 'ml', thresholds: { l: 1000 } },
+  metric: { primary: 'ml', thresholds: { l: 1000 }, cups: 240, tbsp: 15, tsp: 5 },
   uk: { cups: 284, tbsp: 17.758, tsp: 5.919 },
   us: { cups: 236.588, tbsp: 14.7868, tsp: 4.92892 },
 };

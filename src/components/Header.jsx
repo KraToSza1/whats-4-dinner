@@ -6,13 +6,13 @@ import Logo from '../assets/Logo.tsx';
 import { useAuth, signInWithEmail, signOut } from '../context/AuthContext.jsx';
 import AuthModal from './AuthModal.jsx';
 import ProModal from './ProModal.jsx';
-import UnitConverter from './UnitConverter.jsx';
-import { exportFavorites, importFavorites } from '../helpers/favoritesIO';
 import { getPlanName, isFreePlan } from '../utils/subscription.js';
 import { useGroceryList } from '../context/GroceryListContext.jsx';
 import { useToast } from './Toast.jsx';
 import { useAdmin } from '../context/AdminContext';
-import { isAdminModeEnabled } from '../utils/admin';
+import { isAdmin } from '../utils/admin';
+import { useLanguage } from '../context/LanguageContext.jsx';
+import InstallButton from './InstallButton.jsx';
 
 export default function Header({ theme, toggleTheme, favorites, setFavorites }) {
   const toast = useToast();
@@ -20,29 +20,29 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
   const { user } = useAuth();
   const { open: groceryOpen, setOpen: setGroceryOpen, items: groceryItems } = useGroceryList();
   const { adminModeEnabled } = useAdmin();
+  const { t } = useLanguage();
   const [authOpen, setAuthOpen] = useState(false);
   const [proOpen, setProOpen] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [planName, setPlanName] = useState(getPlanName());
+  const [isFree, setIsFree] = useState(isFreePlan());
   const userEmail = typeof user === 'object' && user?.email ? user.email : null;
-  const planName = getPlanName();
-  const isFree = isFreePlan();
-  // COMPLETELY HIDE admin in production - only show if explicitly enabled via env var
-  // Check hostname instead of env vars for more reliable detection
-  const isLocalhost =
-    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-  const isProduction =
-    !isLocalhost &&
-    (window.location.hostname.includes('vercel.app') ||
-      window.location.hostname.includes('vercel.com') ||
-      (!window.location.hostname.includes('localhost') &&
-        !window.location.hostname.includes('127.0.0.1')));
-
-  // In production, COMPLETELY HIDE unless VITE_ENABLE_ADMIN=true
-  // In localhost/dev, show if admin mode is enabled
-  const showAdmin = isProduction
-    ? import.meta.env.VITE_ENABLE_ADMIN === 'true'
-    : isLocalhost || adminModeEnabled || isAdminModeEnabled();
+  // Listen for plan changes and refresh plan name
+  useEffect(() => {
+    const handlePlanChange = () => {
+      setPlanName(getPlanName());
+      setIsFree(isFreePlan());
+    };
+    window.addEventListener('subscriptionPlanChanged', handlePlanChange);
+    return () => window.removeEventListener('subscriptionPlanChanged', handlePlanChange);
+  }, []);
+  // STRICT ADMIN CHECK: Only show admin menu if:
+  // 1. User is authenticated
+  // 2. User email is in admin allowlist (raymondvdw@gmail.com or VITE_SECOND_ADMIN_EMAIL)
+  // 3. Admin mode is enabled (for UI visibility)
+  const userIsAdmin = user ? isAdmin(user) : false;
+  const showAdmin = userIsAdmin && adminModeEnabled;
 
   useEffect(() => {
     if (showMenu) {
@@ -102,11 +102,15 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
   };
   return (
     <>
+      {/* Install Banner - Shows at top when installable */}
+      <InstallButton showBanner={true} />
+
       <motion.header
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.3 }}
         className="sticky top-0 z-30 w-full backdrop-blur supports-[backdrop-filter]:bg-white/60 bg-white/70 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800"
+        style={{ marginTop: 0 }}
       >
         <div className="mx-auto max-w-7xl px-2 sm:px-4 lg:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-1.5 sm:gap-2">
           <motion.div
@@ -163,7 +167,7 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
               title={`View ${favorites.length} saved favorites`}
             >
               <span className="text-sm sm:text-base md:text-lg flex-shrink-0">❤️</span>
-              <span className="hidden sm:inline">Favorites</span>
+              <span className="hidden sm:inline">{t('favorites')}</span>
               <AnimatePresence mode="wait">
                 {favorites.length > 0 && (
                   <motion.span
@@ -196,7 +200,7 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
               title="View calorie tracker"
             >
               <span className="text-sm sm:text-base md:text-lg flex-shrink-0">📊</span>
-              <span className="hidden sm:inline">Calories</span>
+              <span className="hidden sm:inline">{t('calories')}</span>
             </motion.button>
 
             {/* Grocery List button */}
@@ -208,7 +212,7 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
               title={`Open grocery list (${groceryItems.length} items)`}
             >
               <span className="text-sm sm:text-base md:text-lg flex-shrink-0">🛒</span>
-              <span className="hidden sm:inline">Grocery</span>
+              <span className="hidden sm:inline">{t('groceryList')}</span>
               <AnimatePresence mode="wait">
                 {groceryItems.length > 0 && (
                   <motion.span
@@ -358,6 +362,11 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                             </span>
                           </button>
                         )}
+                      </div>
+
+                      {/* Install App Button */}
+                      <div className="px-3 py-2">
+                        <InstallButton compact={true} />
                       </div>
 
                       <div className="border-t border-slate-200 dark:border-slate-700 my-2" />
@@ -600,67 +609,48 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                           </svg>
                           <span className="font-medium">Analytics</span>
                         </button>
-                      </div>
-
-                      <div className="border-t border-slate-200 dark:border-slate-700 my-2" />
-
-                      {/* Data Section */}
-                      <div className="px-3 py-2">
-                        <div className="text-[10px] sm:text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2 sm:px-3 mb-2">
-                          Data
-                        </div>
 
                         <button
                           onClick={() => {
                             setShowMenu(false);
-                            exportFavorites(favorites);
+                            navigate('/water-tracker');
                           }}
-                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm sm:text-base hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg flex items-center gap-2 sm:gap-3 transition-colors mb-1 touch-manipulation"
+                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm sm:text-base hover:bg-cyan-50 dark:hover:bg-cyan-900/20 rounded-lg flex items-center gap-2 sm:gap-3 transition-all touch-manipulation"
                         >
-                          <svg
-                            className="w-5 h-5 text-blue-600 dark:text-blue-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                            />
-                          </svg>
-                          <span className="font-medium">Export Favorites</span>
+                          <span className="text-xl">💧</span>
+                          <span className="font-medium">Water Tracker</span>
+                          <span className="ml-auto text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full">
+                            FREE
+                          </span>
                         </button>
 
-                        <label className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm sm:text-base hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg flex items-center gap-2 sm:gap-3 cursor-pointer transition-colors touch-manipulation">
-                          <svg
-                            className="w-5 h-5 text-green-600 dark:text-green-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                            />
-                          </svg>
-                          <span className="font-medium">Import Favorites</span>
-                          <input
-                            type="file"
-                            accept="application/json"
-                            className="hidden"
-                            onChange={e => {
-                              setShowMenu(false);
-                              importFavorites(e.target.files?.[0], data => {
-                                setFavorites(data);
-                                localStorage.setItem('favorites', JSON.stringify(data));
-                              });
-                            }}
-                          />
-                        </label>
+                        <button
+                          onClick={() => {
+                            setShowMenu(false);
+                            navigate('/dietician-ai');
+                          }}
+                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm sm:text-base hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg flex items-center gap-2 sm:gap-3 transition-all touch-manipulation"
+                        >
+                          <span className="text-xl">🤖</span>
+                          <span className="font-medium">AI Dietician</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setShowMenu(false);
+                            console.log('[Header] Dispatching openMiniGames event');
+                            window.dispatchEvent(
+                              new CustomEvent('openMiniGames', { bubbles: true })
+                            );
+                          }}
+                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm sm:text-base hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg flex items-center gap-2 sm:gap-3 transition-all touch-manipulation"
+                        >
+                          <span className="text-xl">🎮</span>
+                          <span className="font-medium">Mini-Games</span>
+                          <span className="ml-auto text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full">
+                            FREE
+                          </span>
+                        </button>
                       </div>
 
                       <div className="border-t border-slate-200 dark:border-slate-700 my-2" />
@@ -706,7 +696,34 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                           </div>
                         </button>
 
-                        <UnitConverter isInMenu={true} onClose={() => setShowMenu(false)} />
+                        <button
+                          onClick={() => {
+                            setShowMenu(false);
+                            navigate('/profile');
+                          }}
+                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm sm:text-base hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg flex items-center gap-2 sm:gap-3 transition-colors mb-1 touch-manipulation"
+                        >
+                          <svg
+                            className="w-5 h-5 text-slate-600 dark:text-slate-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                          </svg>
+                          <span className="font-medium">Settings</span>
+                        </button>
                       </div>
 
                       {/* Help & Support Section */}

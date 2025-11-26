@@ -98,10 +98,7 @@ function getUserPreferences() {
  * Get recipe recommendations based on user preferences
  */
 export async function getRecommendations(limit = 10) {
-  if (FEATURES.disableSpoonacular) {
-    return [];
-  }
-
+  // Spoonacular removed - use Supabase recipes only
   const preferences = getUserPreferences();
 
   if (preferences.favoriteCount === 0 && preferences.highlyRatedCount === 0) {
@@ -109,35 +106,32 @@ export async function getRecommendations(limit = 10) {
   }
 
   try {
-    const { searchRecipes } = await import('../api/spoonacular.js');
+    // Use Supabase recipes instead
+    const { searchSupabaseRecipes } = await import('../api/supabaseRecipes.js');
 
     // Build search query from preferences
     const searchParams = {
-      number: limit,
+      query: '',
+      includeIngredients: preferences.topIngredients.slice(0, 3),
+      diet: '',
+      mealType: preferences.topDishTypes[0] || '',
+      maxTime: '',
+      limit: limit,
     };
 
-    // Add cuisine filter if available
-    if (preferences.topCuisines.length > 0) {
-      searchParams.cuisine = preferences.topCuisines[0];
-    }
-
-    // Add dish type filter if available
-    if (preferences.topDishTypes.length > 0) {
-      searchParams.type = preferences.topDishTypes[0];
-    }
-
-    // Add ingredients if available
-    if (preferences.topIngredients.length > 0) {
-      searchParams.includeIngredients = preferences.topIngredients.slice(0, 3).join(',');
-    }
-
-    const results = await searchRecipes(searchParams);
+    const results = await searchSupabaseRecipes(searchParams);
 
     // Filter out already favorited recipes
     const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
     const favoriteIds = favorites.map(f => f.id);
 
-    return results.filter(recipe => !favoriteIds.includes(recipe.id)) || [];
+    // Filter to only include valid UUID recipes
+    const { isUuid } = await import('../utils/img.ts');
+    const validResults = (results || []).filter(recipe => {
+      return recipe?.id && isUuid(recipe.id) && !favoriteIds.includes(recipe.id);
+    });
+
+    return validResults || [];
   } catch (err) {
     console.error('Error getting recommendations:', err);
     return [];
@@ -205,37 +199,8 @@ export async function getSimilarRecipes(recipe, limit = 5) {
       return filtered;
     }
 
-    // Fallback to Spoonacular only if enabled
-    if (!FEATURES.disableSpoonacular) {
-      console.log('🔄 [SIMILAR RECIPES] Falling back to Spoonacular');
-      const { searchRecipes } = await import('../api/spoonacular.js');
-
-      const searchParams = {
-        number: limit + 5, // Get more to filter out current recipe
-      };
-
-      // Use cuisine if available
-      if (recipe.cuisines && recipe.cuisines.length > 0) {
-        searchParams.cuisine = recipe.cuisines[0];
-      }
-
-      // Use dish type if available
-      if (recipe.dishTypes && recipe.dishTypes.length > 0) {
-        searchParams.type = recipe.dishTypes[0];
-      }
-
-      // Use main ingredients if available
-      if (mainIngredients.length > 0) {
-        searchParams.includeIngredients = mainIngredients.slice(0, 3).join(',');
-      }
-
-      const results = await searchRecipes(searchParams);
-
-      // Filter out current recipe
-      return results.filter(r => r.id !== recipe.id).slice(0, limit) || [];
-    }
-
-    console.log('⚠️ [SIMILAR RECIPES] No recipes found and Spoonacular disabled');
+    // Spoonacular removed - no fallback
+    console.log('⚠️ [SIMILAR RECIPES] No recipes found');
     return [];
   } catch (err) {
     console.error('❌ [SIMILAR RECIPES] Error getting similar recipes:', err);
@@ -312,49 +277,8 @@ export async function getCompleteMealSuggestions(recipe, limit = 3) {
       }
     }
 
-    // Fallback to Spoonacular only if enabled
-    if (!FEATURES.disableSpoonacular) {
-      console.log('🔄 [MEAL SUGGESTIONS] Falling back to Spoonacular');
-      const { searchRecipes } = await import('../api/spoonacular.js');
-
-      // Determine meal type
-      let mealType = 'main course';
-      if (recipe.dishTypes) {
-        if (recipe.dishTypes.includes('dessert')) {
-          mealType = 'dessert';
-        } else if (recipe.dishTypes.includes('side dish')) {
-          mealType = 'side dish';
-        } else if (recipe.dishTypes.includes('appetizer')) {
-          mealType = 'appetizer';
-        }
-      }
-
-      // If it's a main course, suggest side dishes
-      // If it's a side dish, suggest main courses
-      const suggestions = [];
-
-      if (mealType === 'main course') {
-        const sides = await searchRecipes({
-          type: 'side dish',
-          number: limit,
-        });
-        if (Array.isArray(sides) && sides.length > 0) {
-          suggestions.push(...sides);
-        }
-      } else if (mealType === 'side dish') {
-        const mains = await searchRecipes({
-          type: 'main course',
-          number: limit,
-        });
-        if (Array.isArray(mains) && mains.length > 0) {
-          suggestions.push(...mains);
-        }
-      }
-
-      return suggestions.slice(0, limit) || [];
-    }
-
-    console.log('⚠️ [MEAL SUGGESTIONS] No recipes found and Spoonacular disabled');
+    // Spoonacular removed - no fallback
+    console.log('⚠️ [MEAL SUGGESTIONS] No recipes found');
     return [];
   } catch (err) {
     console.error('❌ [MEAL SUGGESTIONS] Error getting complete meal suggestions:', err);

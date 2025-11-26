@@ -223,3 +223,10 @@ export function getTodayXP() {
     return 0;
   }
 }
+
+/**
+ * Get level milestones for display
+ */
+export function getLevelMilestones() {
+  return [5, 10, 20, 30, 50];
+}

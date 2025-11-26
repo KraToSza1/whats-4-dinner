@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import RecipeCard from '../components/RecipeCard.jsx';
@@ -19,15 +19,24 @@ import { canPerformAction, getPlanDetails, hasFeature } from '../utils/subscript
 export default function Collections() {
   const navigate = useNavigate();
   const toast = useToast();
+  const hasChecked = useRef(false);
 
-  // ENFORCE COLLECTIONS LIMIT - Check access on mount
+  // ENFORCE COLLECTIONS LIMIT - Check access on mount (only once)
   useEffect(() => {
+    if (hasChecked.current) return;
+    hasChecked.current = true;
+
     if (!hasFeature('collections')) {
-      toast.error('Collections is a premium feature! Upgrade to unlock recipe collections.');
       navigate('/');
-      window.dispatchEvent(new CustomEvent('openProModal'));
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent('openPremiumFeatureModal', {
+            detail: { feature: 'collections' },
+          })
+        );
+      }, 300);
     }
-  }, [navigate, toast]);
+  }, [navigate]);
 
   const [collections, setCollections] = useState(getCollections());
   const [selectedCollection, setSelectedCollection] = useState(null);
@@ -100,7 +109,8 @@ export default function Collections() {
     if (!canCreate) {
       const planDetails = getPlanDetails();
       toast.error(
-        `Collections limit reached! You can only create ${planDetails.collectionsLimit} collections on the Free plan. Upgrade to unlock more!`
+        `📁 Collections limit reached! You've created ${currentCollections.length} collection${currentCollections.length === 1 ? '' : 's'}. The Free plan allows ${planDetails.collectionsLimit} collection${planDetails.collectionsLimit === 1 ? '' : 's'}. Upgrade to create unlimited collections and organize all your recipes!`,
+        { duration: 5000 }
       );
       window.dispatchEvent(new CustomEvent('openProModal'));
       return;

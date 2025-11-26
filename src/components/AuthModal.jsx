@@ -22,55 +22,33 @@ export default function AuthModal({ open, onClose }) {
     };
   }, [open]);
 
-  // Force localhost for local development
-  // In production, use the actual current origin (Vercel URL)
+  // Build redirect URL - Supabase needs the exact URL that will receive the callback
+  // For local: http://localhost:5173
+  // For Vercel: https://your-vercel-url.vercel.app
   const redirectTo =
     window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? `http://${window.location.hostname}:${window.location.port || '5173'}`
-      : window.location.origin; // This will be the actual Vercel URL in production
-
-  console.log('🔐 [AUTH MODAL] =========================================');
-  console.log('🔐 [AUTH MODAL] Modal opened:', { open });
-  console.log('🔐 [AUTH MODAL] Current URL:', {
-    full: window.location.href,
-    hostname: window.location.hostname,
-    port: window.location.port,
-    origin: window.location.origin,
-    hash: window.location.hash,
-  });
-  console.log('🔐 [AUTH MODAL] Redirect URL:', redirectTo);
-  console.log('🔐 [AUTH MODAL] =========================================');
+      : window.location.origin; // This will be the actual Vercel URL in production (e.g., https://whats-4-dinner-git-master-raymonds-projects-17a8f0f7.vercel.app)
 
   const sendMagicLink = async e => {
     e?.preventDefault?.();
     if (!email) {
-      console.log('🔐 [AUTH MODAL] ❌ No email provided');
       return;
     }
-    console.log('🔐 [AUTH MODAL] =========================================');
-    console.log('🔐 [AUTH MODAL] 📧 Sending magic link...');
-    console.log('🔐 [AUTH MODAL] Email:', email);
-    console.log('🔐 [AUTH MODAL] Redirect URL:', redirectTo);
-    console.log('🔐 [AUTH MODAL] =========================================');
     setLoading(true);
     setError('');
     try {
-      console.debug('[Supabase][AuthModal] sendMagicLink:start', { email, redirectTo });
       const { data, error: err } = await supabase.auth.signInWithOtp({
         email,
         options: { emailRedirectTo: redirectTo },
       });
-      console.log('🔐 [AUTH MODAL] Magic link response:', { data, error: err });
       if (err) {
-        console.error('🔐 [AUTH MODAL] ❌ Magic link error:', err);
+        console.error('🔐 [AUTH] Magic link error:', err);
         throw err;
       }
       setSent(true);
-      console.log('🔐 [AUTH MODAL] ✅ Magic link sent successfully!');
-      console.debug('[Supabase][AuthModal] sendMagicLink:complete');
     } catch (err) {
-      console.error('🔐 [AUTH MODAL] ❌ Magic link failed:', err);
-      console.error('[Supabase][AuthModal] sendMagicLink:error', err);
+      console.error('🔐 [AUTH] Magic link failed:', err);
       setError(err.message || 'Failed to send link');
     } finally {
       setLoading(false);
@@ -78,63 +56,75 @@ export default function AuthModal({ open, onClose }) {
   };
 
   const signInWith = async provider => {
-    console.log('🔐 [AUTH MODAL] =========================================');
-    console.log('🔐 [AUTH MODAL] 🔑 Starting OAuth sign in...');
-    console.log('🔐 [AUTH MODAL] Provider:', provider);
-    console.log('🔐 [AUTH MODAL] Current URL:', window.location.href);
-    console.log('🔐 [AUTH MODAL] Redirect URL:', redirectTo);
-    console.log('🔐 [AUTH MODAL] =========================================');
     setError('');
     setLoading(true);
     try {
-      console.debug('[Supabase][AuthModal] signInWith:start', { provider, redirectTo });
+      // Build the full redirect URL - Supabase will handle the callback
+      // The redirectTo should be the base URL where Supabase will redirect after OAuth
+      // Supabase automatically appends the auth callback path
+      const fullRedirectTo = redirectTo;
+
       const { data, error: err } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo },
+        options: {
+          redirectTo: fullRedirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
       });
-      console.log('🔐 [AUTH MODAL] OAuth response:', { data, error: err });
       if (err) {
-        console.error('🔐 [AUTH MODAL] ❌ OAuth error:', err);
-        console.error('[Supabase][AuthModal] signInWith:error', err);
+        console.error('🔐 [AUTH] OAuth error:', err);
         if (err.message?.includes('provider is not enabled')) {
           setError(
-            `Please enable ${provider} in your Supabase dashboard. See GOOGLE_OAUTH_SETUP.md for free setup instructions.`
+            `Google OAuth is not enabled in Supabase. Please enable it in your Supabase dashboard under Authentication > Providers > Google.`
+          );
+        } else if (err.message?.includes('redirect_uri_mismatch')) {
+          const isLocal =
+            window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          setError(
+            isLocal
+              ? `Redirect URL mismatch. Add "${fullRedirectTo}" to your Supabase dashboard under Authentication > URL Configuration > Redirect URLs. Google OAuth may not work locally - it will work on Vercel once deployed.`
+              : `Redirect URL mismatch. Add "${fullRedirectTo}" to your Supabase dashboard under Authentication > URL Configuration > Redirect URLs.`
           );
         } else {
-          setError(err.message || 'OAuth failed');
+          setError(err.message || 'OAuth sign-in failed. Please try again.');
         }
         setLoading(false);
+      } else if (data?.url) {
+        // Redirect immediately - Supabase will handle the OAuth flow
+        window.location.href = data.url;
+        // Note: User will be redirected, so we don't need to setLoading(false)
       } else {
-        console.log('🔐 [AUTH MODAL] ✅ OAuth redirect initiated!');
-        console.log('🔐 [AUTH MODAL] User will be redirected to:', data?.url || 'OAuth provider');
-        console.debug('[Supabase][AuthModal] signInWith:redirecting', { provider, data });
+        console.error('🔐 [AUTH] No redirect URL in OAuth response');
+        setError('OAuth sign-in failed. No redirect URL received.');
+        setLoading(false);
       }
-      // Note: On success, user will be redirected, so we don't need to setLoading(false)
     } catch (err) {
-      console.error('🔐 [AUTH MODAL] ❌ OAuth exception:', err);
-      console.error('[Supabase][AuthModal] signInWith:exception', err);
-      setError(err.message || 'OAuth failed');
+      console.error('🔐 [AUTH] OAuth exception:', err);
+      setError(err.message || 'OAuth sign-in failed. Please try again.');
       setLoading(false);
     }
   };
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[200] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 py-8">
+    <div className="fixed inset-0 z-[200] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 xs:p-4 sm:p-6 py-4 xs:py-6 sm:py-8">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-md max-h-[calc(100vh-4rem)] flex flex-col rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100 shadow-2xl border-2 border-slate-700 my-auto overflow-hidden"
+        className="w-full max-w-md max-h-[calc(100vh-1rem)] xs:max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-4rem)] flex flex-col rounded-2xl xs:rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100 shadow-2xl border-2 border-slate-700 my-auto overflow-hidden"
       >
         {/* Header with gradient */}
-        <div className="relative bg-gradient-to-r from-emerald-600 to-teal-600 p-6">
+        <div className="relative bg-gradient-to-r from-emerald-600 to-teal-600 p-4 xs:p-5 sm:p-6">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImEiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCI+PHBhdGggZD0iTTAgMGg2MHY2MEgweiIgZmlsbD0ibm9uZSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNhKSIgb3BhY2l0eT0iMC4wNSIvPjwvc3ZnPg==')] opacity-30" />
-          <div className="relative flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+          <div className="relative flex items-center justify-between gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 xs:gap-2.5 sm:gap-3 min-w-0 flex-1">
+              <div className="w-8 h-8 xs:w-9 xs:h-9 sm:w-10 sm:h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
                 <svg
-                  className="w-6 h-6 text-white"
+                  className="w-4 h-4 xs:w-5 xs:h-5 sm:w-6 sm:h-6 text-white"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -147,19 +137,22 @@ export default function AuthModal({ open, onClose }) {
                   />
                 </svg>
               </div>
-              <div>
-                <h3 className="font-bold text-xl">Welcome Back</h3>
-                <p className="text-emerald-100 text-sm">Sign in to your account</p>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-bold text-base xs:text-lg sm:text-xl truncate">Welcome Back</h3>
+                <p className="text-emerald-100 text-xs xs:text-sm truncate">
+                  Sign in to your account
+                </p>
               </div>
             </div>
             <motion.button
               whileHover={{ scale: 1.1, rotate: 90 }}
               whileTap={{ scale: 0.9 }}
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors backdrop-blur-sm"
+              className="w-8 h-8 xs:w-9 xs:h-9 sm:w-10 sm:h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors backdrop-blur-sm flex-shrink-0 touch-manipulation min-h-[44px] xs:min-h-0"
+              aria-label="Close modal"
             >
               <svg
-                className="w-5 h-5 text-white"
+                className="w-4 h-4 xs:w-5 xs:h-5 text-white"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -175,12 +168,19 @@ export default function AuthModal({ open, onClose }) {
           </div>
         </div>
         <div className="overflow-auto flex-1 bg-slate-900/50">
-          <form onSubmit={sendMagicLink} className="p-6 space-y-4">
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-300">Email Address</label>
+          <form onSubmit={sendMagicLink} className="p-4 xs:p-5 sm:p-6 space-y-3 xs:space-y-4">
+            <div className="space-y-1.5 xs:space-y-2">
+              <label className="block text-xs xs:text-sm font-semibold text-slate-300">
+                Email Address
+              </label>
               <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="absolute left-2.5 xs:left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <svg
+                    className="w-4 h-4 xs:w-5 xs:h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -194,7 +194,7 @@ export default function AuthModal({ open, onClose }) {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
-                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-800/50 border-2 border-slate-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-slate-500"
+                  className="w-full pl-9 xs:pl-11 pr-3 xs:pr-4 py-2.5 xs:py-3 text-sm xs:text-base rounded-lg xs:rounded-xl bg-slate-800/50 border-2 border-slate-700 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-slate-500 min-h-[44px] xs:min-h-0"
                   placeholder="your@email.com"
                   autoFocus
                 />
@@ -205,11 +205,15 @@ export default function AuthModal({ open, onClose }) {
               disabled={loading}
               whileHover={{ scale: loading ? 1 : 1.02 }}
               whileTap={{ scale: loading ? 1 : 0.98 }}
-              className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+              className="w-full px-4 xs:px-5 sm:px-6 py-2.5 xs:py-3 text-sm xs:text-base font-bold rounded-lg xs:rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 min-h-[44px] xs:min-h-0 touch-manipulation"
             >
               {loading ? (
                 <>
-                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <svg
+                    className="animate-spin h-4 w-4 xs:h-5 xs:w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
                     <circle
                       className="opacity-25"
                       cx="12"
@@ -228,7 +232,12 @@ export default function AuthModal({ open, onClose }) {
                 </>
               ) : (
                 <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg
+                    className="w-4 h-4 xs:w-5 xs:h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -246,10 +255,10 @@ export default function AuthModal({ open, onClose }) {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/20 border border-emerald-500/50"
+                  className="flex items-center gap-2 p-2.5 xs:p-3 rounded-lg bg-emerald-500/20 border border-emerald-500/50"
                 >
                   <svg
-                    className="w-5 h-5 text-emerald-400"
+                    className="w-4 h-4 xs:w-5 xs:h-5 text-emerald-400 flex-shrink-0"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -261,7 +270,7 @@ export default function AuthModal({ open, onClose }) {
                       d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  <p className="text-emerald-400 text-sm font-medium">
+                  <p className="text-emerald-400 text-xs xs:text-sm font-medium">
                     Check your email for the magic link!
                   </p>
                 </motion.div>
@@ -271,10 +280,10 @@ export default function AuthModal({ open, onClose }) {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="flex items-center gap-2 p-3 rounded-lg bg-red-500/20 border border-red-500/50"
+                  className="flex items-center gap-2 p-2.5 xs:p-3 rounded-lg bg-red-500/20 border border-red-500/50"
                 >
                   <svg
-                    className="w-5 h-5 text-red-400"
+                    className="w-4 h-4 xs:w-5 xs:h-5 text-red-400 flex-shrink-0"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -286,26 +295,28 @@ export default function AuthModal({ open, onClose }) {
                       d="M6 18L18 6M6 6l12 12"
                     />
                   </svg>
-                  <p className="text-red-400 text-sm font-medium">{error}</p>
+                  <p className="text-red-400 text-xs xs:text-sm font-medium break-words">{error}</p>
                 </motion.div>
               )}
             </AnimatePresence>
           </form>
 
-          <div className="px-6 pb-6">
-            <div className="flex items-center gap-3 my-6">
+          <div className="px-4 xs:px-5 sm:px-6 pb-4 xs:pb-5 sm:pb-6">
+            <div className="flex items-center gap-2 xs:gap-3 my-4 xs:my-5 sm:my-6">
               <span className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent" />
-              <span className="text-slate-500 text-sm font-medium">or continue with</span>
+              <span className="text-slate-500 text-xs xs:text-sm font-medium whitespace-nowrap">
+                or continue with
+              </span>
               <span className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent" />
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2.5 xs:space-y-3">
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => signInWith('google')}
-                className="w-full px-4 py-3 rounded-xl border-2 border-slate-700 hover:border-blue-500 hover:bg-blue-500/10 flex items-center justify-center gap-3 transition-all group"
+                className="w-full px-4 xs:px-5 sm:px-6 py-2.5 xs:py-3 text-sm xs:text-base rounded-lg xs:rounded-xl border-2 border-slate-700 hover:border-blue-500 hover:bg-blue-500/10 flex items-center justify-center gap-2 xs:gap-3 transition-all group min-h-[44px] xs:min-h-0 touch-manipulation"
               >
-                <svg className="w-6 h-6" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 xs:w-6 xs:h-6 flex-shrink-0" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -323,7 +334,7 @@ export default function AuthModal({ open, onClose }) {
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                   />
                 </svg>
-                <span className="font-semibold group-hover:text-blue-400 transition-colors">
+                <span className="font-semibold group-hover:text-blue-400 transition-colors whitespace-nowrap">
                   Google
                 </span>
               </motion.button>

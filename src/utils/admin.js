@@ -1,19 +1,20 @@
 /**
  * Admin Utilities
- * Simple admin detection for local development
+ * Secure admin access control based on user email
+ *
+ * ONLY 2 ADMINS ALLOWED:
+ * 1. raymondvdw@gmail.com (Main Admin)
+ * 2. Second admin can be set via VITE_SECOND_ADMIN_EMAIL environment variable
  */
 
-// Admin emails (for local development)
-// In production, this should be stored in Supabase or environment variables
+// STRICT ADMIN EMAIL ALLOWLIST - Only these emails can access admin
 const ADMIN_EMAILS = [
-  'admin@whats4dinner.com',
-  'admin@localhost',
-  'test@admin.com',
-  // Add your email here for local testing
-  ...(import.meta.env.VITE_ADMIN_EMAILS
-    ? import.meta.env.VITE_ADMIN_EMAILS.split(',').map(e => e.trim())
+  'raymondvdw@gmail.com', // Main Admin
+  // Second admin can be set via environment variable
+  ...(import.meta.env.VITE_SECOND_ADMIN_EMAIL
+    ? [import.meta.env.VITE_SECOND_ADMIN_EMAIL.trim().toLowerCase()]
     : []),
-];
+].map(email => email.toLowerCase()); // Normalize to lowercase
 
 // Admin password for local dev (simple, not secure - only for local use)
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
@@ -21,17 +22,7 @@ const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
 // Check if we're in dev mode - FORCE TRUE FOR NOW
 const IS_DEV_MODE = true; // Always true in dev - we'll check import.meta.env.DEV as fallback but force it
 
-// Log dev mode status immediately - THIS SHOULD ALWAYS RUN
-console.log('🔑 [ADMIN INIT] =========================================');
-console.log('🔑 [ADMIN INIT] ADMIN MODULE LOADED!');
-console.log('🔑 [ADMIN INIT] Dev mode check:', {
-  DEV: import.meta.env.DEV,
-  MODE: import.meta.env.MODE,
-  IS_DEV_MODE: true, // FORCED TO TRUE
-  NODE_ENV: import.meta.env.NODE_ENV,
-  allEnvKeys: Object.keys(import.meta.env),
-});
-console.log('🔑 [ADMIN INIT] =========================================');
+// Admin module loaded
 
 // Auto-enable admin in dev mode - ALWAYS RUN THIS
 const ADMIN_SESSION_KEY = 'admin:session:v1';
@@ -49,13 +40,9 @@ try {
         forced: true, // Mark as forced for debugging
       })
     );
-    console.log('🔑 [ADMIN INIT] ✅ Auto-enabled admin access for local development');
-    console.log('🔑 [ADMIN INIT] Session expires:', new Date(expiresAt).toLocaleString());
   } else {
     const parsed = JSON.parse(stored);
-    console.log('🔑 [ADMIN INIT] ✅ Admin session already exists');
-    console.log('🔑 [ADMIN INIT] Session expires:', new Date(parsed.expiresAt).toLocaleString());
-    console.log('🔑 [ADMIN INIT] Session valid:', Date.now() < parsed.expiresAt);
+    // Admin session exists
   }
 } catch (e) {
   console.error('🔑 [ADMIN INIT] ❌ Failed to auto-enable admin:', e);
@@ -63,10 +50,29 @@ try {
 
 /**
  * Check if user is an admin
+ * STRICT CHECK: Only allows emails in the ADMIN_EMAILS allowlist
+ * @param {Object} user - User object from Supabase auth (must have email property)
+ * @returns {boolean} - True if user is an admin, false otherwise
  */
 export function isAdmin(user) {
-  if (!user?.email) return false;
-  return ADMIN_EMAILS.some(email => user.email.toLowerCase() === email.toLowerCase());
+  if (!user?.email) {
+    return false;
+  }
+
+  const userEmail = user.email.toLowerCase().trim();
+  const isAdminUser = ADMIN_EMAILS.includes(userEmail);
+
+  return isAdminUser;
+}
+
+/**
+ * Check if a specific email is an admin
+ * @param {string} email - Email address to check
+ * @returns {boolean} - True if email is an admin, false otherwise
+ */
+export function isAdminEmail(email) {
+  if (!email) return false;
+  return ADMIN_EMAILS.includes(email.toLowerCase().trim());
 }
 
 /**
@@ -84,60 +90,31 @@ export function getAdminEmails() {
 }
 
 /**
- * Check if admin mode is enabled (local dev only)
- * MULTIPLE WAYS TO ENABLE:
- * 1. Environment variable: VITE_ENABLE_ADMIN=true (production only)
- * 2. URL query parameter: ?admin=true (dev only)
- * 3. localStorage flag: admin:force:enabled (dev only)
- * 4. Dev mode (import.meta.env.DEV)
- * 5. Always enabled in localhost
+ * Check if admin mode is enabled
+ * NOTE: This only controls UI visibility. Actual admin access is controlled by isAdmin(user)
+ *
+ * In production: Only enabled if VITE_ENABLE_ADMIN=true
+ * In development: Enabled for easier testing (but still requires admin email)
  */
 export function isAdminModeEnabled() {
   // PRODUCTION: Only allow via environment variable
   if (import.meta.env.PROD) {
     const envEnabled = import.meta.env.VITE_ENABLE_ADMIN === 'true';
     if (envEnabled) {
-      console.log('🔑 [ADMIN] ✅ Enabled via VITE_ENABLE_ADMIN (production)');
       return true;
     }
-    console.log('🔑 [ADMIN] ❌ Disabled in production (set VITE_ENABLE_ADMIN=true to enable)');
     return false;
   }
 
-  // DEVELOPMENT: Allow multiple ways
-  // Check URL parameter first (easiest way)
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('admin') === 'true') {
-    console.log('🔑 [ADMIN] ✅ Enabled via URL parameter (?admin=true)');
-    // Save to localStorage for persistence
-    try {
-      localStorage.setItem('admin:force:enabled', 'true');
-    } catch {}
+  // DEVELOPMENT: Allow for testing (but still requires admin email check)
+  const isLocalhost =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+  if (isLocalhost || import.meta.env.DEV) {
     return true;
   }
 
-  // Check localStorage flag
-  try {
-    const forceEnabled = localStorage.getItem('admin:force:enabled');
-    if (forceEnabled === 'true') {
-      console.log('🔑 [ADMIN] ✅ Enabled via localStorage flag');
-      return true;
-    }
-  } catch {}
-
-  // Check if we're on localhost
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    console.log('🔑 [ADMIN] ✅ Enabled (localhost detected)');
-    return true;
-  }
-
-  // Check dev mode
-  if (import.meta.env.DEV || import.meta.env.MODE === 'development') {
-    console.log('🔑 [ADMIN] ✅ Enabled (dev mode)');
-    return true;
-  }
-
-  console.log('🔑 [ADMIN] ❌ Not enabled');
   return false;
 }
 
@@ -156,7 +133,6 @@ export function forceEnableAdmin() {
         forced: true,
       })
     );
-    console.log('🔑 [ADMIN] ✅ Admin mode FORCED ENABLED');
     return true;
   } catch (e) {
     console.error('🔑 [ADMIN] ❌ Failed to force enable:', e);
@@ -171,7 +147,6 @@ export function disableAdmin() {
   try {
     localStorage.removeItem('admin:force:enabled');
     localStorage.removeItem(ADMIN_SESSION_KEY);
-    console.log('🔑 [ADMIN] ✅ Admin mode disabled');
     return true;
   } catch (e) {
     console.error('🔑 [ADMIN] ❌ Failed to disable:', e);

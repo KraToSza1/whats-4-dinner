@@ -158,13 +158,16 @@ export function RecipeCardShimmer() {
  * Cooking timer animation with steam
  */
 export function CookingTimer({ seconds, size = 60 }) {
+  const isSmall = size < 50;
   return (
     <div
       className="relative flex items-center justify-center"
       style={{ width: size, height: size }}
     >
       {/* Simple time display - no circle, no sparkles */}
-      <span className="text-lg font-bold text-slate-900 dark:text-slate-100">{seconds}</span>
+      <span className={`${isSmall ? 'text-sm' : 'text-lg'} font-bold text-slate-900 dark:text-slate-100`}>
+        {Math.floor(seconds / 60)}:{(seconds % 60).toString().padStart(2, '0')}
+      </span>
     </div>
   );
 }

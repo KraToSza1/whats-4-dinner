@@ -10,19 +10,9 @@ VITE_USE_PROXY=1 npm run dev
 
 Open the Vite URL (e.g. http://localhost:5173).
 
-## Serverless proxy (production-safe API)
+## Serverless API
 
-This repo includes Vercel serverless functions under `api/` that proxy Spoonacular and add a simple TTL cache. Your API key never touches the browser.
-
-Endpoints:
-
-- `GET /api/spoonacular/search?q=&includeIngredients=&diet=&intolerances=&number=&maxReadyTime=`
-- `GET /api/spoonacular/info?id=123`
-
-Environment variables (Vercel → Project Settings → Environment Variables):
-
-- `SPOONACULAR_KEY`: your Spoonacular API key
-- `CACHE_TTL_MS` (optional): cache TTL in ms, default 21600000 (6h)
+This repo includes Vercel serverless functions under `api/` for payment processing and other server-side operations.
 
 ## Deploy to Vercel
 
@@ -62,9 +52,6 @@ See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for detailed instructions on:
 
 ## Env vars (copy into Vercel → Settings → Environment Variables)
 
-- Spoonacular
-  - `SPOONACULAR_KEY`
-  - `CACHE_TTL_MS` (optional)
 - Supabase
   - `SUPABASE_URL`
   - `SUPABASE_ANON_KEY`

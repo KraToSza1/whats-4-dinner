@@ -18,12 +18,6 @@ const REQUIRED_ENV_VARS = {
 };
 
 const OPTIONAL_ENV_VARS = {
-  VITE_SPOONACULAR_KEY: {
-    description: 'Spoonacular API key (optional if using Supabase only)',
-  },
-  VITE_DISABLE_SPOONACULAR: {
-    description: 'Disable Spoonacular API',
-  },
   VITE_DISABLE_IMAGE_PROXY: {
     description: 'Disable image proxy',
   },

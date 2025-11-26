@@ -1,10 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, signOut } from '../context/AuthContext.jsx';
-import { supabase } from '../lib/supabaseClient';
-import { exportFavorites, importFavorites } from '../helpers/favoritesIO';
 import { getAllRatings } from '../utils/preferenceAnalyzer.js';
+import {
+  getMeasurementSystemForCountry,
+  getCountryName,
+  getCountryFlag,
+} from '../utils/measurementSystems.js';
+import { getCurrencySettings } from '../utils/currency.js';
+import { useLanguage } from '../context/LanguageContext.jsx';
 
 const DIETS = [
   'Gluten Free',
@@ -38,6 +43,25 @@ const INTOLERANCES = [
 export default function Profile() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { language, setLanguage: setLanguageContext, supportedLanguages } = useLanguage();
+
+  // Create a safe user reference that won't change during render
+  const safeUser = useMemo(() => {
+    try {
+      if (!user) return null;
+      // Safely check properties without accessing them directly
+      const hasId = user && typeof user === 'object' && 'id' in user && user.id;
+      const hasEmail = user && typeof user === 'object' && 'email' in user && user.email;
+      if (!hasId && !hasEmail) return null;
+      return user;
+    } catch (error) {
+      console.error('Error creating safeUser:', error);
+      return null;
+    }
+  }, [user]);
+
+  // Feature flag: Language selection temporarily disabled
+  const ENABLE_LANGUAGE_SELECTION = false;
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [activeTab, setActiveTab] = useState('account');
@@ -58,6 +82,35 @@ export default function Profile() {
       return 'system';
     }
   });
+
+  // Get currency settings for auto-detection
+  const [currencySettings, setCurrencySettings] = useState(null);
+  const [detectedMeasurementSystem, setDetectedMeasurementSystem] = useState(null);
+
+  // Auto-detect measurement system based on location
+  useEffect(() => {
+    const initializeMeasurementSystem = async () => {
+      try {
+        const settings = getCurrencySettings();
+        setCurrencySettings(settings);
+
+        if (settings?.country) {
+          const detected = getMeasurementSystemForCountry(settings.country);
+          setDetectedMeasurementSystem(detected);
+          // Auto-set if not already set by user
+          const savedSystem = localStorage.getItem('unitSystem');
+          if (!savedSystem) {
+            setUnitSystem(detected);
+            localStorage.setItem('unitSystem', detected);
+          }
+        }
+      } catch (error) {
+        // Failed to initialize measurement system
+      }
+    };
+
+    initializeMeasurementSystem();
+  }, []);
 
   const [diet, setDiet] = useState(() => {
     try {
@@ -157,9 +210,11 @@ export default function Profile() {
         familyMembers: familyMembers.length,
       });
     } catch (e) {
-      console.error('Failed to load stats:', e);
+      // Failed to load stats
     }
   }, []);
+
+  // Language context handles language changes automatically
 
   // Persist preferences
   useEffect(() => {
@@ -278,125 +333,14 @@ export default function Profile() {
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
   };
 
+  // Export/Import functions removed to protect user data
+  // These functions have been disabled to prevent unauthorized data access
   const handleExportData = async () => {
-    // ENFORCE EXPORT LIMIT - Check if user has export feature
-    const { hasFeature } = await import('../utils/subscription.js');
-    if (!hasFeature('export_data')) {
-      showMessage('error', 'Export is a premium feature! Upgrade to unlock data export.');
-      window.dispatchEvent(new CustomEvent('openProModal'));
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const data = {
-        favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
-        mealPlan: JSON.parse(localStorage.getItem('meal:plan:v2') || '{}'),
-        groceryList: JSON.parse(localStorage.getItem('grocery:list:v2') || '[]'),
-        familyMembers: JSON.parse(localStorage.getItem('family:members:v1') || '[]'),
-        mealLogs: JSON.parse(localStorage.getItem('family:meal:logs:v1') || '{}'),
-        preferences: {
-          unitSystem: localStorage.getItem('unitSystem') || 'metric',
-          theme: localStorage.getItem('theme') || 'system',
-          diet: localStorage.getItem('filters:diet') || '',
-          intolerances: localStorage.getItem('filters:intolerances') || '',
-          maxTime: localStorage.getItem('filters:maxTime') || '',
-          mealType: localStorage.getItem('filters:mealType') || '',
-          maxCalories: localStorage.getItem('filters:maxCalories') || '',
-          healthScore: localStorage.getItem('filters:healthScore') || '',
-          pantry: JSON.parse(localStorage.getItem('filters:pantry') || '[]'),
-        },
-        ratings: getAllRatings(),
-        exportDate: new Date().toISOString(),
-        appVersion: '1.0.0',
-      };
-
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `whats-4-dinner-backup-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      showMessage('success', 'Data exported successfully!');
-    } catch (error) {
-      showMessage('error', 'Failed to export data');
-    } finally {
-      setLoading(false);
-    }
+    showMessage('error', 'Data export has been disabled to protect user privacy.');
   };
 
   const handleImportData = async () => {
-    // ENFORCE IMPORT LIMIT - Check if user has import feature
-    const { hasFeature } = await import('../utils/subscription.js');
-    if (!hasFeature('import_data')) {
-      showMessage('error', 'Import is a premium feature! Upgrade to unlock data import.');
-      window.dispatchEvent(new CustomEvent('openProModal'));
-      return;
-    }
-
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = async e => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      try {
-        setLoading(true);
-        const text = await file.text();
-        const data = JSON.parse(text);
-
-        // Validate and import
-        if (data.favorites) localStorage.setItem('favorites', JSON.stringify(data.favorites));
-        if (data.mealPlan) localStorage.setItem('meal:plan:v2', JSON.stringify(data.mealPlan));
-        if (data.groceryList)
-          localStorage.setItem('grocery:list:v2', JSON.stringify(data.groceryList));
-        if (data.familyMembers)
-          localStorage.setItem('family:members:v1', JSON.stringify(data.familyMembers));
-        if (data.mealLogs)
-          localStorage.setItem('family:meal:logs:v1', JSON.stringify(data.mealLogs));
-        if (data.preferences) {
-          if (data.preferences.unitSystem)
-            localStorage.setItem('unitSystem', data.preferences.unitSystem);
-          if (data.preferences.theme) localStorage.setItem('theme', data.preferences.theme);
-          if (data.preferences.diet) localStorage.setItem('filters:diet', data.preferences.diet);
-          if (data.preferences.intolerances)
-            localStorage.setItem('filters:intolerances', data.preferences.intolerances);
-          if (data.preferences.maxTime)
-            localStorage.setItem('filters:maxTime', data.preferences.maxTime);
-          if (data.preferences.mealType)
-            localStorage.setItem('filters:mealType', data.preferences.mealType);
-          if (data.preferences.maxCalories)
-            localStorage.setItem('filters:maxCalories', data.preferences.maxCalories);
-          if (data.preferences.healthScore)
-            localStorage.setItem('filters:healthScore', data.preferences.healthScore);
-          if (data.preferences.pantry)
-            localStorage.setItem('filters:pantry', JSON.stringify(data.preferences.pantry));
-        }
-        if (data.ratings) {
-          Object.keys(data.ratings).forEach(recipeId => {
-            localStorage.setItem(
-              `recipeRating:${recipeId}`,
-              JSON.stringify(data.ratings[recipeId])
-            );
-          });
-        }
-
-        showMessage('success', 'Data imported successfully! Refreshing...');
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
-      } catch (error) {
-        showMessage('error', 'Failed to import data. Invalid file format.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    input.click();
+    showMessage('error', 'Data import has been disabled to protect user privacy.');
   };
 
   const handleDeleteAccount = async () => {
@@ -477,42 +421,50 @@ export default function Profile() {
   };
 
   const getInitials = email => {
+    if (!email || typeof email !== 'string') return '??';
     return email.substring(0, 2).toUpperCase();
   };
 
   const getAuthProvider = () => {
-    if (!user) return null;
-    const providers = user.app_metadata?.providers || [];
-    if (providers.includes('google')) return 'Google';
-    if (providers.includes('email')) return 'Email';
-    return 'Email';
+    const currentUser = safeUser || user;
+    if (!currentUser) return 'Not signed in';
+    try {
+      const providers = currentUser.app_metadata?.providers || [];
+      if (providers.includes('google')) return 'Google';
+      if (providers.includes('email')) return 'Email';
+      return 'Email';
+    } catch {
+      return 'Email';
+    }
   };
-
-  // TEMPORARY: Allow access without login during development
-  // Login check disabled - everyone can access profile
-  // if (!user) {
-  //     return (
-  //         <div className="min-h-screen flex items-center justify-center p-4">
-  //             <div className="text-center">
-  //                 <h2 className="text-2xl font-bold mb-4">Please sign in</h2>
-  //                 <button
-  //                     onClick={() => navigate("/")}
-  //                     className="px-4 py-2 rounded-md bg-emerald-600 text-white"
-  //                 >
-  //                     Go to Home
-  //                 </button>
-  //             </div>
-  //         </div>
-  //     );
-  // }
 
   const tabs = [
     { id: 'account', label: 'Account', icon: '👤' },
     { id: 'preferences', label: 'Preferences', icon: '⚙️' },
     { id: 'dietary', label: 'Dietary', icon: '🥗' },
-    { id: 'data', label: 'Data', icon: '💾' },
     { id: 'about', label: 'About', icon: 'ℹ️' },
   ];
+
+  // Show loading or sign-in prompt if user is not available
+  // Use safeUser to prevent null access errors during render
+  if (!safeUser) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Please sign in</h2>
+          <p className="text-slate-600 dark:text-slate-400 mb-6">
+            You need to be signed in to view your profile.
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            Go to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -578,14 +530,16 @@ export default function Profile() {
                 <h2 className="text-xl font-bold mb-4">Account Information</h2>
                 <div className="flex flex-col sm:flex-row sm:items-start gap-4 mb-4 text-center sm:text-left">
                   <div className="w-20 h-20 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-2xl font-bold mx-auto sm:mx-0">
-                    {getInitials(user.email)}
+                    {getInitials(safeUser?.email || '')}
                   </div>
                   <div className="flex-1 space-y-3">
                     <div>
                       <label className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">
                         Email
                       </label>
-                      <p className="text-base sm:text-lg font-semibold break-all">{user.email}</p>
+                      <p className="text-base sm:text-lg font-semibold break-all">
+                        {safeUser?.email || 'Not available'}
+                      </p>
                     </div>
                     <div>
                       <label className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">
@@ -598,7 +552,7 @@ export default function Profile() {
                         User ID
                       </label>
                       <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-500 font-mono break-all">
-                        {user.id}
+                        {safeUser?.id || 'Not available'}
                       </p>
                     </div>
                   </div>
@@ -632,10 +586,74 @@ export default function Profile() {
                 </div>
               </div>
 
+              {/* Subscription Plan */}
+              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl shadow-sm border-2 border-emerald-200 dark:border-emerald-800 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold">Subscription Plan</h2>
+                  <button
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('openProModal'));
+                    }}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-sm transition-colors"
+                  >
+                    View Plans
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Current Plan:
+                    </span>
+                    <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                      {(() => {
+                        try {
+                          const plan = localStorage.getItem('subscription:plan:v1') || 'free';
+                          const planNames = {
+                            free: 'Free',
+                            supporter: 'Supporter',
+                            unlimited: 'Unlimited',
+                            family: 'Family',
+                          };
+                          return planNames[plan] || 'Free';
+                        } catch {
+                          return 'Free';
+                        }
+                      })()}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Monthly Cost:
+                    </span>
+                    <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                      {(() => {
+                        try {
+                          const plan = localStorage.getItem('subscription:plan:v1') || 'free';
+                          const prices = {
+                            free: '$0.00',
+                            supporter: '$2.99',
+                            unlimited: '$4.99',
+                            family: '$9.99',
+                          };
+                          return prices[plan] || '$0.00';
+                        } catch {
+                          return '$0.00';
+                        }
+                      })()}
+                    </span>
+                  </div>
+                  <div className="pt-3 border-t border-emerald-200 dark:border-emerald-800">
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      💡 Want to unlock more features? View all plans and pricing options above.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* Quick Actions */}
               <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
                 <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
-                <div className="card-cluster auto-fit-md">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <button
                     onClick={() => navigate('/meal-planner')}
                     className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-left transition-colors"
@@ -651,6 +669,38 @@ export default function Profile() {
                     <div className="text-sm text-slate-600 dark:text-slate-400">
                       Manage family members
                     </div>
+                  </button>
+                  <button
+                    onClick={() => navigate('/water-tracker')}
+                    className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-left transition-colors"
+                  >
+                    <div className="font-semibold mb-1">💧 Water Tracker</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">
+                      Track hydration
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => navigate('/dietician-ai')}
+                    className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-left transition-colors"
+                  >
+                    <div className="font-semibold mb-1">🤖 AI Dietician</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">
+                      Nutrition advice
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => navigate('/budget-tracker')}
+                    className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-left transition-colors"
+                  >
+                    <div className="font-semibold mb-1">💰 Budget Tracker</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">Track spending</div>
+                  </button>
+                  <button
+                    onClick={() => navigate('/analytics')}
+                    className="p-4 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-left transition-colors"
+                  >
+                    <div className="font-semibold mb-1">📊 Analytics</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">View insights</div>
                   </button>
                 </div>
               </div>
@@ -686,25 +736,239 @@ export default function Profile() {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-6"
             >
-              {/* Unit System */}
+              {/* Unit System - Enhanced with Country Detection */}
               <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
-                <h2 className="text-xl font-bold mb-4">Measurement System</h2>
-                <div className="flex flex-wrap gap-2">
-                  {['metric', 'us', 'uk'].map(sys => (
-                    <button
-                      key={sys}
-                      onClick={() => handleUnitSystemChange(sys)}
-                      className={`px-4 py-2 rounded-md transition-colors ${
-                        unitSystem === sys
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold mb-1">Measurement System</h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Choose how measurements are displayed (cups, ounces, grams, etc.)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Auto-detection info */}
+                {currencySettings?.country && detectedMeasurementSystem && (
+                  <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg">🌍</span>
+                      <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                        {currencySettings.autoDetected ? 'Auto-detected' : 'Detected'} for{' '}
+                        {getCountryFlag(currencySettings.country)}{' '}
+                        {getCountryName(currencySettings.country) || currencySettings.country}
+                      </span>
+                    </div>
+                    <div className="text-xs text-blue-700 dark:text-blue-300 mb-2">
+                      Recommended:{' '}
+                      <span className="font-medium">{detectedMeasurementSystem.toUpperCase()}</span>{' '}
+                      system
+                      {detectedMeasurementSystem === 'us' && ' (US Customary)'}
+                      {detectedMeasurementSystem === 'uk' && ' (UK Imperial)'}
+                      {detectedMeasurementSystem === 'metric' && ' (Metric)'}
+                    </div>
+                    {unitSystem !== detectedMeasurementSystem && (
+                      <button
+                        onClick={() => {
+                          handleUnitSystemChange(detectedMeasurementSystem);
+                        }}
+                        className="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+                      >
+                        Use Recommended System
+                      </button>
+                    )}
+                    {unitSystem === detectedMeasurementSystem && (
+                      <div className="text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                        <span>✓</span>
+                        <span>Using recommended system</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Measurement System Options */}
+                <div className="space-y-3">
+                  {[
+                    {
+                      key: 'metric',
+                      name: 'Metric',
+                      flag: '🌍',
+                      description: 'Grams (g), Kilograms (kg), Milliliters (ml), Liters (L)',
+                      countries: 'Most countries worldwide',
+                    },
+                    {
+                      key: 'us',
+                      name: 'US Customary',
+                      flag: '🇺🇸',
+                      description:
+                        'Cups, Tablespoons (tbsp), Teaspoons (tsp), Ounces (oz), Pounds (lb)',
+                      countries: 'United States, Puerto Rico, Guam, and others',
+                    },
+                    {
+                      key: 'uk',
+                      name: 'UK Imperial',
+                      flag: '🇬🇧',
+                      description: 'Milliliters (ml), Ounces (oz), Pounds (lb) - UK measurements',
+                      countries: 'United Kingdom, Ireland, and others',
+                    },
+                  ].map(sys => (
+                    <motion.button
+                      key={sys.key}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                      onClick={() => handleUnitSystemChange(sys.key)}
+                      className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                        unitSystem === sys.key
+                          ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 shadow-md'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-800/50'
                       }`}
                     >
-                      {sys.toUpperCase()}
-                    </button>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 flex-1">
+                          <span className="text-2xl flex-shrink-0">{sys.flag}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3
+                                className={`font-bold text-base ${
+                                  unitSystem === sys.key
+                                    ? 'text-emerald-700 dark:text-emerald-300'
+                                    : 'text-slate-900 dark:text-slate-100'
+                                }`}
+                              >
+                                {sys.name}
+                              </h3>
+                              {unitSystem === sys.key && (
+                                <motion.span
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  className="text-emerald-600 dark:text-emerald-400 text-lg"
+                                >
+                                  ✓
+                                </motion.span>
+                              )}
+                            </div>
+                            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-1">
+                              {sys.description}
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-500">
+                              Used in: {sys.countries}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.button>
                   ))}
                 </div>
+
+                {/* Quick Reference */}
+                <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <h3 className="text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+                    📏 Quick Reference
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-slate-600 dark:text-slate-400">
+                    <div>
+                      <span className="font-medium">1 cup =</span>
+                      <br />
+                      <span>240 ml (Metric)</span>
+                      <br />
+                      <span>284 ml (UK)</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">1 tbsp =</span>
+                      <br />
+                      <span>15 ml (Metric)</span>
+                      <br />
+                      <span>17 ml (UK)</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">1 oz =</span>
+                      <br />
+                      <span>28 g (all systems)</span>
+                    </div>
+                  </div>
+                </div>
               </div>
+
+              {/* Language - TEMPORARILY DISABLED */}
+              {/* TODO: Re-enable when all translations are complete and working */}
+              {ENABLE_LANGUAGE_SELECTION && (
+                <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-xl font-bold mb-1">Language</h2>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Choose your preferred language for the app interface
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {supportedLanguages.map(lang => {
+                      const isSelected = language === lang.code;
+                      return (
+                        <motion.button
+                          key={lang.code}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            // Use context setLanguage which triggers immediate update across all components
+                            const result = setLanguageContext(lang.code);
+                            if (result) {
+                              showMessage('success', `Language changed to ${lang.name}`);
+                              // Force immediate re-render by updating document language
+                              document.documentElement.lang = lang.code;
+                            } else {
+                              // Language change failed
+                              showMessage('error', `Failed to change language to ${lang.name}`);
+                            }
+                          }}
+                          className={`p-4 rounded-lg border-2 transition-all text-left ${
+                            isSelected
+                              ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 shadow-md'
+                              : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-800/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{lang.flag}</span>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h3
+                                  className={`font-bold text-sm ${
+                                    isSelected
+                                      ? 'text-emerald-700 dark:text-emerald-300'
+                                      : 'text-slate-900 dark:text-slate-100'
+                                  }`}
+                                >
+                                  {lang.name}
+                                </h3>
+                                {isSelected && (
+                                  <motion.span
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    className="text-emerald-600 dark:text-emerald-400"
+                                  >
+                                    ✓
+                                  </motion.span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                                {lang.nativeName}
+                              </p>
+                            </div>
+                          </div>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      💡 <strong>Note:</strong> Recipe content and ingredients are displayed in
+                      their original language. The app interface will use your selected language
+                      where translations are available.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Theme */}
               <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
@@ -904,51 +1168,6 @@ export default function Profile() {
                     No pantry items yet. Add ingredients to find recipes using what you have!
                   </p>
                 )}
-              </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'data' && (
-            <motion.div
-              key="data"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-6"
-            >
-              {/* Data Export/Import */}
-              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
-                <h2 className="text-xl font-bold mb-4">Data Management</h2>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                  Export all your data for backup or import previously exported data
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={handleExportData}
-                    disabled={loading}
-                    className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-                  >
-                    Export All Data
-                  </button>
-                  <button
-                    onClick={handleImportData}
-                    disabled={loading}
-                    className="px-4 py-2 rounded-md bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
-                  >
-                    Import Data
-                  </button>
-                </div>
-                <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <p className="text-sm font-medium mb-2">What's included in export:</p>
-                  <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1 list-disc list-inside">
-                    <li>Favorites</li>
-                    <li>Meal plans</li>
-                    <li>Grocery lists</li>
-                    <li>Family members and meal logs</li>
-                    <li>Recipe ratings</li>
-                    <li>All preferences and settings</li>
-                  </ul>
-                </div>
               </div>
             </motion.div>
           )}

@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.jsx';
 import BackToHome from '../components/BackToHome.jsx';
 import { getSupabaseRecipeById } from '../api/supabaseRecipes.js';
 import { recipeImg, fallbackOnce } from '../utils/img.ts';
@@ -32,15 +31,35 @@ import { hasFeature } from '../utils/subscription.js';
 
 export default function Analytics() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const toast = useToast();
+  const hasChecked = useRef(false);
 
-  // ENFORCE ANALYTICS LIMIT - Check access on mount
+  // ENFORCE ANALYTICS ACCESS - Check access on mount
   useEffect(() => {
-    if (!hasFeature('analytics')) {
-      toast.error('Analytics is a premium feature! Upgrade to unlock detailed insights.');
+    // Only check once to prevent multiple toasts and infinite loops
+    if (hasChecked.current) return;
+    hasChecked.current = true;
+
+    const hasAnalytics = hasFeature('analytics');
+    const hasLimitedAnalytics = hasFeature('analytics_limited');
+
+    if (!hasAnalytics) {
       navigate('/');
-      window.dispatchEvent(new CustomEvent('openProModal'));
+      // Delay opening modal to avoid conflicts
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent('openPremiumFeatureModal', {
+            detail: { feature: 'analytics' },
+          })
+        );
+      }, 500);
+      return;
+    } else if (hasLimitedAnalytics) {
+      // Supporter plan - show limited analytics message
+      toast.info(
+        '📊 You have limited analytics access. Upgrade to Unlimited or Family for full analytics features!',
+        { duration: 4000 }
+      );
     }
   }, [navigate, toast]);
   const [activeTab, setActiveTab] = useState('overview');
@@ -67,11 +86,7 @@ export default function Analytics() {
   const [ingredientFrequency, setIngredientFrequency] = useState([]);
   const [budgetAnalytics, setBudgetAnalytics] = useState(null);
 
-  useEffect(() => {
-    loadAnalytics();
-  }, [timeRange]);
-
-  const loadAnalytics = async () => {
+  const loadAnalytics = useCallback(async () => {
     setLoading(true);
     try {
       const days = parseInt(timeRange);
@@ -80,14 +95,6 @@ export default function Analytics() {
       const views = getRecipeViews(days);
       const calories = getCalorieHistory(days);
       const macros = getMacroHistory(days);
-
-      console.log('[Analytics] Loaded data:', {
-        viewsCount: views.length,
-        caloriesCount: calories.length,
-        macrosCount: macros.length,
-        sampleViews: views.slice(0, 3),
-        sampleCalories: calories.slice(0, 3),
-      });
 
       setViewsData(views);
       setCalorieData(calories);
@@ -109,7 +116,6 @@ export default function Analytics() {
 
       // Load top recipes with full data
       const top = getTopRecipes(10);
-      console.log('[Analytics] Top recipes from storage:', top);
 
       // First, try to get from favorites (fastest)
       const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
@@ -134,7 +140,6 @@ export default function Analytics() {
           if (favRecipe) {
             recipe = favRecipe;
             title = favRecipe.title || favRecipe.name;
-            console.log('[Analytics] Found in favorites:', title);
           } else {
             // Try Supabase (only if it's a UUID)
             try {
@@ -142,11 +147,9 @@ export default function Analytics() {
                 item.recipeId
               );
               if (isUuid) {
-                console.log('[Analytics] Fetching from Supabase:', item.recipeId);
                 recipe = await getSupabaseRecipeById(item.recipeId);
                 if (recipe) {
                   title = recipe.title;
-                  console.log('[Analytics] Fetched from Supabase:', title);
                 }
               }
             } catch (err) {
@@ -162,14 +165,6 @@ export default function Analytics() {
         })
       );
 
-      console.log(
-        '[Analytics] Final recipes:',
-        recipesWithData.map(r => ({
-          id: r.recipeId,
-          title: r.title,
-          hasRecipe: !!r.recipe,
-        }))
-      );
       setTopRecipes(recipesWithData);
     } catch (error) {
       console.error('Failed to load analytics:', error);
@@ -177,7 +172,11 @@ export default function Analytics() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeRange, toast]);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [loadAnalytics]);
 
   const handleExport = () => {
     try {
@@ -270,15 +269,6 @@ export default function Analytics() {
       })
       .filter(d => d.value >= 0);
 
-    console.log('[Analytics] Chart data prepared:', {
-      dailyViews: dailyViews.length,
-      dailyCalories: dailyCalories.length,
-      weeklyViews: weeklyViews.length,
-      weeklyCalories: weeklyCalories.length,
-      sampleDailyViews: dailyViews.slice(0, 3),
-      sampleDailyCalories: dailyCalories.slice(0, 3),
-    });
-
     return {
       dailyViews,
       dailyCalories,
@@ -311,13 +301,16 @@ export default function Analytics() {
   //     );
   // }
 
+  // Check subscription for limited vs full analytics
+  const hasLimitedAnalytics = hasFeature('analytics_limited');
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '📊' },
     { id: 'calories', label: 'Calories & Macros', icon: '🔥' },
     { id: 'recipes', label: 'Recipes', icon: '🍽️' },
     { id: 'nutrition', label: 'Nutrition', icon: '🥗' },
     { id: 'activity', label: 'Activity', icon: '⚡' },
-    { id: 'insights', label: 'Insights', icon: '💡' },
+    { id: 'insights', label: 'Insights', icon: '💡', limited: hasLimitedAnalytics },
   ];
 
   return (
@@ -364,7 +357,7 @@ export default function Analytics() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-2 sm:px-3 md:px-4 py-2 rounded-t-lg transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap touch-manipulation text-xs sm:text-sm ${
+                className={`px-2 sm:px-3 md:px-4 py-2 rounded-t-lg transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap touch-manipulation text-xs sm:text-sm relative ${
                   activeTab === tab.id
                     ? 'bg-white dark:bg-slate-900 border-t border-l border-r border-slate-200 dark:border-slate-800 text-emerald-600 dark:text-emerald-400 font-semibold'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
@@ -372,6 +365,11 @@ export default function Analytics() {
               >
                 <span className="text-sm sm:text-base">{tab.icon}</span>
                 <span>{tab.label}</span>
+                {tab.limited && (
+                  <span className="ml-1 text-[9px] px-1 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">
+                    Limited
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -495,14 +493,7 @@ export default function Analytics() {
                     <h3 className="text-base sm:text-lg font-bold mb-4 text-slate-900 dark:text-slate-100">
                       Recipe Views Trend
                     </h3>
-                    {(() => {
-                      console.log('[Analytics Overview] Recipe Views Chart Data:', {
-                        raw: chartData.dailyViews,
-                        length: chartData.dailyViews?.length,
-                        sample: chartData.dailyViews?.slice(0, 3),
-                      });
-                      return <LineChart data={chartData.dailyViews} height={250} color="blue" />;
-                    })()}
+                    <LineChart data={chartData.dailyViews} height={250} color="blue" />
                   </div>
 
                   {/* Calorie Intake - Line Chart */}
@@ -510,16 +501,7 @@ export default function Analytics() {
                     <h3 className="text-base sm:text-lg font-bold mb-4 text-slate-900 dark:text-slate-100">
                       Calorie Intake Trend
                     </h3>
-                    {(() => {
-                      console.log('[Analytics Overview] Calorie Intake Chart Data:', {
-                        raw: chartData.dailyCalories,
-                        length: chartData.dailyCalories?.length,
-                        sample: chartData.dailyCalories?.slice(0, 3),
-                      });
-                      return (
-                        <LineChart data={chartData.dailyCalories} height={250} color="purple" />
-                      );
-                    })()}
+                    <LineChart data={chartData.dailyCalories} height={250} color="purple" />
                   </div>
                 </div>
 
@@ -760,16 +742,7 @@ export default function Analytics() {
                   <h3 className="text-base sm:text-lg font-bold mb-4 text-slate-900 dark:text-slate-100">
                     {timeRange}-Day Calorie History
                   </h3>
-                  {(() => {
-                    console.log('[Analytics Calories] Weekly Calories Chart Data:', {
-                      raw: chartData.weeklyCalories,
-                      length: chartData.weeklyCalories?.length,
-                      sample: chartData.weeklyCalories?.slice(0, 5),
-                    });
-                    return (
-                      <LineChart data={chartData.weeklyCalories} height={300} color="purple" />
-                    );
-                  })()}
+                  <LineChart data={chartData.weeklyCalories} height={300} color="purple" />
                 </div>
 
                 {/* Daily Breakdown */}
@@ -820,16 +793,7 @@ export default function Analytics() {
                   <h3 className="text-base sm:text-lg font-bold mb-4 text-slate-900 dark:text-slate-100">
                     Recipe Views Trend ({timeRange} Days)
                   </h3>
-                  {(() => {
-                    const viewsData = chartData.weeklyViews.slice(-14);
-                    console.log('[Analytics Recipes] Weekly Views Chart Data:', {
-                      raw: viewsData,
-                      length: viewsData?.length,
-                      sample: viewsData?.slice(0, 5),
-                      allData: chartData.weeklyViews,
-                    });
-                    return <LineChart data={viewsData} height={300} color="blue" />;
-                  })()}
+                  <LineChart data={chartData.weeklyViews.slice(-14)} height={300} color="blue" />
                 </div>
 
                 {/* Top Recipes */}

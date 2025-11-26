@@ -69,7 +69,7 @@ export default function Terms() {
           <section>
             <h2 className="text-2xl font-bold mb-4">5. Recipe Content</h2>
             <p>
-              Recipe information is provided by third-party services (Spoonacular API). We are not
+              Recipe information is provided by our database and user-generated content. We are not
               responsible for the accuracy, completeness, or safety of recipe information. Always
               verify cooking instructions and allergen information before preparing meals.
             </p>
