@@ -10,6 +10,13 @@ import {
 } from '../utils/measurementSystems.js';
 import { getCurrencySettings } from '../utils/currency.js';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import {
+  MEDICAL_CONDITIONS,
+  REQUIRED_NUTRIENTS,
+  getMedicalConditions,
+  saveMedicalConditions,
+  initializeMedicalConditions,
+} from '../utils/medicalConditions.js';
 
 const DIETS = [
   'Gluten Free',
@@ -104,7 +111,7 @@ export default function Profile() {
             localStorage.setItem('unitSystem', detected);
           }
         }
-      } catch (error) {
+      } catch (_error) {
         // Failed to initialize measurement system
       }
     };
@@ -176,6 +183,18 @@ export default function Profile() {
     }
   });
 
+  // Medical conditions state
+  const [medicalData, setMedicalData] = useState(() => {
+    const stored = getMedicalConditions();
+    return stored || initializeMedicalConditions();
+  });
+
+  const [showAddRequiredNutrient, setShowAddRequiredNutrient] = useState(false);
+  const [requiredNutrientForm, setRequiredNutrientForm] = useState({
+    nutrientId: '',
+    minAmount: '',
+  });
+
   // Stats
   const [stats, setStats] = useState({
     favorites: 0,
@@ -209,7 +228,7 @@ export default function Profile() {
         ratedRecipes: Object.keys(ratings).length,
         familyMembers: familyMembers.length,
       });
-    } catch (e) {
+    } catch (_e) {
       // Failed to load stats
     }
   }, []);
@@ -248,6 +267,13 @@ export default function Profile() {
   useEffect(() => {
     localStorage.setItem('notifications:enabled', notificationsEnabled.toString());
   }, [notificationsEnabled]);
+
+  // Save medical conditions when they change
+  useEffect(() => {
+    if (medicalData) {
+      saveMedicalConditions(medicalData);
+    }
+  }, [medicalData]);
 
   const handleUnitSystemChange = system => {
     setUnitSystem(system);
@@ -335,13 +361,6 @@ export default function Profile() {
 
   // Export/Import functions removed to protect user data
   // These functions have been disabled to prevent unauthorized data access
-  const handleExportData = async () => {
-    showMessage('error', 'Data export has been disabled to protect user privacy.');
-  };
-
-  const handleImportData = async () => {
-    showMessage('error', 'Data import has been disabled to protect user privacy.');
-  };
 
   const handleDeleteAccount = async () => {
     if (
@@ -400,7 +419,7 @@ export default function Profile() {
         navigate('/');
         window.location.reload();
       }, 2000);
-    } catch (error) {
+    } catch (_error) {
       showMessage('error', 'Failed to delete account');
     } finally {
       setLoading(false);
@@ -413,7 +432,7 @@ export default function Profile() {
       await signOut();
       navigate('/');
       window.location.reload();
-    } catch (error) {
+    } catch (_error) {
       showMessage('error', 'Failed to sign out');
     } finally {
       setLoading(false);
@@ -442,6 +461,7 @@ export default function Profile() {
     { id: 'account', label: 'Account', icon: '👤' },
     { id: 'preferences', label: 'Preferences', icon: '⚙️' },
     { id: 'dietary', label: 'Dietary', icon: '🥗' },
+    { id: 'medical', label: 'Medical', icon: '🩺' },
     { id: 'about', label: 'About', icon: 'ℹ️' },
   ];
 
@@ -1169,6 +1189,389 @@ export default function Profile() {
                   </p>
                 )}
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'medical' && (
+            <motion.div
+              key="medical"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
+            >
+              {/* Important Notice */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl border-2 border-blue-200 dark:border-blue-800 p-6">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">⚠️</span>
+                  <div>
+                    <h3 className="font-bold text-blue-900 dark:text-blue-100 mb-2">
+                      Important Medical Disclaimer
+                    </h3>
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      This feature is designed to help you manage dietary needs related to medical
+                      conditions. However, it is not a substitute for professional medical advice.
+                      Always consult with your doctor or a registered dietitian before making
+                      significant dietary changes, especially if you have medical conditions.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Medical Conditions */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold mb-1">Medical Conditions</h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Select conditions that affect your dietary needs
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                  {MEDICAL_CONDITIONS.map(condition => {
+                    const isSelected = medicalData.conditions?.includes(condition.id);
+                    return (
+                      <motion.button
+                        key={condition.id}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          const current = medicalData.conditions || [];
+                          const updated = isSelected
+                            ? current.filter(c => c !== condition.id)
+                            : [...current, condition.id];
+                          setMedicalData({ ...medicalData, conditions: updated });
+                          showMessage(
+                            'success',
+                            `${isSelected ? 'Removed' : 'Added'} ${condition.name}`
+                          );
+                        }}
+                        className={`p-4 rounded-lg border-2 text-left transition-all ${
+                          isSelected
+                            ? 'border-red-500 bg-red-50 dark:bg-red-900/20 shadow-md'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-800/50'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl">{condition.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3
+                                className={`font-bold text-sm ${
+                                  isSelected
+                                    ? 'text-red-700 dark:text-red-300'
+                                    : 'text-slate-900 dark:text-slate-100'
+                                }`}
+                              >
+                                {condition.name}
+                              </h3>
+                              {isSelected && (
+                                <motion.span
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  className="text-red-600 dark:text-red-400 text-lg"
+                                >
+                                  ✓
+                                </motion.span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-600 dark:text-slate-400">
+                              {condition.description}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Required Nutrients */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold mb-1">Required Nutrients</h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Set minimum amounts of nutrients you need per serving
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowAddRequiredNutrient(true)}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold"
+                  >
+                    + Add
+                  </button>
+                </div>
+                {medicalData.requiredNutrients && medicalData.requiredNutrients.length > 0 ? (
+                  <div className="space-y-2">
+                    {medicalData.requiredNutrients.map((req, idx) => {
+                      const nutrient = REQUIRED_NUTRIENTS.find(n => n.id === req.nutrientId);
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl">{nutrient?.icon || '💊'}</span>
+                            <div>
+                              <div className="font-semibold">
+                                {nutrient?.name || req.nutrientId}
+                              </div>
+                              <div className="text-sm text-slate-600 dark:text-slate-400">
+                                Minimum: {req.minAmount} {req.unit || nutrient?.unit || ''} per
+                                serving
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              const updated = medicalData.requiredNutrients.filter(
+                                (_, i) => i !== idx
+                              );
+                              setMedicalData({ ...medicalData, requiredNutrients: updated });
+                              showMessage('success', 'Removed required nutrient');
+                            }}
+                            className="text-red-600 hover:text-red-700 px-2"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">No required nutrients set yet.</p>
+                )}
+              </div>
+
+              {/* Foods to Avoid */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold mb-1">Foods to Avoid</h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Ingredients or foods your doctor has told you to avoid
+                    </p>
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && e.target.value.trim()) {
+                      const newFood = e.target.value.trim();
+                      const current = medicalData.foodsToAvoid || [];
+                      if (!current.includes(newFood)) {
+                        setMedicalData({
+                          ...medicalData,
+                          foodsToAvoid: [...current, newFood],
+                        });
+                        e.target.value = '';
+                        showMessage('success', 'Added food to avoid list');
+                      }
+                    }
+                  }}
+                  placeholder="Type food/ingredient and press Enter"
+                  className="w-full px-4 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 mb-4"
+                />
+                {medicalData.foodsToAvoid && medicalData.foodsToAvoid.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {medicalData.foodsToAvoid.map(food => (
+                      <span
+                        key={food}
+                        className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-full text-sm flex items-center gap-2"
+                      >
+                        {food}
+                        <button
+                          onClick={() => {
+                            const updated = medicalData.foodsToAvoid.filter(f => f !== food);
+                            setMedicalData({ ...medicalData, foodsToAvoid: updated });
+                            showMessage('success', 'Removed from avoid list');
+                          }}
+                          className="hover:text-red-600"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">No foods to avoid set yet.</p>
+                )}
+              </div>
+
+              {/* Foods Recommended */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold mb-1">Foods Recommended by Doctor</h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Foods your doctor has recommended you include in your diet
+                    </p>
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && e.target.value.trim()) {
+                      const newFood = e.target.value.trim();
+                      const current = medicalData.foodsRecommended || [];
+                      if (!current.includes(newFood)) {
+                        setMedicalData({
+                          ...medicalData,
+                          foodsRecommended: [...current, newFood],
+                        });
+                        e.target.value = '';
+                        showMessage('success', 'Added recommended food');
+                      }
+                    }
+                  }}
+                  placeholder="Type food/ingredient and press Enter"
+                  className="w-full px-4 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 mb-4"
+                />
+                {medicalData.foodsRecommended && medicalData.foodsRecommended.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {medicalData.foodsRecommended.map(food => (
+                      <span
+                        key={food}
+                        className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 rounded-full text-sm flex items-center gap-2"
+                      >
+                        {food}
+                        <button
+                          onClick={() => {
+                            const updated = medicalData.foodsRecommended.filter(f => f !== food);
+                            setMedicalData({ ...medicalData, foodsRecommended: updated });
+                            showMessage('success', 'Removed recommended food');
+                          }}
+                          className="hover:text-red-600"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">No recommended foods set yet.</p>
+                )}
+              </div>
+
+              {/* Doctor Notes */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+                <h2 className="text-xl font-bold mb-4">Doctor's Notes</h2>
+                <textarea
+                  value={medicalData.doctorNotes || ''}
+                  onChange={e => setMedicalData({ ...medicalData, doctorNotes: e.target.value })}
+                  placeholder="Enter any notes or instructions from your doctor..."
+                  className="w-full px-4 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 min-h-[120px]"
+                />
+                <p className="text-xs text-slate-500 mt-2">
+                  These notes are stored locally and are not shared with anyone.
+                </p>
+              </div>
+
+              {/* Add Required Nutrient Modal */}
+              <AnimatePresence>
+                {showAddRequiredNutrient && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                    onClick={() => setShowAddRequiredNutrient(false)}
+                  >
+                    <motion.div
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.9, opacity: 0 }}
+                      onClick={e => e.stopPropagation()}
+                      className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-xl"
+                    >
+                      <h3 className="text-xl font-bold mb-4">Add Required Nutrient</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-2">Nutrient</label>
+                          <select
+                            value={requiredNutrientForm.nutrientId}
+                            onChange={e =>
+                              setRequiredNutrientForm({
+                                ...requiredNutrientForm,
+                                nutrientId: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                          >
+                            <option value="">Select nutrient...</option>
+                            {REQUIRED_NUTRIENTS.map(nutrient => (
+                              <option key={nutrient.id} value={nutrient.id}>
+                                {nutrient.icon} {nutrient.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-2">
+                            Minimum Amount (per serving)
+                          </label>
+                          <input
+                            type="number"
+                            value={requiredNutrientForm.minAmount}
+                            onChange={e =>
+                              setRequiredNutrientForm({
+                                ...requiredNutrientForm,
+                                minAmount: e.target.value,
+                              })
+                            }
+                            placeholder="e.g. 2"
+                            className="w-full px-4 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-6">
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => {
+                            if (requiredNutrientForm.nutrientId && requiredNutrientForm.minAmount) {
+                              const nutrient = REQUIRED_NUTRIENTS.find(
+                                n => n.id === requiredNutrientForm.nutrientId
+                              );
+                              const current = medicalData.requiredNutrients || [];
+                              setMedicalData({
+                                ...medicalData,
+                                requiredNutrients: [
+                                  ...current,
+                                  {
+                                    nutrientId: requiredNutrientForm.nutrientId,
+                                    minAmount: Number(requiredNutrientForm.minAmount),
+                                    unit: nutrient?.unit || '',
+                                  },
+                                ],
+                              });
+                              setRequiredNutrientForm({ nutrientId: '', minAmount: '' });
+                              setShowAddRequiredNutrient(false);
+                              showMessage('success', 'Added required nutrient');
+                            }
+                          }}
+                          className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-semibold"
+                        >
+                          Add
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => {
+                            setShowAddRequiredNutrient(false);
+                            setRequiredNutrientForm({ nutrientId: '', minAmount: '' });
+                          }}
+                          className="flex-1 px-4 py-2.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-semibold"
+                        >
+                          Cancel
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
 

@@ -8,6 +8,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
+        // Exclude API routes from service worker navigation
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.(?:png|jpg|jpeg|svg|gif|webp)$/,

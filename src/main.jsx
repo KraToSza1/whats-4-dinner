@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext.jsx';
 import { AdminProvider } from './context/AdminContext.jsx';
 import { LanguageProvider } from './context/LanguageContext.jsx';
 import { ToastProvider } from './components/Toast.jsx';
+import { FilterProvider } from './context/FilterContext.jsx';
 import ErrorBoundary from './ErrorBoundary.jsx';
 import { validateEnvironment } from './utils/envValidation.js';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -42,10 +43,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <AdminProvider>
         <LanguageProvider>
           <ToastProvider>
-            <ErrorBoundary onRetry={() => window.location.reload()}>
-              <App />
-              <SpeedInsights />
-            </ErrorBoundary>
+            <FilterProvider>
+              <ErrorBoundary onRetry={() => window.location.reload()}>
+                <App />
+                <SpeedInsights />
+              </ErrorBoundary>
+            </FilterProvider>
           </ToastProvider>
         </LanguageProvider>
       </AdminProvider>

@@ -12,6 +12,7 @@ import { recipeImg, fallbackOnce } from '../utils/img.ts';
 import { RecipeImageZoom } from './animations/FoodAnimations.jsx';
 import { RecipeCardGlow } from './animations/FoodParticles.jsx';
 import { useState, memo } from 'react';
+import { getRecipeMedicalBadge } from '../utils/medicalConditions.js';
 
 function RecipeCard({ recipe, onFavorite, isFavorite, index = 0 }) {
   // Only log renders in dev mode and limit frequency to prevent spam
@@ -69,6 +70,9 @@ function RecipeCard({ recipe, onFavorite, isFavorite, index = 0 }) {
   };
 
   const difficultyBadge = getDifficultyBadge();
+
+  // Get medical condition badge
+  const medicalBadge = recipe ? getRecipeMedicalBadge(recipe) : null;
 
   const handleOpen = () => {
     if (!id) {
@@ -211,6 +215,18 @@ function RecipeCard({ recipe, onFavorite, isFavorite, index = 0 }) {
           {avgRating && (
             <span className="text-[10px] xs:text-xs font-semibold px-1.5 xs:px-2 py-0.5 xs:py-1 rounded-md bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 border border-yellow-300 dark:border-yellow-700 backdrop-blur-sm">
               ⭐ {avgRating.average.toFixed(1)}
+            </span>
+          )}
+          {medicalBadge && (
+            <span
+              className={`text-[10px] xs:text-xs font-semibold px-1.5 xs:px-2 py-0.5 xs:py-1 rounded-md backdrop-blur-sm border ${
+                medicalBadge.type === 'warning'
+                  ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 border-red-300 dark:border-red-700'
+                  : 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700'
+              }`}
+              title={medicalBadge.message}
+            >
+              {medicalBadge.icon} {medicalBadge.message}
             </span>
           )}
         </div>

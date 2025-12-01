@@ -4,13 +4,23 @@
     <meta charset="UTF-8" />
     <link rel="icon" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="frame-src 'self' https://*.paddle.com https://buy.paddle.com https://sandbox-checkout.paddle.com https://checkout.paddle.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.paddle.com https://core.spreedly.com https://global.localizecdn.com https://js.stripe.com https://va.vercel-scripts.com https://public.profitwell.com; connect-src 'self' ws://localhost:* wss://localhost:* https://*.paddle.com https://checkout-service.paddle.com https://sandbox-api.paddle.com https://api.paddle.com https://*.supabase.co https://va.vercel-scripts.com https://public.profitwell.com;"
+    />
 
-    <title>What’s 4 Dinner?</title>
-    <meta name="description" content="Type the ingredients you have. Get dinner ideas fast. Save favorites. Install as an app.">
+    <title>What's 4 Dinner?</title>
+    <meta
+      name="description"
+      content="Type the ingredients you have. Get dinner ideas fast. Save favorites. Install as an app."
+    />
 
     <!-- OpenGraph / Twitter -->
     <meta property="og:title" content="What’s 4 Dinner?" />
-    <meta property="og:description" content="Type the ingredients you have. Get dinner ideas fast. Save favorites." />
+    <meta
+      property="og:description"
+      content="Type the ingredients you have. Get dinner ideas fast. Save favorites."
+    />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="/" />
     <meta property="og:image" content="/og-image.png" />
@@ -25,6 +35,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="What's 4 Dinner" />
+
+    <!-- Paddle.js for checkout handling -->
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
   </head>
   <body class="bg-slate-50 dark:bg-slate-950">
     <div id="root"></div>
@@ -33,11 +46,12 @@
       // Register Service Worker for PWA
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then((registration) => {
+          navigator.serviceWorker
+            .register('/sw.js')
+            .then(registration => {
               console.log('SW registered:', registration);
             })
-            .catch((error) => {
+            .catch(error => {
               console.log('SW registration failed:', error);
             });
         });

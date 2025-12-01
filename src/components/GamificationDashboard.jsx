@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Flame, Sparkles, Award, Gamepad2 } from 'lucide-react';
+import { Flame, Sparkles, Award } from 'lucide-react';
 import StreakCounter from './StreakCounter';
 import XPBar from './XPBar';
 import DailyChallenge from './DailyChallenge';
@@ -10,7 +10,6 @@ import BadgeDisplay from './BadgeDisplay';
 import { getCurrentLevel } from '../utils/xpSystem';
 import { getUnlockedBadges } from '../utils/badges';
 import { useLanguage } from '../context/LanguageContext.jsx';
-import MiniGamePrompt from './MiniGamePrompt.jsx';
 
 export default function GamificationDashboard() {
   const { t } = useLanguage();
@@ -120,50 +119,6 @@ export default function GamificationDashboard() {
             </div>
           </motion.div>
         )}
-
-        {/* Mini-Games Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 rounded-xl p-4 border-2 border-white/20 shadow-lg"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Gamepad2 className="w-5 h-5 text-white" />
-              <h3 className="font-bold text-white">🎮 Mini-Games</h3>
-            </div>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => window.dispatchEvent(new CustomEvent('openMiniGames'))}
-              className="px-4 py-2 bg-white text-purple-600 font-semibold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 text-sm touch-manipulation min-h-[44px]"
-            >
-              <span>Play Now</span>
-              <Sparkles className="w-4 h-4" />
-            </motion.button>
-          </div>
-          <p className="text-white/90 text-sm mb-3">
-            Play fun cooking games while you wait! Earn bonus XP and keep your streak going.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <span className="text-xs text-white/80 bg-white/20 px-2 py-1 rounded-full">
-              🎯 Trivia
-            </span>
-            <span className="text-xs text-white/80 bg-white/20 px-2 py-1 rounded-full">
-              🧠 Memory
-            </span>
-            <span className="text-xs text-white/80 bg-white/20 px-2 py-1 rounded-full">
-              ⏱️ Timer Challenge
-            </span>
-            <span className="text-xs text-white/80 bg-white/20 px-2 py-1 rounded-full">
-              👆 Tap the Food
-            </span>
-          </div>
-        </motion.div>
-
-        {/* Mini-Game Prompt (subtle) */}
-        <MiniGamePrompt variant="inline" context="dashboard" delay={5000} autoShow={true} />
       </div>
 
       {/* Level Up Modal */}

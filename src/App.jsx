@@ -18,26 +18,27 @@ import BillingManagement from './pages/BillingManagement.jsx';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute.jsx';
 
 import Filters from './components/Filters.jsx';
-import PantryChips from './components/PantryChips.jsx';
 import GroceryDrawer from './components/GroceryDrawer.jsx';
 import DailyRecipe from './components/DailyRecipe.jsx';
-import CalorieTracker from './components/CalorieTracker.jsx';
 import GamificationDashboard from './components/GamificationDashboard.jsx';
 import Favorites from './pages/Favorites.jsx';
 import MealRemindersPage from './pages/MealRemindersPage.jsx';
 import BudgetTrackerPage from './pages/BudgetTrackerPage.jsx';
 import WaterTrackerPage from './pages/WaterTrackerPage.jsx';
 import DieticianAIPage from './pages/DieticianAIPage.jsx';
+import CalorieTrackerPage from './pages/CalorieTrackerPage.jsx';
+import PantryPage from './pages/PantryPage.jsx';
 import { RecipeCardSkeletons } from './components/LoadingSkeleton.jsx';
 import { EmptyStateAnimation } from './components/LottieFoodAnimations.jsx';
 import { InlineRecipeLoader, FullPageRecipeLoader } from './components/FoodLoaders.jsx';
 import PullToRefresh from './components/PullToRefresh.jsx';
 import BackToTop from './components/BackToTop.jsx';
 import CookingAnimation from './components/CookingAnimation.jsx';
-import CookingMiniGames from './components/CookingMiniGames.jsx';
 import { GroceryListProvider } from './context/GroceryListContext.jsx';
+import { useFilters } from './context/FilterContext.jsx';
 
 import { searchSupabaseRecipes } from './api/supabaseRecipes.js';
+import { filterRecipesByMedicalConditions } from './utils/medicalConditions.js';
 import { getPreferenceSummary } from './utils/preferenceAnalyzer.js';
 import { trackRecipeInteraction } from './utils/analytics.js';
 import {
@@ -62,8 +63,8 @@ const toIngredientArray = raw =>
 
 const App = () => {
   const toast = useToast();
+  const filters = useFilters(); // Use FilterContext
   const [recipes, setRecipes] = useState([]);
-  const [showMiniGames, setShowMiniGames] = useState(false);
   const [favorites, setFavorites] = useState(() => {
     const saved = localStorage.getItem('favorites');
     return saved ? JSON.parse(saved) : [];
@@ -72,50 +73,6 @@ const App = () => {
   const [error, setError] = useState(null);
   const [lastSearch, setLastSearch] = useState('');
   const [preferenceSummary, setPreferenceSummary] = useState(null);
-
-  // NEW: filters & pantry chips
-  const [diet, setDiet] = useState(() => {
-    try {
-      return localStorage.getItem('filters:diet') || '';
-    } catch {
-      return '';
-    }
-  });
-  const [intolerances, setIntolerances] = useState(() => {
-    try {
-      return localStorage.getItem('filters:intolerances') || '';
-    } catch {
-      return '';
-    }
-  });
-  const [maxTime, setMaxTime] = useState(() => {
-    try {
-      return localStorage.getItem('filters:maxTime') || '';
-    } catch {
-      return '';
-    }
-  }); // minutes
-  const [mealType, setMealType] = useState(() => {
-    try {
-      return localStorage.getItem('filters:mealType') || '';
-    } catch {
-      return '';
-    }
-  });
-  const [maxCalories, setMaxCalories] = useState(() => {
-    try {
-      return localStorage.getItem('filters:maxCalories') || '';
-    } catch {
-      return '';
-    }
-  });
-  const [healthScore, setHealthScore] = useState(() => {
-    try {
-      return localStorage.getItem('filters:healthScore') || '';
-    } catch {
-      return '';
-    }
-  });
   const [pantry, setPantry] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('filters:pantry') || '[]');
@@ -132,6 +89,145 @@ const App = () => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Handle Paddle checkout redirect with _ptxn parameter
+  useEffect(() => {
+    const handlePaddleCheckout = async () => {
+      // Check for _ptxn parameter in URL (Paddle transaction ID)
+      const urlParams = new URLSearchParams(window.location.search);
+      const transactionId = urlParams.get('_ptxn');
+
+      console.warn('🔍 [PADDLE CHECKOUT] Checking for _ptxn parameter:', {
+        transactionId,
+        hasPaddle: !!window.Paddle,
+        currentUrl: window.location.href,
+        search: window.location.search,
+      });
+
+      if (!transactionId) {
+        console.warn('ℹ️ [PADDLE CHECKOUT] No _ptxn parameter found in URL');
+        return;
+      }
+
+      // Get Paddle public/client token from environment
+      const paddleToken =
+        import.meta.env.VITE_PADDLE_PUBLIC_TOKEN ||
+        import.meta.env.VITE_PADDLE_CLIENT_TOKEN ||
+        import.meta.env.VITE_PADDLE_TOKEN;
+
+      console.warn('🔍 [PADDLE CHECKOUT] Token check:', {
+        hasToken: !!paddleToken,
+        tokenLength: paddleToken?.length || 0,
+        tokenPrefix: paddleToken?.substring(0, 10) || 'none',
+        envKeys: Object.keys(import.meta.env).filter(k => k.includes('PADDLE')),
+      });
+
+      if (!paddleToken) {
+        console.error(
+          '❌ [PADDLE CHECKOUT] Paddle public token not found. Add VITE_PADDLE_PUBLIC_TOKEN to .env.local and Vercel environment variables'
+        );
+        console.error(
+          '❌ [PADDLE CHECKOUT] You can find your Paddle public token in Paddle Dashboard → Developer Tools → Authentication'
+        );
+        console.error(
+          '❌ [PADDLE CHECKOUT] For sandbox: https://sandbox-vendors.paddle.com/developer-tools/authentication'
+        );
+        return;
+      }
+
+      // Function to actually open checkout
+      const openCheckout = () => {
+        try {
+          console.warn('✅ [PADDLE CHECKOUT] Initializing Paddle and opening checkout...', {
+            transactionId,
+            hasPaddle: !!window.Paddle,
+          });
+
+          if (!window.Paddle) {
+            console.error('❌ [PADDLE CHECKOUT] window.Paddle is not available');
+            return;
+          }
+
+          // Initialize Paddle if not already initialized
+          // Use Initialize() instead of Setup() for Paddle.js v2
+          if (!window.Paddle.Environment) {
+            window.Paddle.Initialize({ token: paddleToken });
+            console.warn('✅ [PADDLE CHECKOUT] Paddle initialized');
+          }
+
+          // Open checkout for the transaction
+          window.Paddle.Checkout.open({
+            transactionId: transactionId,
+            settings: {
+              displayMode: 'overlay',
+              theme: 'light',
+            },
+          });
+
+          // Clean up URL - remove _ptxn parameter after a delay
+          setTimeout(() => {
+            urlParams.delete('_ptxn');
+            const newUrl =
+              window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+            window.history.replaceState({}, '', newUrl);
+          }, 1000);
+
+          console.warn('✅ [PADDLE CHECKOUT] Checkout opened successfully');
+        } catch (error) {
+          console.error('❌ [PADDLE CHECKOUT] Error opening checkout:', error);
+          console.error('❌ [PADDLE CHECKOUT] Error details:', {
+            message: error.message,
+            stack: error.stack,
+            transactionId,
+          });
+        }
+      };
+
+      // Wait for Paddle.js to load, then handle checkout
+      if (window.Paddle) {
+        console.warn('✅ [PADDLE CHECKOUT] Paddle.js already loaded');
+        openCheckout();
+      } else {
+        console.warn('⚠️ [PADDLE CHECKOUT] Paddle.js not loaded yet, waiting...');
+        // Wait for Paddle.js to load
+        let attempts = 0;
+        const maxAttempts = 50; // 5 seconds max
+        const checkPaddle = setInterval(() => {
+          attempts++;
+          if (window.Paddle) {
+            clearInterval(checkPaddle);
+            console.warn(`✅ [PADDLE CHECKOUT] Paddle.js loaded after ${attempts * 100}ms`);
+            openCheckout();
+          } else if (attempts >= maxAttempts) {
+            clearInterval(checkPaddle);
+            console.error('❌ [PADDLE CHECKOUT] Paddle.js failed to load after 5 seconds');
+            console.error('❌ [PADDLE CHECKOUT] Make sure Paddle.js script is in index.html');
+          }
+        }, 100);
+      }
+    };
+
+    // Run immediately
+    handlePaddleCheckout();
+
+    // Listen for custom event from paymentProviders (for localhost)
+    const handlePaddleEvent = event => {
+      console.warn('🔍 [PADDLE CHECKOUT] Custom event received:', event.detail);
+      handlePaddleCheckout();
+    };
+    window.addEventListener('paddle-checkout', handlePaddleEvent);
+
+    // Also listen for popstate (browser back/forward)
+    const handlePopStateChange = () => {
+      handlePaddleCheckout();
+    };
+    window.addEventListener('popstate', handlePopStateChange);
+
+    return () => {
+      window.removeEventListener('paddle-checkout', handlePaddleEvent);
+      window.removeEventListener('popstate', handlePopStateChange);
+    };
+  }, []);
+
   // Initialize subscription plan on app load
   useEffect(() => {
     const initializePlan = async () => {
@@ -146,16 +242,6 @@ const App = () => {
       }
     };
     initializePlan();
-  }, []);
-
-  // Listen for mini-games open event
-  useEffect(() => {
-    const handleOpenMiniGames = () => {
-      console.log('[App] Opening mini-games');
-      setShowMiniGames(true);
-    };
-    window.addEventListener('openMiniGames', handleOpenMiniGames);
-    return () => window.removeEventListener('openMiniGames', handleOpenMiniGames);
   }, []);
 
   // Listen for subscription plan changes (from auth, payments, etc.)
@@ -211,20 +297,14 @@ const App = () => {
     return () => window.removeEventListener('showToast', handleShowToast);
   }, [toast]);
 
-  // Persist filters and pantry chips (batched to reduce writes)
+  // Persist pantry chips (filters are now managed by FilterContext)
   useEffect(() => {
     try {
-      localStorage.setItem('filters:diet', diet);
-      localStorage.setItem('filters:intolerances', intolerances);
-      localStorage.setItem('filters:maxTime', maxTime);
-      localStorage.setItem('filters:mealType', mealType);
-      localStorage.setItem('filters:maxCalories', maxCalories);
-      localStorage.setItem('filters:healthScore', healthScore);
       localStorage.setItem('filters:pantry', JSON.stringify(pantry));
     } catch (error) {
-      console.warn('Failed to save filters to localStorage:', error);
+      console.warn('Failed to save pantry to localStorage:', error);
     }
-  }, [diet, intolerances, maxTime, mealType, maxCalories, healthScore, pantry]);
+  }, [pantry]);
 
   // Note: Notification permission should be requested on user interaction
   // We'll request it when user clicks a button or interacts with the app
@@ -273,16 +353,24 @@ const App = () => {
       // Note: Searches are now unlimited for all plans, but we still record them for analytics
       // No need to check limits anymore
 
-      // Normalize filter values with robust validation
+      // Normalize filter values with robust validation (from FilterContext)
       const normalizedDiet =
-        diet && typeof diet === 'string' && diet.toLowerCase() !== 'any diet' ? diet.trim() : '';
+        filters.diet &&
+        typeof filters.diet === 'string' &&
+        filters.diet.toLowerCase() !== 'any diet'
+          ? filters.diet.trim()
+          : '';
       const normalizedMealType =
-        mealType && typeof mealType === 'string' && mealType.toLowerCase() !== 'any meal'
-          ? mealType.trim()
+        filters.mealType &&
+        typeof filters.mealType === 'string' &&
+        filters.mealType.toLowerCase() !== 'any meal'
+          ? filters.mealType.trim()
           : '';
       const normalizedMaxTime =
-        maxTime && typeof maxTime === 'string' && maxTime.toLowerCase() !== 'any time'
-          ? maxTime.trim()
+        filters.maxTime &&
+        typeof filters.maxTime === 'string' &&
+        filters.maxTime.toLowerCase() !== 'any time'
+          ? filters.maxTime.trim()
           : '';
 
       // Validate query length (prevent extremely long queries that could cause issues)
@@ -341,14 +429,18 @@ const App = () => {
           // Continue with empty filters
         }
 
-        // Validate numeric filters
+        // Validate numeric filters (from FilterContext)
         const validatedMaxCalories =
-          maxCalories && !isNaN(Number(maxCalories)) && Number(maxCalories) > 0
-            ? String(Number(maxCalories))
+          filters.maxCalories &&
+          !isNaN(Number(filters.maxCalories)) &&
+          Number(filters.maxCalories) > 0
+            ? String(Number(filters.maxCalories))
             : '';
         const validatedHealthScore =
-          healthScore && !isNaN(Number(healthScore)) && Number(healthScore) > 0
-            ? String(Number(healthScore))
+          filters.healthScore &&
+          !isNaN(Number(filters.healthScore)) &&
+          Number(filters.healthScore) > 0
+            ? String(Number(filters.healthScore))
             : '';
 
         // Execute search with timeout protection
@@ -435,7 +527,14 @@ const App = () => {
         setLoading(false);
       }
     },
-    [diet, mealType, maxTime, pantry, maxCalories, healthScore]
+    [
+      filters.diet,
+      filters.mealType,
+      filters.maxTime,
+      pantry,
+      filters.maxCalories,
+      filters.healthScore,
+    ]
   );
 
   // Only fetch on mount
@@ -461,7 +560,16 @@ const App = () => {
     filterDebounceRef.current = setTimeout(() => {
       fetchRecipes(lastSearch || '', { allowEmpty: true });
     }, 500);
-  }, [diet, mealType, maxTime, pantry, maxCalories, healthScore, fetchRecipes, lastSearch]);
+  }, [
+    filters.diet,
+    filters.mealType,
+    filters.maxTime,
+    pantry,
+    filters.maxCalories,
+    filters.healthScore,
+    fetchRecipes,
+    lastSearch,
+  ]);
 
   // Add/Remove favorite (dedupe by id) - memoized to prevent re-renders
   const toggleFavorite = useCallback(
@@ -522,8 +630,8 @@ const App = () => {
                   onRefresh={() => fetchRecipes(lastSearch || '', { allowEmpty: true })}
                 >
                   <main className="mx-auto max-w-7xl px-2 xs:px-3 sm:px-4 md:px-5 lg:px-6 xl:px-8 py-4 xs:py-6 sm:py-8">
-                    {/* Search Form - Moved to Top */}
-                    <div className="mb-4 xs:mb-5 sm:mb-6">
+                    {/* Search Form - At the Very Top */}
+                    <div className="mb-6 xs:mb-8 sm:mb-10">
                       <SearchForm onSearch={fetchRecipes} />
                     </div>
 
@@ -532,7 +640,7 @@ const App = () => {
                       <DailyRecipe onRecipeSelect={toggleFavorite} />
                     </div>
 
-                    {/* Gamification Dashboard */}
+                    {/* Gamification Dashboard - Progress Tracking */}
                     <div className="mb-4 xs:mb-6 sm:mb-8">
                       <GamificationDashboard />
                     </div>
@@ -554,41 +662,13 @@ const App = () => {
                       </div>
                     )}
 
-                    {/* NEW: Filters */}
+                    {/* Smart Filters - Now using FilterContext */}
                     <Filters
-                      diet={diet}
-                      setDiet={setDiet}
-                      intolerances={intolerances}
-                      setIntolerances={setIntolerances}
-                      maxTime={maxTime}
-                      setMaxTime={setMaxTime}
-                      mealType={mealType}
-                      setMealType={setMealType}
-                      maxCalories={maxCalories}
-                      setMaxCalories={setMaxCalories}
-                      healthScore={healthScore}
-                      setHealthScore={setHealthScore}
                       onFiltersChange={useCallback(() => {
                         // Filters are already persisted to localStorage
                         // The debounced useEffect will handle the search automatically
-                        console.log(
-                          '🔍 [FILTERS] Filters changed - search will trigger automatically'
-                        );
                       }, [])}
                     />
-
-                    {/* Divider */}
-                    <div className="border-b border-slate-200 dark:border-slate-800 my-6" />
-
-                    {/* Calorie Tracker */}
-                    <div className="mb-6">
-                      <CalorieTracker />
-                    </div>
-
-                    {/* Divider */}
-                    <div className="border-b border-slate-200 dark:border-slate-800 my-6" />
-
-                    <PantryChips pantry={pantry} setPantry={setPantry} onSearch={fetchRecipes} />
 
                     {loading && (
                       <div className="mt-10">
@@ -693,6 +773,8 @@ const App = () => {
             <Route path="/budget-tracker" element={<BudgetTrackerPage />} />
             <Route path="/water-tracker" element={<WaterTrackerPage />} />
             <Route path="/dietician-ai" element={<DieticianAIPage />} />
+            <Route path="/calorie-tracker" element={<CalorieTrackerPage />} />
+            <Route path="/pantry" element={<PantryPage />} />
           </Routes>
 
           {/* Pro Modal Wrapper - listen for open event */}
@@ -704,9 +786,6 @@ const App = () => {
 
           {/* Back to top button */}
           <BackToTop />
-
-          {/* Mini-Games Modal */}
-          <CookingMiniGames isOpen={showMiniGames} onClose={() => setShowMiniGames(false)} />
         </div>
       </GroceryListProvider>
     </Router>

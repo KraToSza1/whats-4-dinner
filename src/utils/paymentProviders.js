@@ -78,7 +78,42 @@ async function createPaddleCheckout(plan, billingPeriod, userEmail) {
     // Ensure we're using the correct URL
     const finalUrl = apiUrl.startsWith('http') ? apiUrl : `${window.location.origin}${apiUrl}`;
 
+    console.warn('💳 [PADDLE] Creating checkout:', {
+      plan,
+      billingPeriod,
+      userEmail: userEmail ? 'provided' : 'none',
+      apiUrl,
+      finalUrl,
+      isLocalDev,
+      isVercelDev,
+      isProduction: import.meta.env.PROD,
+    });
+
+    // First, test if the API route is accessible
+    if (isVercelDev) {
+      try {
+        const healthCheck = await fetch(`${window.location.origin}/api/health`, {
+          method: 'GET',
+        });
+        if (!healthCheck.ok) {
+          throw new Error(
+            `API health check failed. Make sure "npx vercel dev" is running. Status: ${healthCheck.status}`
+          );
+        }
+        console.warn('✅ [PADDLE] API health check passed');
+      } catch (healthError) {
+        console.error('❌ [PADDLE] API health check failed:', healthError);
+        throw new Error(
+          'Cannot connect to API server. Make sure "npx vercel dev" is running on port 3000.'
+        );
+      }
+    }
+
     let response;
+    let responseText = '';
+    let contentType = '';
+    let isJSON = false;
+
     try {
       response = await fetch(finalUrl, {
         method: 'POST',
@@ -87,6 +122,20 @@ async function createPaddleCheckout(plan, billingPeriod, userEmail) {
           Accept: 'application/json',
         },
         body: JSON.stringify({ plan, billingPeriod, userEmail }),
+      });
+
+      // Get response text BEFORE checking status to see actual error
+      responseText = await response.text();
+      contentType = response.headers.get('content-type') || '';
+      isJSON = contentType.includes('application/json');
+
+      console.warn('💳 [PADDLE] Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType,
+        url: finalUrl,
+        responseText: responseText ? responseText.substring(0, 500) : 'empty', // First 500 chars for debugging
+        isJSON,
       });
     } catch (fetchError) {
       if (
@@ -107,8 +156,7 @@ async function createPaddleCheckout(plan, billingPeriod, userEmail) {
       throw fetchError;
     }
 
-    // Get response text first to check if it's empty
-    const responseText = await response.text();
+    // Response text already retrieved above - use the variables we set
 
     if (!response.ok) {
       // Handle 404 specifically - API route not found (local dev issue)
@@ -126,39 +174,85 @@ async function createPaddleCheckout(plan, billingPeriod, userEmail) {
       // Try to parse error, but handle empty responses
       let errorMessage = 'Paddle checkout failed';
       try {
-        if (responseText) {
-          const error = JSON.parse(responseText);
-          errorMessage = error.error || error.message || errorMessage;
+        if (responseText && responseText.trim()) {
+          if (isJSON) {
+            const error = JSON.parse(responseText);
+            // Handle error object properly - convert to string if needed
+            let errorValue = error.error || error.message || error.details;
+
+            // If error is an object, extract the message
+            if (errorValue && typeof errorValue === 'object') {
+              errorValue = errorValue.message || errorValue.error || JSON.stringify(errorValue);
+            }
+
+            // Convert to string if not already
+            if (typeof errorValue === 'string' && errorValue.trim()) {
+              errorMessage = errorValue;
+            } else if (error.message) {
+              errorMessage = error.message;
+            } else {
+              // Fallback: show the full error object as JSON
+              errorMessage = `Paddle checkout failed: ${JSON.stringify(error)}`;
+            }
+          } else {
+            // Not JSON - might be HTML error page
+            errorMessage = `Server error (${response.status}): ${response.statusText}`;
+            if (responseText.length < 200) {
+              errorMessage += ` - ${responseText}`;
+            }
+          }
         } else {
-          errorMessage = `Paddle checkout failed: ${response.status} ${response.statusText}`;
+          errorMessage = `Paddle checkout failed: ${response.status} ${response.statusText} (empty response)`;
         }
-      } catch (parseError) {
+      } catch (_parseError) {
         // If parsing fails, use status text
         errorMessage = `Paddle checkout failed: ${response.status} ${response.statusText}`;
-        if (responseText) {
-          errorMessage += ` - ${responseText.substring(0, 100)}`;
+        if (responseText && responseText.trim()) {
+          const preview = responseText.substring(0, 100);
+          errorMessage += ` - Response: ${preview}${responseText.length > 100 ? '...' : ''}`;
         }
       }
       throw new Error(errorMessage);
     }
 
     // Parse successful response
-    if (!responseText) {
-      throw new Error('Empty response from Paddle checkout');
+    if (!responseText || !responseText.trim()) {
+      throw new Error(
+        'Empty response from Paddle checkout. The API endpoint may not be configured correctly.'
+      );
     }
 
     let data;
     try {
+      // Check if response is actually JSON before parsing
+      if (!isJSON && !responseText.trim().startsWith('{') && !responseText.trim().startsWith('[')) {
+        throw new Error(`Expected JSON but got: ${contentType || 'unknown content type'}`);
+      }
       data = JSON.parse(responseText);
-    } catch (parseError) {
-      throw new Error(`Invalid JSON response from Paddle: ${responseText.substring(0, 100)}`);
+    } catch (_parseError) {
+      console.error('❌ [PADDLE] JSON parse error:', {
+        error: _parseError.message,
+        responseText: responseText.substring(0, 200),
+        contentType,
+        status: response.status,
+        url: finalUrl,
+      });
+      throw new Error(
+        `Invalid response from payment server. Expected JSON but got: ${contentType || 'unknown'}. ` +
+          `This usually means the API endpoint is not working. Check your Vercel deployment.`
+      );
     }
 
-    if (!data.url) {
-      throw new Error('No checkout URL returned from Paddle');
+    if (!data.url && !data.transactionId && !data._ptxn) {
+      throw new Error('No checkout URL or transaction ID returned from Paddle');
     }
 
-    return { url: data.url, checkoutId: data.checkoutId };
+    return {
+      url: data.url,
+      checkoutId: data.checkoutId || data.transactionId,
+      transactionId: data.transactionId,
+      _ptxn: data._ptxn || data.transactionId,
+    };
   } catch (error) {
     // Re-throw with a more user-friendly message if it's a parsing error
     if (error.message.includes('JSON.parse') || error.message.includes('unexpected end')) {
@@ -199,7 +293,13 @@ async function createPaystackCheckout(plan, billingPeriod, userEmail) {
  */
 export async function redirectToCheckout(plan, billingPeriod, userEmail = null) {
   try {
-    const { url } = await createCheckoutSession(plan, billingPeriod, userEmail);
+    const { url, transactionId, _ptxn } = await createCheckoutSession(
+      plan,
+      billingPeriod,
+      userEmail
+    );
+
+    // Redirect to checkout URL
     if (url) {
       window.location.href = url;
     } else {
@@ -213,7 +313,28 @@ export async function redirectToCheckout(plan, billingPeriod, userEmail = null) 
         ? 'Payment service configuration error. Please check your payment settings.'
         : error.message || 'Failed to start checkout process. Please try again.';
 
-    alert(`Payment error: ${userMessage}\n\nPlease try again or contact support.`);
+    // Show more helpful error message
+    const errorDetails = error.message || 'Unknown error';
+    console.error('💳 [Payment] Checkout error:', {
+      error: errorDetails,
+      plan,
+      billingPeriod,
+      userEmail,
+    });
+
+    // Check if it's a credentials error
+    if (errorDetails.includes('Missing Paddle credentials')) {
+      alert(
+        `Payment error: Missing Paddle credentials.\n\n` +
+          `The payment system is not configured. Please ensure:\n` +
+          `1. PADDLE_VENDOR_ID is set in Vercel (Production environment)\n` +
+          `2. PADDLE_API_KEY is set in Vercel (Production environment)\n` +
+          `3. You've redeployed after adding the variables\n\n` +
+          `Check Vercel Dashboard > Settings > Environment Variables`
+      );
+    } else {
+      alert(`Payment error: ${userMessage}\n\nPlease try again or contact support.`);
+    }
     throw error;
   }
 }

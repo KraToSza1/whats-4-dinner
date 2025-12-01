@@ -86,20 +86,6 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
     return undefined;
   }, [showMenu]);
 
-  const scrollToCalorieTracker = () => {
-    // Try multiple times in case component hasn't rendered yet
-    let attempts = 0;
-    const tryScroll = () => {
-      const calorieSection = document.getElementById('calorie-tracker-section');
-      if (calorieSection) {
-        calorieSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else if (attempts < 10) {
-        attempts++;
-        setTimeout(tryScroll, 100);
-      }
-    };
-    tryScroll();
-  };
   return (
     <>
       {/* Install Banner - Shows at top when installable */}
@@ -186,16 +172,7 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                if (window.location.pathname !== '/') {
-                  navigate('/');
-                  setTimeout(() => {
-                    scrollToCalorieTracker();
-                  }, 300);
-                } else {
-                  scrollToCalorieTracker();
-                }
-              }}
+              onClick={() => navigate('/calorie-tracker')}
               className="relative px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 md:py-1.5 rounded-md text-[10px] sm:text-xs md:text-sm bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white whitespace-nowrap inline-flex items-center gap-1 sm:gap-1.5 md:gap-2 min-h-[36px] sm:min-h-[38px] md:min-h-0 touch-manipulation flex-shrink-0"
               title="View calorie tracker"
             >
@@ -638,18 +615,22 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                         <button
                           onClick={() => {
                             setShowMenu(false);
-                            console.log('[Header] Dispatching openMiniGames event');
-                            window.dispatchEvent(
-                              new CustomEvent('openMiniGames', { bubbles: true })
-                            );
+                            navigate('/calorie-tracker');
                           }}
                           className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm sm:text-base hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg flex items-center gap-2 sm:gap-3 transition-all touch-manipulation"
                         >
-                          <span className="text-xl">🎮</span>
-                          <span className="font-medium">Mini-Games</span>
-                          <span className="ml-auto text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full">
-                            FREE
-                          </span>
+                          <span className="text-xl">🔥</span>
+                          <span className="font-medium">Calorie Tracker</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowMenu(false);
+                            navigate('/pantry');
+                          }}
+                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm sm:text-base hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg flex items-center gap-2 sm:gap-3 transition-all touch-manipulation"
+                        >
+                          <span className="text-xl">🥘</span>
+                          <span className="font-medium">My Pantry</span>
                         </button>
                       </div>
 

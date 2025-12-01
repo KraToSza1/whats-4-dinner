@@ -17,6 +17,16 @@ export default function DailyRecipe({ onRecipeSelect }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [failedRecipeIds, setFailedRecipeIds] = useState(() => {
+    // Load previously failed recipe IDs from localStorage to prevent infinite loops
+    try {
+      const stored = localStorage.getItem('dailyRecipeFailedIds');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [refreshAttempts, setRefreshAttempts] = useState(0);
   const [streak, setStreak] = useState(() => {
     try {
       return parseInt(localStorage.getItem('dailyStreak') || '0', 10);
@@ -163,6 +173,20 @@ export default function DailyRecipe({ onRecipeSelect }) {
       ignore = true;
     };
   }, [refreshTrigger]);
+
+  // Reset failed recipe IDs and refresh attempts at the start of each new day
+  useEffect(() => {
+    const today = new Date().toDateString();
+    const lastResetDate = localStorage.getItem('dailyRecipeFailedIdsResetDate');
+
+    if (lastResetDate !== today) {
+      // New day - reset failed IDs and attempts
+      setFailedRecipeIds([]);
+      setRefreshAttempts(0);
+      localStorage.removeItem('dailyRecipeFailedIds');
+      localStorage.setItem('dailyRecipeFailedIdsResetDate', today);
+    }
+  }, []);
 
   const handleClick = () => {
     if (dailyRecipe) {
@@ -347,6 +371,7 @@ export default function DailyRecipe({ onRecipeSelect }) {
 
                 // If image fails and we have a Supabase storage URL, try refreshing the recipe from database
                 // This helps when recipes are edited and images are uploaded
+                // BUT: Prevent infinite loops by tracking failed recipes and limiting refresh attempts
                 const originalSrc = e.currentTarget.getAttribute('data-original-src');
                 if (
                   originalSrc &&
@@ -357,26 +382,64 @@ export default function DailyRecipe({ onRecipeSelect }) {
 
                   // Only refresh if this is today's cached recipe (don't refresh placeholder)
                   if (cachedDate === today && dailyRecipe.id) {
-                    // Clear the cache for this specific recipe
-                    const cached = localStorage.getItem('dailyRecipe');
-                    if (cached) {
-                      try {
-                        const parsed = JSON.parse(cached);
-                        // Only clear if it's the same recipe ID
-                        if (parsed.id === dailyRecipe.id) {
-                          localStorage.removeItem('dailyRecipe');
-                          localStorage.removeItem('dailyRecipeDate');
-                          // Trigger refresh by incrementing refreshTrigger
-                          // This will cause useEffect to run again and fetch fresh data from Supabase
-                          setRefreshTrigger(prev => prev + 1);
+                    // Check if we've already failed for this recipe ID (prevent infinite loop)
+                    const alreadyFailed = failedRecipeIds.includes(dailyRecipe.id);
+                    // Limit refresh attempts to prevent infinite loops (max 3 attempts)
+                    const maxRefreshAttempts = 3;
+
+                    if (!alreadyFailed && refreshAttempts < maxRefreshAttempts) {
+                      // Clear the cache for this specific recipe
+                      const cached = localStorage.getItem('dailyRecipe');
+                      if (cached) {
+                        try {
+                          const parsed = JSON.parse(cached);
+                          // Only clear if it's the same recipe ID
+                          if (parsed.id === dailyRecipe.id) {
+                            // Mark this recipe as failed
+                            const updatedFailedIds = [...failedRecipeIds, dailyRecipe.id];
+                            setFailedRecipeIds(updatedFailedIds);
+                            localStorage.setItem(
+                              'dailyRecipeFailedIds',
+                              JSON.stringify(updatedFailedIds)
+                            );
+
+                            // Increment refresh attempts
+                            setRefreshAttempts(prev => prev + 1);
+
+                            localStorage.removeItem('dailyRecipe');
+                            localStorage.removeItem('dailyRecipeDate');
+                            // Trigger refresh by incrementing refreshTrigger
+                            // This will cause useEffect to run again and fetch fresh data from Supabase
+                            setRefreshTrigger(prev => prev + 1);
+                          }
+                        } catch (err) {
+                          console.error('❌ [DAILY RECIPE] Error parsing cached recipe:', err);
+                          // Only refresh if we haven't exceeded attempts
+                          if (refreshAttempts < maxRefreshAttempts) {
+                            const updatedFailedIds = [...failedRecipeIds, dailyRecipe.id];
+                            setFailedRecipeIds(updatedFailedIds);
+                            localStorage.setItem(
+                              'dailyRecipeFailedIds',
+                              JSON.stringify(updatedFailedIds)
+                            );
+                            setRefreshAttempts(prev => prev + 1);
+                            localStorage.removeItem('dailyRecipe');
+                            localStorage.removeItem('dailyRecipeDate');
+                            setRefreshTrigger(prev => prev + 1);
+                          }
                         }
-                      } catch (err) {
-                        console.error('❌ [DAILY RECIPE] Error parsing cached recipe:', err);
-                        // Clear cache anyway if parsing fails
-                        localStorage.removeItem('dailyRecipe');
-                        localStorage.removeItem('dailyRecipeDate');
-                        setRefreshTrigger(prev => prev + 1);
                       }
+                    } else {
+                      // Recipe already failed or too many attempts - just show placeholder
+                      console.warn(
+                        '⚠️ [DAILY RECIPE] Image failed but not refreshing (already failed or max attempts reached):',
+                        {
+                          recipeId: dailyRecipe.id,
+                          alreadyFailed,
+                          refreshAttempts,
+                          maxAttempts: maxRefreshAttempts,
+                        }
+                      );
                     }
                   }
                 }

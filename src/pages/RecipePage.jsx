@@ -41,7 +41,7 @@ import { formatCurrency } from '../utils/currency.js';
 import { useAchievements, AchievementUnlock } from '../components/animations/Achievements.jsx';
 import { AnimatePresence } from 'framer-motion';
 import { EmptyStateAnimation } from '../components/LottieFoodAnimations.jsx';
-import MiniGamePrompt from '../components/MiniGamePrompt.jsx';
+import MedicalWarning from '../components/MedicalWarning.jsx';
 
 const MEASUREMENT_OPTIONS = [
   {
@@ -1283,6 +1283,11 @@ export default function RecipePage() {
             <Stat label="Health" value={recipe.healthScore ?? '—'} icon="💚" />
           </div>
 
+          {/* Medical Condition Warnings */}
+          <div className="mt-6 px-2">
+            <MedicalWarning recipe={recipe} servings={targetServings} />
+          </div>
+
           {heroImage && (
             <div className="flex justify-center mt-8">
               <motion.div
@@ -1345,18 +1350,6 @@ export default function RecipePage() {
                 <span className="text-lg xs:text-xl">📚</span>
                 <span className="hidden xs:inline">Cooking Skills</span>
                 <span className="xs:hidden">Skills</span>
-              </motion.button>
-              {/* Mini-Games Button */}
-              <motion.button
-                whileHover={{ scale: 1.05, boxShadow: '0 10px 25px rgba(139, 92, 246, 0.4)' }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => window.dispatchEvent(new CustomEvent('openMiniGames'))}
-                className="px-4 xs:px-6 py-2.5 xs:py-3 rounded-lg xs:rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 hover:from-purple-600 hover:via-pink-600 hover:to-orange-600 text-white font-bold text-sm xs:text-base shadow-lg hover:shadow-xl transition-all flex items-center gap-1.5 xs:gap-2 touch-manipulation min-h-[44px] xs:min-h-0"
-                title="Play fun cooking mini-games while you cook!"
-              >
-                <span className="text-lg xs:text-xl">🎮</span>
-                <span className="hidden xs:inline">Mini-Games</span>
-                <span className="xs:hidden">Games</span>
               </motion.button>
             </div>
           )}
@@ -2098,21 +2091,9 @@ export default function RecipePage() {
                   </motion.button>
                 )}
               </div>
-
-              {/* Mini-Game Prompt when timer is running */}
-              {ticking && secondsLeft > 30 && (
-                <div className="mt-4">
-                  <MiniGamePrompt variant="inline" context="timer" delay={2000} autoShow={true} />
-                </div>
-              )}
             </div>
           </motion.div>
         </motion.div>
-      )}
-
-      {/* Floating Mini-Game Prompt - appears after viewing recipe for a while */}
-      {recipe && !ticking && (
-        <MiniGamePrompt variant="floating" context="cooking" delay={15000} autoShow={true} />
       )}
     </div>
   );
