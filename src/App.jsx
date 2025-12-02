@@ -89,6 +89,44 @@ const App = () => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Initialize Paddle globally when app loads
+  useEffect(() => {
+    const initializePaddle = () => {
+      const paddleToken =
+        import.meta.env.VITE_PADDLE_PUBLIC_TOKEN ||
+        import.meta.env.VITE_PADDLE_CLIENT_TOKEN ||
+        import.meta.env.VITE_PADDLE_TOKEN;
+
+      if (!paddleToken) {
+        return; // No token, can't initialize
+      }
+
+      if (window.Paddle && typeof window.Paddle.Initialize === 'function') {
+        try {
+          window.Paddle.Initialize({ token: paddleToken });
+        } catch (err) {
+          console.error('❌ [PADDLE] Failed to initialize:', err);
+        }
+      }
+    };
+
+    // Try to initialize immediately if Paddle is already loaded
+    if (window.Paddle) {
+      initializePaddle();
+    } else {
+      // Wait for Paddle.js to load
+      const checkPaddle = setInterval(() => {
+        if (window.Paddle) {
+          clearInterval(checkPaddle);
+          initializePaddle();
+        }
+      }, 100);
+
+      // Stop checking after 5 seconds
+      setTimeout(() => clearInterval(checkPaddle), 5000);
+    }
+  }, []);
+
   // Handle Paddle checkout redirect with _ptxn parameter
   useEffect(() => {
     const handlePaddleCheckout = async () => {
@@ -99,33 +137,26 @@ const App = () => {
         return;
       }
 
-      // Get Paddle public/client token from environment
-      const paddleToken =
-        import.meta.env.VITE_PADDLE_PUBLIC_TOKEN ||
-        import.meta.env.VITE_PADDLE_CLIENT_TOKEN ||
-        import.meta.env.VITE_PADDLE_TOKEN;
-
-      if (!paddleToken) {
-        console.error(
-          '❌ [PADDLE] Public token not found. Add VITE_PADDLE_PUBLIC_TOKEN to Vercel environment variables'
-        );
-        return;
-      }
-
-      // Function to initialize and open checkout
+      // Function to open checkout
       const openCheckout = async () => {
         try {
-          if (!window.Paddle) {
-            console.error('❌ [PADDLE] window.Paddle is not available');
+          if (!window.Paddle || typeof window.Paddle.Checkout === 'undefined') {
+            console.error('❌ [PADDLE] Paddle.js not ready');
             return;
           }
 
-          // Always initialize Paddle before opening checkout
-          // Paddle.js v2 requires Initialize() to be called
-          window.Paddle.Initialize({ token: paddleToken });
+          // Ensure Paddle is initialized (re-initialize if needed)
+          const paddleToken =
+            import.meta.env.VITE_PADDLE_PUBLIC_TOKEN ||
+            import.meta.env.VITE_PADDLE_CLIENT_TOKEN ||
+            import.meta.env.VITE_PADDLE_TOKEN;
 
-          // Wait a moment for initialization to complete
-          await new Promise(resolve => setTimeout(resolve, 100));
+          if (paddleToken) {
+            // Always re-initialize to ensure it's ready
+            window.Paddle.Initialize({ token: paddleToken });
+            // Wait for initialization to complete
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
 
           // Open checkout for the transaction
           window.Paddle.Checkout.open({
@@ -162,9 +193,7 @@ const App = () => {
             openCheckout();
           } else if (attempts >= maxAttempts) {
             clearInterval(checkPaddle);
-            console.error(
-              '❌ [PADDLE] Paddle.js failed to load. Check index.html for Paddle script tag.'
-            );
+            console.error('❌ [PADDLE] Paddle.js failed to load');
           }
         }, 100);
       }

@@ -59,14 +59,6 @@ async function createPaddleCheckout(plan, billingPeriod, userEmail) {
     const apiUrl = '/api/paddle/create-checkout';
     const finalUrl = `${window.location.origin}${apiUrl}`;
 
-    console.warn('💳 [PADDLE] Creating checkout:', {
-      plan,
-      billingPeriod,
-      userEmail: userEmail ? 'provided' : 'none',
-      apiUrl,
-      finalUrl,
-    });
-
     let response;
     let responseText = '';
     let contentType = '';
