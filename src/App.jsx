@@ -222,41 +222,89 @@ const App = () => {
             // Get plan from stored checkout data
             const getCheckoutData = () => {
               try {
-                const checkoutData = localStorage.getItem('paddle:checkout:data');
-                if (checkoutData) {
-                  return JSON.parse(checkoutData);
+                const checkoutDataStr = localStorage.getItem('paddle:checkout:data');
+                console.warn('🔍 [PADDLE CHECKOUT] Reading checkout data from localStorage:', {
+                  hasData: !!checkoutDataStr,
+                  dataLength: checkoutDataStr?.length || 0,
+                });
+                if (checkoutDataStr) {
+                  const checkoutData = JSON.parse(checkoutDataStr);
+                  console.warn('📦 [PADDLE CHECKOUT] Parsed checkout data:', {
+                    plan: checkoutData.plan,
+                    billingPeriod: checkoutData.billingPeriod,
+                    transactionId: checkoutData.transactionId,
+                    userEmail: checkoutData.userEmail,
+                  });
+                  return checkoutData;
                 }
-              } catch {
-                // Ignore parse errors
+              } catch (err) {
+                console.error('❌ [PADDLE CHECKOUT] Error parsing checkout data:', err);
               }
+              console.error('❌ [PADDLE CHECKOUT] No checkout data found in localStorage');
               return null;
             };
 
             // Handle checkout completion - update plan immediately
             const handleCheckoutComplete = async () => {
-              console.warn('✅ [PADDLE] Checkout completed, updating plan...');
+              console.warn('🚀 [PADDLE CHECKOUT] ============================================');
+              console.warn('🚀 [PADDLE CHECKOUT] CHECKOUT COMPLETED - STARTING PLAN UPDATE');
+              console.warn('🚀 [PADDLE CHECKOUT] Transaction ID:', transactionId);
+              console.warn('🚀 [PADDLE CHECKOUT] ============================================');
 
               try {
                 // Get checkout data (plan, billing period, etc.)
+                console.warn(
+                  '📋 [PADDLE CHECKOUT] Step 1: Getting checkout data from localStorage...'
+                );
                 const checkoutData = getCheckoutData();
                 if (!checkoutData) {
-                  console.error('❌ [PADDLE] No checkout data found');
+                  console.error('❌ [PADDLE CHECKOUT] Step 1 FAILED: No checkout data found');
+                  toast.error('Failed to find payment details. Please contact support.');
                   return;
                 }
+                console.warn('✅ [PADDLE CHECKOUT] Step 1 SUCCESS: Checkout data found:', {
+                  plan: checkoutData.plan,
+                  billingPeriod: checkoutData.billingPeriod,
+                  transactionId: checkoutData.transactionId,
+                });
 
                 // Get user email
+                console.warn('📋 [PADDLE CHECKOUT] Step 2: Getting user from Supabase...');
                 const { supabase } = await import('./lib/supabaseClient.js');
                 const {
                   data: { user },
+                  error: userError,
                 } = await supabase.auth.getUser();
 
-                if (!user?.email) {
-                  console.error('❌ [PADDLE] No user email found');
+                if (userError) {
+                  console.error(
+                    '❌ [PADDLE CHECKOUT] Step 2 FAILED: Error getting user:',
+                    userError
+                  );
                   toast.error('Please sign in to activate your plan.');
                   return;
                 }
 
+                if (!user?.email) {
+                  console.error('❌ [PADDLE CHECKOUT] Step 2 FAILED: No user email found');
+                  console.error('❌ [PADDLE CHECKOUT] User object:', user);
+                  toast.error('Please sign in to activate your plan.');
+                  return;
+                }
+                console.warn('✅ [PADDLE CHECKOUT] Step 2 SUCCESS: User found:', {
+                  email: user.email,
+                  userId: user.id,
+                });
+
                 // Directly update plan via API (immediate, doesn't wait for webhook)
+                console.warn('📋 [PADDLE CHECKOUT] Step 3: Calling update-plan API...');
+                console.warn('📋 [PADDLE CHECKOUT] Request payload:', {
+                  transactionId: transactionId,
+                  plan: checkoutData.plan,
+                  billingPeriod: checkoutData.billingPeriod || 'monthly',
+                  userEmail: user.email,
+                });
+
                 const updateResponse = await fetch('/api/paddle/update-plan', {
                   method: 'POST',
                   headers: {
@@ -270,17 +318,37 @@ const App = () => {
                   }),
                 });
 
+                console.warn('📋 [PADDLE CHECKOUT] Step 3: API response received:', {
+                  status: updateResponse.status,
+                  statusText: updateResponse.statusText,
+                  ok: updateResponse.ok,
+                });
+
+                const responseText = await updateResponse.text();
+                console.warn('📋 [PADDLE CHECKOUT] Step 3: Response body:', responseText);
+
                 if (updateResponse.ok) {
-                  console.warn('✅ [PADDLE] Plan updated directly via API');
+                  console.warn('✅ [PADDLE CHECKOUT] Step 3 SUCCESS: Plan updated via API');
 
                   // Clear cache and refresh
+                  console.warn(
+                    '📋 [PADDLE CHECKOUT] Step 4: Clearing cache and fetching fresh plan...'
+                  );
                   const subscriptionUtils = await import('./utils/subscription.js');
                   subscriptionUtils.clearPlanCache();
+                  console.warn('✅ [PADDLE CHECKOUT] Cache cleared');
 
                   // Wait a moment then fetch fresh plan
                   await new Promise(resolve => setTimeout(resolve, 500));
+                  console.warn('📋 [PADDLE CHECKOUT] Fetching plan from Supabase...');
                   const actualPlan = await subscriptionUtils.getCurrentPlan();
+                  console.warn(
+                    '✅ [PADDLE CHECKOUT] Step 4 SUCCESS: Plan fetched from Supabase:',
+                    actualPlan
+                  );
+
                   subscriptionUtils.setCurrentPlan(actualPlan);
+                  console.warn('✅ [PADDLE CHECKOUT] Plan set in localStorage:', actualPlan);
 
                   // Show success message
                   toast.success(`🎉 Congratulations! Your ${actualPlan} plan is now active!`, 8000);
@@ -289,50 +357,81 @@ const App = () => {
                   window.dispatchEvent(
                     new CustomEvent('subscriptionPlanChanged', { detail: { plan: actualPlan } })
                   );
+                  console.warn('✅ [PADDLE CHECKOUT] Plan change event dispatched');
 
                   // Clean up stored checkout data
                   localStorage.removeItem('paddle:checkout:data');
+                  console.warn('✅ [PADDLE CHECKOUT] Checkout data cleaned up');
 
                   // Refresh page after a delay
+                  console.warn('📋 [PADDLE CHECKOUT] Refreshing page in 2 seconds...');
                   setTimeout(() => {
+                    console.warn('🔄 [PADDLE CHECKOUT] RELOADING PAGE NOW');
                     window.location.reload();
                   }, 2000);
                 } else {
-                  const errorText = await updateResponse.text();
-                  console.error('❌ [PADDLE] Failed to update plan:', errorText);
+                  console.error('❌ [PADDLE CHECKOUT] Step 3 FAILED: API returned error');
+                  console.error('❌ [PADDLE CHECKOUT] Error response:', responseText);
 
                   // Fallback: wait for webhook and refresh
+                  console.warn('📋 [PADDLE CHECKOUT] FALLBACK: Waiting for webhook (3 seconds)...');
                   const subscriptionUtils = await import('./utils/subscription.js');
                   subscriptionUtils.clearPlanCache();
                   await new Promise(resolve => setTimeout(resolve, 3000));
+                  console.warn(
+                    '📋 [PADDLE CHECKOUT] FALLBACK: Fetching plan after webhook wait...'
+                  );
                   const plan = await subscriptionUtils.getCurrentPlan();
+                  console.warn('📋 [PADDLE CHECKOUT] FALLBACK: Plan fetched:', plan);
                   subscriptionUtils.setCurrentPlan(plan);
                   toast.success(`🎉 Payment successful! Your ${plan} plan is now active!`, 8000);
                   setTimeout(() => window.location.reload(), 2000);
                 }
               } catch (err) {
-                console.error('❌ [PADDLE] Error updating plan:', err);
+                console.error('❌ [PADDLE CHECKOUT] ============================================');
+                console.error('❌ [PADDLE CHECKOUT] EXCEPTION CAUGHT:', err);
+                console.error('❌ [PADDLE CHECKOUT] Error message:', err.message);
+                console.error('❌ [PADDLE CHECKOUT] Error stack:', err.stack);
+                console.error('❌ [PADDLE CHECKOUT] ============================================');
                 toast.success('🎉 Payment successful! Your plan will be activated shortly.');
               }
             };
 
             // Monitor for checkout completion
+            console.warn('🔍 [PADDLE CHECKOUT] Starting checkout completion monitor...');
+            console.warn('🔍 [PADDLE CHECKOUT] Transaction ID being monitored:', transactionId);
+
             // Paddle overlay mode doesn't reliably fire events, so we check when modal closes
             let lastModalState = true;
+            let checkCount = 0;
             let checkInterval = setInterval(() => {
+              checkCount++;
               // Check if Paddle checkout modal/overlay is visible
               const paddleOverlay =
                 document.querySelector('[data-paddle-overlay]') ||
                 document.querySelector('.paddle-checkout-overlay') ||
-                document.querySelector('[class*="paddle"]');
+                document.querySelector('[class*="paddle"]') ||
+                document.querySelector('iframe[src*="paddle"]');
 
               const isModalOpen =
                 paddleOverlay &&
                 paddleOverlay.offsetParent !== null &&
                 window.getComputedStyle(paddleOverlay).display !== 'none';
 
+              // Log every 10 checks (every 10 seconds)
+              if (checkCount % 10 === 0) {
+                console.warn('🔍 [PADDLE CHECKOUT] Monitor check #' + checkCount + ':', {
+                  modalOpen: isModalOpen,
+                  foundOverlay: !!paddleOverlay,
+                  transactionId: transactionId,
+                });
+              }
+
               // If modal was open and now closed, payment might be complete
               if (lastModalState && !isModalOpen) {
+                console.warn(
+                  '✅ [PADDLE CHECKOUT] Modal closed detected! Triggering plan update...'
+                );
                 clearInterval(checkInterval);
                 // Wait a moment for Paddle to finish processing
                 setTimeout(handleCheckoutComplete, 1000);
@@ -342,7 +441,13 @@ const App = () => {
             }, 1000);
 
             // Stop checking after 5 minutes
-            setTimeout(() => clearInterval(checkInterval), 5 * 60 * 1000);
+            setTimeout(
+              () => {
+                console.warn('⏰ [PADDLE CHECKOUT] Monitor timeout (5 minutes), stopping checks');
+                clearInterval(checkInterval);
+              },
+              5 * 60 * 1000
+            );
 
             if (checkoutResult && typeof checkoutResult.catch === 'function') {
               checkoutResult.catch(err => {

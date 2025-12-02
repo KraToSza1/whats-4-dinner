@@ -212,13 +212,24 @@ export default function Profile() {
   // Load plan from Supabase
   useEffect(() => {
     const loadPlan = async () => {
+      console.warn('🔍 [PROFILE] ============================================');
+      console.warn('🔍 [PROFILE] Loading plan in Profile component...');
+      console.warn('🔍 [PROFILE] ============================================');
+
       try {
         const plan = await getCurrentPlan();
+        console.warn('✅ [PROFILE] Plan loaded:', plan);
         setCurrentPlan(plan);
+        console.warn('✅ [PROFILE] Plan state updated to:', plan);
       } catch (error) {
-        console.error('Error loading plan:', error);
+        console.error('❌ [PROFILE] Error loading plan:', error);
+        console.error('❌ [PROFILE] Error details:', {
+          message: error.message,
+          stack: error.stack,
+        });
       } finally {
         setPlanLoading(false);
+        console.warn('✅ [PROFILE] Plan loading complete');
       }
     };
     loadPlan();
@@ -226,7 +237,9 @@ export default function Profile() {
     // Listen for plan changes
     const handlePlanChange = event => {
       const { plan } = event.detail || {};
+      console.warn('🔔 [PROFILE] Plan change event received:', plan);
       if (plan) {
+        console.warn('✅ [PROFILE] Updating plan state from event:', plan);
         setCurrentPlan(plan);
       }
     };

@@ -187,18 +187,23 @@ async function createPaddleCheckout(plan, billingPeriod, userEmail) {
     }
 
     // Store checkout data for later use (plan update after payment)
+    const checkoutData = {
+      plan,
+      billingPeriod,
+      transactionId: data.transactionId,
+      userEmail,
+    };
     try {
-      localStorage.setItem(
-        'paddle:checkout:data',
-        JSON.stringify({
-          plan,
-          billingPeriod,
-          transactionId: data.transactionId,
-          userEmail,
-        })
-      );
-    } catch {
-      // Ignore localStorage errors
+      localStorage.setItem('paddle:checkout:data', JSON.stringify(checkoutData));
+      console.warn('💾 [PAYMENT] Stored checkout data:', {
+        plan: checkoutData.plan,
+        billingPeriod: checkoutData.billingPeriod,
+        transactionId: checkoutData.transactionId,
+        hasEmail: !!checkoutData.userEmail,
+        email: checkoutData.userEmail?.substring(0, 10) + '...',
+      });
+    } catch (err) {
+      console.error('❌ [PAYMENT] Failed to store checkout data:', err);
     }
 
     return {
