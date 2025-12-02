@@ -186,6 +186,21 @@ async function createPaddleCheckout(plan, billingPeriod, userEmail) {
       throw new Error('No checkout URL or transaction ID returned from Paddle');
     }
 
+    // Store checkout data for later use (plan update after payment)
+    try {
+      localStorage.setItem(
+        'paddle:checkout:data',
+        JSON.stringify({
+          plan,
+          billingPeriod,
+          transactionId: data.transactionId,
+          userEmail,
+        })
+      );
+    } catch {
+      // Ignore localStorage errors
+    }
+
     return {
       url: data.url,
       checkoutId: data.checkoutId || data.transactionId,
