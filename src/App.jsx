@@ -120,12 +120,11 @@ const App = () => {
 
       if (window.Paddle && typeof window.Paddle.Initialize === 'function') {
         try {
-          // Explicitly set sandbox environment - CRITICAL for test_ tokens
+          // Paddle automatically detects sandbox from test_ token prefix
           window.Paddle.Initialize({
             token: paddleToken,
-            environment: 'sandbox', // Force sandbox for test tokens
           });
-          console.warn('✅ [PADDLE INIT] Paddle initialized with sandbox environment');
+          console.warn('✅ [PADDLE INIT] Paddle initialized');
         } catch (err) {
           console.error('❌ [PADDLE] Failed to initialize:', err);
         }
@@ -187,26 +186,33 @@ const App = () => {
           }
 
           console.warn('🔍 [PADDLE CHECKOUT] Using token:', paddleToken.substring(0, 15) + '...');
-          // Always re-initialize to ensure it's ready - EXPLICITLY set sandbox
+          // Always re-initialize to ensure it's ready
           window.Paddle.Initialize({
             token: paddleToken,
-            environment: 'sandbox', // Force sandbox for test tokens
           });
           // Wait for initialization to complete
           await new Promise(resolve => setTimeout(resolve, 300));
 
           // Open checkout for the transaction
-          window.Paddle.Checkout.open({
-            transactionId: transactionId,
-            settings: {
-              displayMode: 'overlay',
-              theme: 'light',
-            },
-          }).catch(err => {
-            console.error('❌ [PADDLE] Checkout.open() failed:', err);
-            // If checkout fails, show error to user
-            alert('Failed to open checkout. Please try again or contact support.');
-          });
+          try {
+            const checkoutResult = window.Paddle.Checkout.open({
+              transactionId: transactionId,
+              settings: {
+                displayMode: 'overlay',
+                theme: 'light',
+              },
+            });
+
+            if (checkoutResult && typeof checkoutResult.catch === 'function') {
+              checkoutResult.catch(err => {
+                console.error('❌ [PADDLE] Checkout.open() failed:', err);
+                toast.error('Failed to open checkout. Please try again.');
+              });
+            }
+          } catch (err) {
+            console.error('❌ [PADDLE] Error opening checkout:', err);
+            toast.error('Failed to open checkout. Please try again.');
+          }
 
           // Clean up URL - remove _ptxn parameter after a delay
           setTimeout(() => {
