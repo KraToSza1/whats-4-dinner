@@ -219,6 +219,39 @@ const App = () => {
               },
             });
 
+            // Listen for checkout completion
+            if (window.Paddle.Checkout && typeof window.Paddle.Checkout.on === 'function') {
+              window.Paddle.Checkout.on('checkout.completed', async () => {
+                console.log('✅ [PADDLE] Checkout completed!');
+
+                // Force refresh plan from Supabase
+                try {
+                  const subscriptionUtils = await import('./utils/subscription.js');
+                  // Clear cache to force fresh fetch
+                  subscriptionUtils.clearPlanCache();
+                  // Wait a moment for webhook to process
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  const plan = await subscriptionUtils.getCurrentPlan();
+
+                  // Show success message
+                  toast.success(`🎉 Congratulations! Your ${plan} plan is now active!`, 8000);
+
+                  // Dispatch plan change event
+                  window.dispatchEvent(
+                    new CustomEvent('subscriptionPlanChanged', { detail: { plan } })
+                  );
+
+                  // Refresh page after a delay to show updated plan
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 2000);
+                } catch (err) {
+                  console.error('❌ [PADDLE] Error refreshing plan:', err);
+                  toast.success('🎉 Payment successful! Your plan will be activated shortly.');
+                }
+              });
+            }
+
             if (checkoutResult && typeof checkoutResult.catch === 'function') {
               checkoutResult.catch(err => {
                 console.error('❌ [PADDLE] Checkout.open() failed:', err);
@@ -303,23 +336,29 @@ const App = () => {
     return () => window.removeEventListener('subscriptionPlanChanged', handlePlanChange);
   }, []);
 
-  // Check for payment success on mount
+  // Check for payment success on mount (from URL redirect)
   useEffect(() => {
     const paymentResult = checkPaymentSuccess();
     if (paymentResult?.success) {
-      // Payment successful - update subscription
+      // Payment successful - force refresh from Supabase
       const { plan } = paymentResult;
-      import('./utils/subscription.js').then(subscriptionUtils => {
-        subscriptionUtils.setCurrentPlan(plan);
+      import('./utils/subscription.js').then(async subscriptionUtils => {
+        // Clear cache to force fresh fetch from Supabase
+        subscriptionUtils.clearPlanCache();
+        // Wait a moment for webhook to process (if it hasn't already)
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const actualPlan = await subscriptionUtils.getCurrentPlan();
+
+        // Update local storage
+        subscriptionUtils.setCurrentPlan(actualPlan);
 
         // Show success message
-        toast.success(
-          `🎉 Payment successful! Welcome to ${plan}! Your subscription is now active.`,
-          6000
-        );
+        toast.success(`🎉 Congratulations! Your ${actualPlan} plan is now active!`, 8000);
 
         // Dispatch plan change event
-        window.dispatchEvent(new CustomEvent('subscriptionPlanChanged', { detail: { plan } }));
+        window.dispatchEvent(
+          new CustomEvent('subscriptionPlanChanged', { detail: { plan: actualPlan } })
+        );
 
         // Refresh to update UI after a short delay
         setTimeout(() => {
@@ -327,8 +366,8 @@ const App = () => {
         }, 2000);
       });
     } else if (paymentResult?.canceled) {
-      // Payment canceled
       // Payment canceled - no action needed
+      toast.info('Payment was canceled.');
     }
   }, [toast]);
 

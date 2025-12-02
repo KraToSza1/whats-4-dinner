@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, signOut } from '../context/AuthContext.jsx';
 import { getAllRatings } from '../utils/preferenceAnalyzer.js';
+import { getCurrentPlan, getPlanName, PLAN_DETAILS, PLANS } from '../utils/subscription.js';
 import {
   getMeasurementSystemForCountry,
   getCountryName,
@@ -203,6 +204,35 @@ export default function Profile() {
     ratedRecipes: 0,
     familyMembers: 0,
   });
+
+  // Subscription plan state
+  const [currentPlan, setCurrentPlan] = useState('free');
+  const [planLoading, setPlanLoading] = useState(true);
+
+  // Load plan from Supabase
+  useEffect(() => {
+    const loadPlan = async () => {
+      try {
+        const plan = await getCurrentPlan();
+        setCurrentPlan(plan);
+      } catch (error) {
+        console.error('Error loading plan:', error);
+      } finally {
+        setPlanLoading(false);
+      }
+    };
+    loadPlan();
+
+    // Listen for plan changes
+    const handlePlanChange = event => {
+      const { plan } = event.detail || {};
+      if (plan) {
+        setCurrentPlan(plan);
+      }
+    };
+    window.addEventListener('subscriptionPlanChanged', handlePlanChange);
+    return () => window.removeEventListener('subscriptionPlanChanged', handlePlanChange);
+  }, []);
 
   useEffect(() => {
     // Load stats
@@ -625,20 +655,7 @@ export default function Profile() {
                       Current Plan:
                     </span>
                     <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                      {(() => {
-                        try {
-                          const plan = localStorage.getItem('subscription:plan:v1') || 'free';
-                          const planNames = {
-                            free: 'Free',
-                            supporter: 'Supporter',
-                            unlimited: 'Unlimited',
-                            family: 'Family',
-                          };
-                          return planNames[plan] || 'Free';
-                        } catch {
-                          return 'Free';
-                        }
-                      })()}
+                      {planLoading ? 'Loading...' : getPlanName()}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -646,20 +663,11 @@ export default function Profile() {
                       Monthly Cost:
                     </span>
                     <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                      {(() => {
-                        try {
-                          const plan = localStorage.getItem('subscription:plan:v1') || 'free';
-                          const prices = {
-                            free: '$0.00',
-                            supporter: '$2.99',
-                            unlimited: '$4.99',
-                            family: '$9.99',
-                          };
-                          return prices[plan] || '$0.00';
-                        } catch {
-                          return '$0.00';
-                        }
-                      })()}
+                      {planLoading
+                        ? 'Loading...'
+                        : currentPlan === PLANS.FREE
+                          ? '$0.00'
+                          : `$${PLAN_DETAILS[currentPlan]?.priceMonthly || '0.00'}`}
                     </span>
                   </div>
                   <div className="pt-3 border-t border-emerald-200 dark:border-emerald-800">

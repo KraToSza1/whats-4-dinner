@@ -172,6 +172,14 @@ let planCacheTime = 0;
 const PLAN_CACHE_TTL = 60000; // 1 minute cache
 
 /**
+ * Force refresh plan from Supabase (clears cache)
+ */
+export function clearPlanCache() {
+  cachedPlan = null;
+  planCacheTime = 0;
+}
+
+/**
  * Get current subscription plan from Supabase profiles table
  * Falls back to localStorage if not authenticated
  */
