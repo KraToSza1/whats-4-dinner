@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth, signOut } from '../context/AuthContext.jsx';
 import { getAllRatings } from '../utils/preferenceAnalyzer.js';
 import { getCurrentPlan, getPlanName, PLAN_DETAILS, PLANS } from '../utils/subscription.js';
@@ -50,6 +50,7 @@ const INTOLERANCES = [
 
 export default function Profile() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { language, setLanguage: setLanguageContext, supportedLanguages } = useLanguage();
 
@@ -72,7 +73,21 @@ export default function Profile() {
   const ENABLE_LANGUAGE_SELECTION = false;
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
-  const [activeTab, setActiveTab] = useState('account');
+  // Check URL param for tab, default to 'account'
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = searchParams.get('tab');
+    return tabParam && ['account', 'preferences', 'dietary', 'medical', 'about'].includes(tabParam)
+      ? tabParam
+      : 'account';
+  });
+
+  // Update activeTab when URL param changes
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['account', 'preferences', 'dietary', 'medical', 'about'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   // User preferences
   const [unitSystem, setUnitSystem] = useState(() => {
@@ -508,6 +523,12 @@ export default function Profile() {
     { id: 'about', label: 'About', icon: 'ℹ️' },
   ];
 
+  // Update URL when tab changes
+  const handleTabChange = tabId => {
+    setActiveTab(tabId);
+    setSearchParams({ tab: tabId });
+  };
+
   // Show loading or sign-in prompt if user is not available
   // Use safeUser to prevent null access errors during render
   if (!safeUser) {
@@ -565,7 +586,7 @@ export default function Profile() {
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`px-3 sm:px-4 py-2 rounded-t-lg transition-colors flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap min-h-[44px] sm:min-h-0 touch-manipulation basis-[48%] sm:basis-auto flex-grow sm:flex-grow-0 ${
                 activeTab === tab.id
                   ? 'bg-white dark:bg-slate-900 border-t border-l border-r border-slate-200 dark:border-slate-800 text-emerald-600 dark:text-emerald-400 font-semibold'

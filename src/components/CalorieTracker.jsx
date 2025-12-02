@@ -5,6 +5,7 @@ import { trackRecipeInteraction } from '../utils/analytics.js';
 import { useToast } from './Toast.jsx';
 import { searchSupabaseRecipes } from '../api/supabaseRecipes.js';
 import { CompactRecipeLoader } from './FoodLoaders.jsx';
+import { useFilters } from '../context/FilterContext.jsx';
 import {
   Flame,
   TrendingUp,
@@ -158,6 +159,7 @@ function calculateStreak(mealLogs) {
 export default function CalorieTracker() {
   const toast = useToast();
   const navigate = useNavigate();
+  const { setMaxCalories } = useFilters();
   const [showSetup, setShowSetup] = useState(!readUserProfile());
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [activeTab, setActiveTab] = useState('today'); // today, week, history, weight
@@ -303,7 +305,16 @@ export default function CalorieTracker() {
   };
 
   const handleQuickAddMeal = () => {
-    navigate('/', { state: { openCalorieTracker: true } });
+    // Navigate to home with calorie filter set to remaining calories
+    if (remaining > 0) {
+      const maxCal = Math.round(remaining * 1.2).toString();
+      setMaxCalories(maxCal);
+      navigate('/');
+      toast.info(`Showing recipes under ${maxCal} calories!`, { duration: 3000 });
+    } else {
+      navigate('/');
+      toast.info('Browse all recipes!', { duration: 2000 });
+    }
   };
 
   if (showSetup) {
@@ -729,35 +740,15 @@ export default function CalorieTracker() {
     }
     setLoadingSuggestions(true);
     try {
-      const maxCalories = Math.round(remaining * 1.2);
-      const results = await searchSupabaseRecipes({
-        query: '',
-        limit: 10,
+      const maxCal = Math.round(remaining * 1.2);
+      setMaxCalories(maxCal.toString());
+      navigate('/');
+      toast.success(`Showing recipes under ${maxCal} calories! Scroll down to see results.`, {
+        duration: 4000,
       });
-      const filtered = results
-        .filter(r => {
-          const recipeCalories = r.calories || 0;
-          return recipeCalories > 0 && recipeCalories <= maxCalories;
-        })
-        .slice(0, 5);
-
-      if (filtered.length > 0) {
-        navigate('/', {
-          state: {
-            searchQuery: `recipes under ${Math.round(remaining)} calories`,
-            recipes: filtered,
-          },
-        });
-        toast.success(
-          `Found ${filtered.length} recipes that fit your remaining ${remaining} calories!`
-        );
-      } else {
-        toast.info('Searching for recipes...');
-        navigate('/');
-      }
     } catch (error) {
       console.error('Error finding recipes:', error);
-      toast.error('Could not find recipes. Try searching manually!');
+      toast.error('Could not set filter. Try searching manually!');
       navigate('/');
     } finally {
       setLoadingSuggestions(false);
@@ -1098,6 +1089,11 @@ export default function CalorieTracker() {
                 >
                   Browse Recipes
                 </motion.button>
+                {remaining > 0 && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                    💡 Tip: Recipes will be filtered to fit your remaining {remaining} calories
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -1392,7 +1388,7 @@ export default function CalorieTracker() {
         </motion.div>
       )}
 
-      {/* Add Weight Modal */}
+      {/* Add Weight Modal - Enhanced */}
       <AnimatePresence>
         {showAddWeight && (
           <motion.div
@@ -1400,32 +1396,123 @@ export default function CalorieTracker() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-            onClick={() => setShowAddWeight(false)}
+            onClick={() => {
+              setShowAddWeight(false);
+              setNewWeight('');
+            }}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={e => e.stopPropagation()}
-              className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md w-full shadow-xl"
+              className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md w-full shadow-xl max-h-[90vh] overflow-y-auto"
             >
-              <h3 className="text-xl font-bold mb-4 text-slate-900 dark:text-white">Log Weight</h3>
-              <input
-                type="number"
-                value={newWeight}
-                onChange={e => setNewWeight(e.target.value)}
-                placeholder="Enter weight in kg"
-                className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:outline-none mb-4"
-                autoFocus
-              />
-              <div className="flex gap-2">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Log Weight</h3>
+                <button
+                  onClick={() => {
+                    setShowAddWeight(false);
+                    setNewWeight('');
+                  }}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+                    Weight (kg) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={newWeight}
+                    onChange={e => setNewWeight(e.target.value)}
+                    placeholder="e.g., 70.5"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:outline-none"
+                    autoFocus
+                  />
+                </div>
+
+                {/* BMI Calculation Preview */}
+                {newWeight && !isNaN(parseFloat(newWeight)) && profile.height && (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                    <div className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                      BMI Preview
+                    </div>
+                    {(() => {
+                      const weight = parseFloat(newWeight);
+                      const height = parseFloat(profile.height) / 100; // Convert cm to m
+                      const bmi = height > 0 ? (weight / (height * height)).toFixed(1) : null;
+                      let bmiCategory = '';
+                      let bmiColor = '';
+                      if (bmi) {
+                        if (bmi < 18.5) {
+                          bmiCategory = 'Underweight';
+                          bmiColor = 'text-blue-600';
+                        } else if (bmi < 25) {
+                          bmiCategory = 'Normal';
+                          bmiColor = 'text-emerald-600';
+                        } else if (bmi < 30) {
+                          bmiCategory = 'Overweight';
+                          bmiColor = 'text-amber-600';
+                        } else {
+                          bmiCategory = 'Obese';
+                          bmiColor = 'text-red-600';
+                        }
+                      }
+                      return bmi ? (
+                        <div className="space-y-1">
+                          <div className={`text-2xl font-bold ${bmiColor}`}>{bmi}</div>
+                          <div className="text-xs text-blue-700 dark:text-blue-300">
+                            {bmiCategory}
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                )}
+
+                {/* Weight Change Indicator */}
+                {newWeight && !isNaN(parseFloat(newWeight)) && weightLogs.length > 0 && (
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Change from Last Entry
+                    </div>
+                    {(() => {
+                      const newWeightVal = parseFloat(newWeight);
+                      const lastWeight = weightLogs[weightLogs.length - 1].weight;
+                      const change = newWeightVal - lastWeight;
+                      const changePercent = ((change / lastWeight) * 100).toFixed(1);
+                      return (
+                        <div
+                          className={`text-lg font-bold ${change > 0 ? 'text-red-600' : change < 0 ? 'text-emerald-600' : 'text-slate-600'}`}
+                        >
+                          {change > 0 ? '+' : ''}
+                          {change.toFixed(1)} kg ({change > 0 ? '+' : ''}
+                          {changePercent}%)
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 mt-6">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleAddWeight}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold"
+                  disabled={
+                    !newWeight || isNaN(parseFloat(newWeight)) || parseFloat(newWeight) <= 0
+                  }
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Save
+                  Save Weight
                 </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.02 }}

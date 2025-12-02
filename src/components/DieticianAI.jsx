@@ -11,6 +11,14 @@ export default function DieticianAI() {
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
+  // Show experimental warning on mount
+  useEffect(() => {
+    toast.warning(
+      '⚠️ AI Dietician is currently experimental. Responses may not always be accurate. Please consult a healthcare professional for medical advice.',
+      { duration: 8000 }
+    );
+  }, [toast]);
+
   const saveHistory = useCallback(() => {
     try {
       // Check if localStorage is available and secure

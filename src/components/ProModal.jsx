@@ -342,7 +342,13 @@ export default function ProModal({ open, onClose }) {
                           </div>
                           {plan.description && (
                             <div className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5 truncate">
-                              {plan.description}
+                              {/* Shortened for mobile */}
+                              <span className="hidden sm:inline">{plan.description}</span>
+                              <span className="sm:hidden">
+                                {plan.description.length > 30
+                                  ? plan.description.substring(0, 27) + '...'
+                                  : plan.description}
+                              </span>
                             </div>
                           )}
                         </div>
@@ -415,7 +421,12 @@ export default function ProModal({ open, onClose }) {
                     {key !== 'free' && plan.whyUpgrade && (
                       <div className="mb-3 p-2 sm:p-3 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-lg">
                         <p className="text-[10px] sm:text-xs text-emerald-300 font-semibold">
-                          ✨ {plan.whyUpgrade}
+                          ✨ <span className="hidden sm:inline">{plan.whyUpgrade}</span>
+                          <span className="sm:hidden">
+                            {plan.whyUpgrade.length > 50
+                              ? plan.whyUpgrade.substring(0, 47) + '...'
+                              : plan.whyUpgrade}
+                          </span>
                         </p>
                       </div>
                     )}
@@ -424,7 +435,12 @@ export default function ProModal({ open, onClose }) {
                     {key !== 'free' && plan.valueProp && (
                       <div className="mb-3 p-2 bg-slate-800/50 rounded-lg border border-slate-700">
                         <p className="text-[10px] sm:text-xs text-slate-300 italic">
-                          {plan.valueProp}
+                          <span className="hidden sm:inline">{plan.valueProp}</span>
+                          <span className="sm:hidden">
+                            {plan.valueProp.length > 40
+                              ? plan.valueProp.substring(0, 37) + '...'
+                              : plan.valueProp}
+                          </span>
                         </p>
                       </div>
                     )}

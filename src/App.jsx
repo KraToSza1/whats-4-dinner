@@ -347,7 +347,7 @@ const App = () => {
                     actualPlan
                   );
 
-                  subscriptionUtils.setCurrentPlan(actualPlan);
+                  subscriptionUtils.setCurrentPlan(actualPlan, true); // Skip verification - already verified via API
                   console.warn('✅ [PADDLE CHECKOUT] Plan set in localStorage:', actualPlan);
 
                   // Show success message

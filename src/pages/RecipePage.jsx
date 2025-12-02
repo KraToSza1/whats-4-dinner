@@ -1633,9 +1633,31 @@ export default function RecipePage() {
                   whileTap={{ scale: 0.95 }}
                   className="flex-1 xs:flex-none px-3 xs:px-4 py-2.5 xs:py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold text-xs xs:text-sm shadow-lg hover:shadow-xl transition-all touch-manipulation min-h-[44px] xs:min-h-0 flex items-center justify-center gap-1.5 xs:gap-2"
                   onClick={() => {
-                    // nutrient() already returns scaled value for targetServings
-                    // This ensures the calories match what the user actually consumed
-                    const calories = Math.round(nutrient('Calories') || 0);
+                    // Try multiple methods to get calories
+                    let calories = Math.round(nutrient('Calories') || 0);
+
+                    // Fallback 1: Check recipe.calories directly (if stored at recipe level)
+                    if (calories <= 0 && recipe?.calories) {
+                      // Recipe calories are stored as TOTAL, need to scale for servings
+                      const recipeCalories = Number(recipe.calories);
+                      if (Number.isFinite(recipeCalories) && originalServings > 0) {
+                        const perServing = recipeCalories / originalServings;
+                        calories = Math.round(perServing * targetServings);
+                      }
+                    }
+
+                    // Fallback 2: Calculate from macros if available
+                    if (calories <= 0) {
+                      const protein = nutrient('Protein') || 0;
+                      const carbs = nutrient('Carbohydrates') || 0;
+                      const fats = nutrient('Fat') || 0;
+                      // 4 cal/g protein, 4 cal/g carbs, 9 cal/g fat
+                      const calculatedCalories = protein * 4 + carbs * 4 + fats * 9;
+                      if (calculatedCalories > 0) {
+                        calories = Math.round(calculatedCalories);
+                      }
+                    }
+
                     if (calories > 0) {
                       // Extract macros from nutrition data
                       const macros = {
@@ -1650,7 +1672,9 @@ export default function RecipePage() {
                         `Added ${calories} calories (for ${targetServings} ${targetServings === 1 ? 'serving' : 'servings'}) to your tracker! 🎯`
                       );
                     } else {
-                      toast.error('Unable to calculate calories for this recipe.');
+                      toast.error(
+                        "This recipe doesn't have nutrition data. Calories cannot be calculated."
+                      );
                     }
                   }}
                   title="Add to calorie tracker"

@@ -559,13 +559,25 @@ export async function detectCountry() {
       }
     }
 
-    // Method 4: Use browser locale
+    // Method 4: Use browser locale (check all languages, not just first)
     try {
-      const locale = navigator.language || navigator.languages?.[0] || 'en-US';
-      const country = locale.split('-')[1] || locale.split('_')[1];
-      if (country && country.length === 2) {
-        detectionMethods.push({ method: 'browser-locale', country: country.toUpperCase() });
-        return country.toUpperCase();
+      const languages = navigator.languages || [navigator.language] || ['en-US'];
+      for (const locale of languages) {
+        const country = locale.split('-')[1] || locale.split('_')[1];
+        if (country && country.length === 2) {
+          const countryUpper = country.toUpperCase();
+          // Check for South Africa specifically (ZA)
+          if (
+            countryUpper === 'ZA' ||
+            locale.toLowerCase().includes('za') ||
+            locale.toLowerCase().includes('south-africa')
+          ) {
+            detectionMethods.push({ method: 'browser-locale', country: 'ZA' });
+            return 'ZA';
+          }
+          detectionMethods.push({ method: 'browser-locale', country: countryUpper });
+          return countryUpper;
+        }
       }
     } catch (e) {
       // Silently fail
@@ -594,6 +606,8 @@ export async function detectCountry() {
         'Australia/Sydney': 'AU',
         'Australia/Melbourne': 'AU',
         'Pacific/Auckland': 'NZ',
+        'Africa/Johannesburg': 'ZA', // South Africa
+        'Africa/Cape_Town': 'ZA', // South Africa
       };
       if (timezoneToCountry[timezone]) {
         detectionMethods.push({ method: 'timezone', country: timezoneToCountry[timezone] });
@@ -609,10 +623,52 @@ export async function detectCountry() {
 
   // Log detection attempts for debugging (only in dev)
   if (detectionMethods.length > 0 && import.meta.env.DEV) {
-    console.log('🌍 Country detection methods tried:', detectionMethods);
+    console.warn('🌍 Country detection methods tried:', detectionMethods);
   }
 
-  return 'US'; // Default to US if all methods fail
+  // Try one more time with browser locale - check for ZA specifically
+  try {
+    const languages = navigator.languages || [navigator.language] || [];
+    for (const locale of languages) {
+      const localeLower = locale.toLowerCase();
+      if (
+        localeLower.includes('za') ||
+        localeLower.includes('south-africa') ||
+        localeLower.includes('south africa') ||
+        localeLower === 'en-za' ||
+        localeLower === 'af-za'
+      ) {
+        if (import.meta.env.DEV) {
+          console.warn('🌍 Country detection: Found ZA in browser locale:', locale);
+        }
+        return 'ZA';
+      }
+    }
+
+    // Also check timezone for South Africa
+    try {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (
+        timezone &&
+        (timezone.includes('Johannesburg') || timezone.includes('Africa/Johannesburg'))
+      ) {
+        if (import.meta.env.DEV) {
+          console.warn('🌍 Country detection: Found ZA in timezone:', timezone);
+        }
+        return 'ZA';
+      }
+    } catch {
+      // Ignore timezone errors
+    }
+  } catch {
+    // Ignore
+  }
+
+  // Default to US if all methods fail (but log for debugging)
+  if (import.meta.env.DEV) {
+    console.warn('🌍 Country detection: All methods failed, defaulting to US');
+  }
+  return 'US';
 }
 
 /**

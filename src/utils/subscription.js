@@ -265,10 +265,9 @@ export async function getCurrentPlan() {
         if (Object.values(PLANS).includes(plan)) {
           cachedPlan = plan;
           planCacheTime = Date.now();
-          // Sync to localStorage for offline access
+          // Sync to localStorage for offline access (verified from Supabase)
           try {
-            localStorage.setItem(SUBSCRIPTION_KEY, plan);
-            console.warn('✅ [SUBSCRIPTION] Plan synced to localStorage:', plan);
+            setCurrentPlan(plan, true); // Verified from Supabase, skip verification check
           } catch {
             // Ignore localStorage errors
           }
@@ -371,20 +370,17 @@ export function getCurrentPlanSync() {
 
 // Set subscription plan
 // SECURITY: Prevents manual plan changes to "family" without payment verification
-export function setCurrentPlan(plan) {
+export function setCurrentPlan(plan, skipVerification = false) {
   try {
     // SECURITY: Only allow "family" plan if it comes from Supabase (verified payment)
     // Prevent manual/localStorage manipulation to get family plan for free
-    if (plan === PLANS.FAMILY) {
-      // Check if plan is actually set in Supabase (from verified payment)
-      // This is a client-side check - the real security is in the webhook handler
-      // But we add this as an extra layer to prevent localStorage manipulation
+    if (plan === PLANS.FAMILY && !skipVerification) {
+      // If skipVerification is true, it means this is coming from a verified source
+      // (e.g., after successful API update or Supabase fetch)
+      // Only warn if it's being set manually without verification
       console.warn(
-        '[Subscription] Attempted to set family plan via setCurrentPlan. Family plan can only be activated through verified payment webhook.'
+        '[Subscription] Setting family plan. This should only happen after verified payment.'
       );
-
-      // Still allow it if it's coming from Supabase sync (getCurrentPlan will verify)
-      // But log a warning for security monitoring
     }
 
     cachedPlan = plan;
@@ -512,7 +508,7 @@ export function canPerformAction(action, currentCount = 0) {
       return currentCount < planDetails.collectionsLimit;
 
     case 'meal_planner':
-      return planDetails.mealPlannerDays > 0;
+      return planDetails.mealPlannerDays !== 0; // -1 = unlimited, > 0 = limited days, 0 = disabled
 
     case 'challenge':
       if (planDetails.challengesPerWeek === -1) return true; // unlimited

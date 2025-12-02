@@ -6,7 +6,7 @@ import Logo from '../assets/Logo.tsx';
 import { useAuth, signInWithEmail, signOut } from '../context/AuthContext.jsx';
 import AuthModal from './AuthModal.jsx';
 import ProModal from './ProModal.jsx';
-import { getPlanName, isFreePlan } from '../utils/subscription.js';
+import { getPlanName, isFreePlan, hasFeature } from '../utils/subscription.js';
 import { useGroceryList } from '../context/GroceryListContext.jsx';
 import { useToast } from './Toast.jsx';
 import { useAdmin } from '../context/AdminContext';
@@ -586,6 +586,32 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                           </svg>
                           <span className="font-medium">Analytics</span>
                         </button>
+
+                        {/* Medical - Only for Unlimited+ */}
+                        {hasFeature('analytics_full') && (
+                          <button
+                            onClick={() => {
+                              setShowMenu(false);
+                              navigate('/profile?tab=medical');
+                            }}
+                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm sm:text-base hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg flex items-center gap-2 sm:gap-3 transition-all touch-manipulation"
+                          >
+                            <svg
+                              className="w-5 h-5 text-red-600 dark:text-red-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                              />
+                            </svg>
+                            <span className="font-medium">Medical</span>
+                          </button>
+                        )}
 
                         <button
                           onClick={() => {

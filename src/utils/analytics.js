@@ -13,6 +13,13 @@ export function trackRecipeView(recipeId) {
     if (!views[today]) views[today] = {};
     views[today][recipeId] = (views[today][recipeId] || 0) + 1;
     localStorage.setItem(VIEW_KEY, JSON.stringify(views));
+
+    // Sync to Supabase (async, don't block)
+    import('./supabaseSync.js')
+      .then(({ syncRecipeView }) => syncRecipeView(recipeId))
+      .catch(() => {
+        // Silently fail - Supabase sync is optional
+      });
   } catch (e) {
     console.warn('[Analytics] Failed to track view', e);
   }

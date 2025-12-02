@@ -1011,9 +1011,32 @@ export default function BudgetTracker() {
                   } catch (error) {
                     console.error('Re-detection error:', error);
                     toast.error('Detection failed. Using browser locale.', { duration: 3000 });
-                    // Fallback to browser locale
-                    const locale = navigator.language || 'en-US';
-                    const countryFromLocale = locale.split('-')[1]?.toUpperCase() || 'US';
+                    const languages = navigator.languages || [navigator.language] || ['en-US'];
+                    let countryFromLocale = 'US';
+                    for (const locale of languages) {
+                      const country = locale.split('-')[1]?.toUpperCase();
+                      if (country === 'ZA' || locale.toLowerCase().includes('za')) {
+                        countryFromLocale = 'ZA';
+                        break;
+                      }
+                      if (country && country.length === 2) {
+                        countryFromLocale = country;
+                        break;
+                      }
+                    }
+                    // Also check timezone
+                    try {
+                      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                      if (
+                        timezone &&
+                        (timezone.includes('Johannesburg') ||
+                          timezone.includes('Africa/Johannesburg'))
+                      ) {
+                        countryFromLocale = 'ZA';
+                      }
+                    } catch {
+                      // Ignore
+                    }
                     const currencyFromCountry = getCurrencyForCountry(countryFromLocale);
                     setCurrencySettings({
                       currency: currencyFromCountry,
