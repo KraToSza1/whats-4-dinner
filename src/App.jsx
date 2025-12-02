@@ -92,19 +92,10 @@ const App = () => {
   // Handle Paddle checkout redirect with _ptxn parameter
   useEffect(() => {
     const handlePaddleCheckout = async () => {
-      // Check for _ptxn parameter in URL (Paddle transaction ID)
       const urlParams = new URLSearchParams(window.location.search);
       const transactionId = urlParams.get('_ptxn');
 
-      console.warn('🔍 [PADDLE CHECKOUT] Checking for _ptxn parameter:', {
-        transactionId,
-        hasPaddle: !!window.Paddle,
-        currentUrl: window.location.href,
-        search: window.location.search,
-      });
-
       if (!transactionId) {
-        console.warn('ℹ️ [PADDLE CHECKOUT] No _ptxn parameter found in URL');
         return;
       }
 
@@ -114,45 +105,27 @@ const App = () => {
         import.meta.env.VITE_PADDLE_CLIENT_TOKEN ||
         import.meta.env.VITE_PADDLE_TOKEN;
 
-      console.warn('🔍 [PADDLE CHECKOUT] Token check:', {
-        hasToken: !!paddleToken,
-        tokenLength: paddleToken?.length || 0,
-        tokenPrefix: paddleToken?.substring(0, 10) || 'none',
-        envKeys: Object.keys(import.meta.env).filter(k => k.includes('PADDLE')),
-      });
-
       if (!paddleToken) {
         console.error(
-          '❌ [PADDLE CHECKOUT] Paddle public token not found. Add VITE_PADDLE_PUBLIC_TOKEN to .env.local and Vercel environment variables'
-        );
-        console.error(
-          '❌ [PADDLE CHECKOUT] You can find your Paddle public token in Paddle Dashboard → Developer Tools → Authentication'
-        );
-        console.error(
-          '❌ [PADDLE CHECKOUT] For sandbox: https://sandbox-vendors.paddle.com/developer-tools/authentication'
+          '❌ [PADDLE] Public token not found. Add VITE_PADDLE_PUBLIC_TOKEN to Vercel environment variables'
         );
         return;
       }
 
-      // Function to actually open checkout
-      const openCheckout = () => {
+      // Function to initialize and open checkout
+      const openCheckout = async () => {
         try {
-          console.warn('✅ [PADDLE CHECKOUT] Initializing Paddle and opening checkout...', {
-            transactionId,
-            hasPaddle: !!window.Paddle,
-          });
-
           if (!window.Paddle) {
-            console.error('❌ [PADDLE CHECKOUT] window.Paddle is not available');
+            console.error('❌ [PADDLE] window.Paddle is not available');
             return;
           }
 
-          // Initialize Paddle if not already initialized
-          // Use Initialize() instead of Setup() for Paddle.js v2
-          if (!window.Paddle.Environment) {
-            window.Paddle.Initialize({ token: paddleToken });
-            console.warn('✅ [PADDLE CHECKOUT] Paddle initialized');
-          }
+          // Always initialize Paddle before opening checkout
+          // Paddle.js v2 requires Initialize() to be called
+          window.Paddle.Initialize({ token: paddleToken });
+
+          // Wait a moment for initialization to complete
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           // Open checkout for the transaction
           window.Paddle.Checkout.open({
@@ -170,24 +143,15 @@ const App = () => {
               window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
             window.history.replaceState({}, '', newUrl);
           }, 1000);
-
-          console.warn('✅ [PADDLE CHECKOUT] Checkout opened successfully');
-        } catch (error) {
-          console.error('❌ [PADDLE CHECKOUT] Error opening checkout:', error);
-          console.error('❌ [PADDLE CHECKOUT] Error details:', {
-            message: error.message,
-            stack: error.stack,
-            transactionId,
-          });
+        } catch (err) {
+          console.error('❌ [PADDLE] Error opening checkout:', err);
         }
       };
 
       // Wait for Paddle.js to load, then handle checkout
       if (window.Paddle) {
-        console.warn('✅ [PADDLE CHECKOUT] Paddle.js already loaded');
         openCheckout();
       } else {
-        console.warn('⚠️ [PADDLE CHECKOUT] Paddle.js not loaded yet, waiting...');
         // Wait for Paddle.js to load
         let attempts = 0;
         const maxAttempts = 50; // 5 seconds max
@@ -195,12 +159,12 @@ const App = () => {
           attempts++;
           if (window.Paddle) {
             clearInterval(checkPaddle);
-            console.warn(`✅ [PADDLE CHECKOUT] Paddle.js loaded after ${attempts * 100}ms`);
             openCheckout();
           } else if (attempts >= maxAttempts) {
             clearInterval(checkPaddle);
-            console.error('❌ [PADDLE CHECKOUT] Paddle.js failed to load after 5 seconds');
-            console.error('❌ [PADDLE CHECKOUT] Make sure Paddle.js script is in index.html');
+            console.error(
+              '❌ [PADDLE] Paddle.js failed to load. Check index.html for Paddle script tag.'
+            );
           }
         }, 100);
       }
@@ -226,11 +190,10 @@ const App = () => {
       try {
         const { getCurrentPlan } = await import('./utils/subscription.js');
         const plan = await getCurrentPlan();
-        console.log('[App] Initial plan loaded:', plan);
         // Dispatch event to notify components
         window.dispatchEvent(new CustomEvent('subscriptionPlanChanged', { detail: { plan } }));
       } catch (error) {
-        console.error('[App] Error initializing plan:', error);
+        // Plan initialization failed - user will see free plan
       }
     };
     initializePlan();
@@ -240,7 +203,7 @@ const App = () => {
   useEffect(() => {
     const handlePlanChange = async event => {
       const { plan } = event.detail || {};
-      console.log('[App] Subscription plan changed:', plan);
+      // Plan changed - UI will update automatically
       // Force refresh of plan-dependent features
       // Components will re-check limits when they re-render
     };
@@ -273,7 +236,7 @@ const App = () => {
       });
     } else if (paymentResult?.canceled) {
       // Payment canceled
-      console.log('Payment canceled by user');
+      // Payment canceled - no action needed
     }
   }, [toast]);
 
@@ -308,7 +271,7 @@ const App = () => {
         setFavorites(JSON.parse(e.newValue));
       } else if (e.key === 'subscription:plan:v1' && e.newValue) {
         // Plan changed in another tab - refresh
-        console.log('[App] Plan changed in another tab:', e.newValue);
+        // Plan changed in another tab - will refresh
         window.dispatchEvent(
           new CustomEvent('subscriptionPlanChanged', { detail: { plan: e.newValue } })
         );

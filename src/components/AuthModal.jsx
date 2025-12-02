@@ -60,13 +60,6 @@ export default function AuthModal({ open, onClose }) {
       // Supabase automatically appends the auth callback path
       const fullRedirectTo = redirectTo;
 
-      console.warn('🔐 [AUTH] Starting OAuth with redirectTo:', {
-        redirectTo: fullRedirectTo,
-        currentOrigin: window.location.origin,
-        currentHref: window.location.href,
-        hostname: window.location.hostname,
-      });
-
       const { data, error: err } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -92,12 +85,6 @@ export default function AuthModal({ open, onClose }) {
         }
         setLoading(false);
       } else if (data?.url) {
-        console.warn('🔐 [AUTH] Supabase OAuth URL generated:', {
-          url: data.url,
-          redirectTo: fullRedirectTo,
-          urlContainsRedirect: data.url.includes(fullRedirectTo),
-          urlContainsLocalhost: data.url.includes('localhost'),
-        });
         // Redirect immediately - Supabase will handle the OAuth flow
         window.location.href = data.url;
         // Note: User will be redirected, so we don't need to setLoading(false)
