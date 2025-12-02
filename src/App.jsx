@@ -120,11 +120,20 @@ const App = () => {
 
       if (window.Paddle && typeof window.Paddle.Initialize === 'function') {
         try {
-          // Paddle automatically detects sandbox from test_ token prefix
+          // CRITICAL: Set environment BEFORE Initialize (Paddle v2 quirk)
+          // If token starts with test_, use sandbox; otherwise production
+          const isSandbox = paddleToken.startsWith('test_');
+          if (window.Paddle.Environment && typeof window.Paddle.Environment.set === 'function') {
+            window.Paddle.Environment.set(isSandbox ? 'sandbox' : 'production');
+          }
+
+          // Now initialize with token
           window.Paddle.Initialize({
             token: paddleToken,
           });
-          console.warn('✅ [PADDLE INIT] Paddle initialized');
+          console.warn('✅ [PADDLE INIT] Paddle initialized', {
+            environment: isSandbox ? 'sandbox' : 'production',
+          });
         } catch (err) {
           console.error('❌ [PADDLE] Failed to initialize:', err);
         }
@@ -186,6 +195,13 @@ const App = () => {
           }
 
           console.warn('🔍 [PADDLE CHECKOUT] Using token:', paddleToken.substring(0, 15) + '...');
+
+          // CRITICAL: Set environment BEFORE Initialize (Paddle v2 quirk)
+          const isSandbox = paddleToken.startsWith('test_');
+          if (window.Paddle.Environment && typeof window.Paddle.Environment.set === 'function') {
+            window.Paddle.Environment.set(isSandbox ? 'sandbox' : 'production');
+          }
+
           // Always re-initialize to ensure it's ready
           window.Paddle.Initialize({
             token: paddleToken,
