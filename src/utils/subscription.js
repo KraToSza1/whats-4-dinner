@@ -192,7 +192,22 @@ export async function getCurrentPlan() {
         .from('profiles')
         .select('plan')
         .eq('id', user.id)
-        .single();
+        .maybeSingle(); // Use maybeSingle() instead of single() to handle missing rows gracefully
+
+      // If profile doesn't exist, create one with free plan
+      if (error && error.code === 'PGRST116') {
+        // Row not found - create profile
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({ id: user.id, plan: 'free' });
+
+        if (!insertError) {
+          // Return free plan after creating profile
+          cachedPlan = PLANS.FREE;
+          planCacheTime = Date.now();
+          return PLANS.FREE;
+        }
+      }
 
       if (!error && profile?.plan) {
         const plan = profile.plan.toLowerCase();

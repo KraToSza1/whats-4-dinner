@@ -97,13 +97,35 @@ const App = () => {
         import.meta.env.VITE_PADDLE_CLIENT_TOKEN ||
         import.meta.env.VITE_PADDLE_TOKEN;
 
+      console.warn('🔍 [PADDLE INIT] Token check:', {
+        hasToken: !!paddleToken,
+        tokenLength: paddleToken?.length || 0,
+        tokenPrefix: paddleToken?.substring(0, 15) || 'none',
+        tokenStartsWithTest: paddleToken?.startsWith('test_') || false,
+        envVars: Object.keys(import.meta.env).filter(k => k.includes('PADDLE')),
+      });
+
       if (!paddleToken) {
-        return; // No token, can't initialize
+        console.error(
+          '❌ [PADDLE INIT] No token found! Check Vercel env vars: VITE_PADDLE_PUBLIC_TOKEN'
+        );
+        return;
+      }
+
+      if (!paddleToken.startsWith('test_')) {
+        console.error(
+          '❌ [PADDLE INIT] Token does not start with "test_" - make sure you are using SANDBOX token!'
+        );
       }
 
       if (window.Paddle && typeof window.Paddle.Initialize === 'function') {
         try {
-          window.Paddle.Initialize({ token: paddleToken });
+          // Explicitly set sandbox environment - CRITICAL for test_ tokens
+          window.Paddle.Initialize({
+            token: paddleToken,
+            environment: 'sandbox', // Force sandbox for test tokens
+          });
+          console.warn('✅ [PADDLE INIT] Paddle initialized with sandbox environment');
         } catch (err) {
           console.error('❌ [PADDLE] Failed to initialize:', err);
         }
@@ -151,12 +173,27 @@ const App = () => {
             import.meta.env.VITE_PADDLE_CLIENT_TOKEN ||
             import.meta.env.VITE_PADDLE_TOKEN;
 
-          if (paddleToken) {
-            // Always re-initialize to ensure it's ready
-            window.Paddle.Initialize({ token: paddleToken });
-            // Wait for initialization to complete
-            await new Promise(resolve => setTimeout(resolve, 300));
+          if (!paddleToken) {
+            console.error(
+              '❌ [PADDLE CHECKOUT] No token found! Check Vercel: VITE_PADDLE_PUBLIC_TOKEN'
+            );
+            return;
           }
+
+          if (!paddleToken.startsWith('test_')) {
+            console.error(
+              '❌ [PADDLE CHECKOUT] Token does not start with "test_" - using sandbox?'
+            );
+          }
+
+          console.warn('🔍 [PADDLE CHECKOUT] Using token:', paddleToken.substring(0, 15) + '...');
+          // Always re-initialize to ensure it's ready - EXPLICITLY set sandbox
+          window.Paddle.Initialize({
+            token: paddleToken,
+            environment: 'sandbox', // Force sandbox for test tokens
+          });
+          // Wait for initialization to complete
+          await new Promise(resolve => setTimeout(resolve, 300));
 
           // Open checkout for the transaction
           window.Paddle.Checkout.open({
@@ -165,6 +202,10 @@ const App = () => {
               displayMode: 'overlay',
               theme: 'light',
             },
+          }).catch(err => {
+            console.error('❌ [PADDLE] Checkout.open() failed:', err);
+            // If checkout fails, show error to user
+            alert('Failed to open checkout. Please try again or contact support.');
           });
 
           // Clean up URL - remove _ptxn parameter after a delay
