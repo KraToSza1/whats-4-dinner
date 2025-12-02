@@ -16,21 +16,11 @@ import './index.css';
 import './utils/admin.js';
 import { forceEnableAdmin } from './utils/admin.js';
 
-// Auto-enable admin on localhost immediately
-if (
-  typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-) {
-  forceEnableAdmin();
-  // Auto-enabled admin (localhost detected)
-}
-
-// Also check URL parameter
+// Auto-enable admin via URL parameter
 if (typeof window !== 'undefined') {
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('admin') === 'true') {
     forceEnableAdmin();
-    // Auto-enabled admin (?admin=true detected)
   }
 }
 
@@ -57,20 +47,3 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 );
 
 // App booted successfully
-
-// Handle OAuth redirect from production domain to localhost
-if (typeof window !== 'undefined') {
-  const hash = window.location.hash;
-  const hasAccessToken = hash.includes('access_token=');
-  const isWrongDomain =
-    window.location.hostname !== 'localhost' &&
-    window.location.hostname !== '127.0.0.1' &&
-    (window.location.hostname.includes('whats-4-dinner') ||
-      window.location.hostname.includes('www'));
-
-  if (hasAccessToken && isWrongDomain) {
-    // OAuth tokens detected on wrong domain - redirecting to localhost
-    const redirectUrl = `http://localhost:5173${window.location.pathname}${hash}`;
-    window.location.replace(redirectUrl);
-  }
-}

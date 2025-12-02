@@ -7,7 +7,7 @@
 /* eslint-disable no-undef */
 export default async function handler(req, res) {
   try {
-    // Add CORS headers - allow all origins (including localhost)
+    // Add CORS headers - allow all origins
     const origin = req.headers.origin;
     res.setHeader('Access-Control-Allow-Origin', origin || '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
@@ -26,7 +26,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    // Parse body if it's a string (sometimes vercel dev doesn't auto-parse)
+    // Parse body if it's a string
     let body = req.body;
     if (typeof body === 'string') {
       try {
@@ -115,8 +115,8 @@ export default async function handler(req, res) {
         plan: plan,
         billing_period: billingPeriod,
       },
-      success_url: `${req.headers.origin || 'http://localhost:3000'}/?success=true&plan=${plan}`,
-      return_url: `${req.headers.origin || 'http://localhost:3000'}/?canceled=true`,
+      success_url: `${req.headers.origin}/?success=true&plan=${plan}`,
+      return_url: `${req.headers.origin}/?canceled=true`,
     };
 
     console.error('🔍 [PADDLE API] Making request to Paddle:', {
@@ -337,7 +337,7 @@ export default async function handler(req, res) {
       url: checkoutUrl,
       checkoutId: transactionId,
       transactionId: transactionId,
-      _ptxn: ptxnParam, // Include transaction ID for localhost handling
+      _ptxn: ptxnParam, // Include transaction ID for checkout handling
     });
   } catch (error) {
     console.error('❌ [PADDLE API] =========================================');

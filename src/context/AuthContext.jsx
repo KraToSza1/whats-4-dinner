@@ -92,12 +92,8 @@ export function useAuth() {
 
 export async function signInWithEmail(email) {
   // Build redirect URL for email magic links
-  // For local: http://localhost:5173
-  // For Vercel: https://your-vercel-url.vercel.app
-  const redirectTo =
-    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? `http://${window.location.hostname}:${window.location.port || '5173'}`
-      : window.location.origin; // This will be the actual Vercel URL in production (e.g., https://whats-4-dinner-git-master-raymonds-projects-17a8f0f7.vercel.app)
+  // Use window.location.origin to automatically get the correct port and protocol
+  const redirectTo = window.location.origin;
   const { data, error } = await supabase.auth.signInWithOtp({
     email,
     options: { emailRedirectTo: redirectTo },

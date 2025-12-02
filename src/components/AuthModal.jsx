@@ -23,12 +23,8 @@ export default function AuthModal({ open, onClose }) {
   }, [open]);
 
   // Build redirect URL - Supabase needs the exact URL that will receive the callback
-  // For local: http://localhost:5173
-  // For Vercel: https://your-vercel-url.vercel.app
-  const redirectTo =
-    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? `http://${window.location.hostname}:${window.location.port || '5173'}`
-      : window.location.origin; // This will be the actual Vercel URL in production (e.g., https://whats-4-dinner-git-master-raymonds-projects-17a8f0f7.vercel.app)
+  // Use window.location.origin to automatically get the correct port and protocol
+  const redirectTo = window.location.origin;
 
   const sendMagicLink = async e => {
     e?.preventDefault?.();
@@ -64,6 +60,13 @@ export default function AuthModal({ open, onClose }) {
       // Supabase automatically appends the auth callback path
       const fullRedirectTo = redirectTo;
 
+      console.warn('🔐 [AUTH] Starting OAuth with redirectTo:', {
+        redirectTo: fullRedirectTo,
+        currentOrigin: window.location.origin,
+        currentHref: window.location.href,
+        hostname: window.location.hostname,
+      });
+
       const { data, error: err } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -81,18 +84,20 @@ export default function AuthModal({ open, onClose }) {
             `Google OAuth is not enabled in Supabase. Please enable it in your Supabase dashboard under Authentication > Providers > Google.`
           );
         } else if (err.message?.includes('redirect_uri_mismatch')) {
-          const isLocal =
-            window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
           setError(
-            isLocal
-              ? `Redirect URL mismatch. Add "${fullRedirectTo}" to your Supabase dashboard under Authentication > URL Configuration > Redirect URLs. Google OAuth may not work locally - it will work on Vercel once deployed.`
-              : `Redirect URL mismatch. Add "${fullRedirectTo}" to your Supabase dashboard under Authentication > URL Configuration > Redirect URLs.`
+            `Redirect URL mismatch. Add "${fullRedirectTo}" to your Supabase dashboard under Authentication > URL Configuration > Redirect URLs.`
           );
         } else {
           setError(err.message || 'OAuth sign-in failed. Please try again.');
         }
         setLoading(false);
       } else if (data?.url) {
+        console.warn('🔐 [AUTH] Supabase OAuth URL generated:', {
+          url: data.url,
+          redirectTo: fullRedirectTo,
+          urlContainsRedirect: data.url.includes(fullRedirectTo),
+          urlContainsLocalhost: data.url.includes('localhost'),
+        });
         // Redirect immediately - Supabase will handle the OAuth flow
         window.location.href = data.url;
         // Note: User will be redirected, so we don't need to setLoading(false)

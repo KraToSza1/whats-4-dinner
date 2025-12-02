@@ -209,13 +209,6 @@ const App = () => {
     // Run immediately
     handlePaddleCheckout();
 
-    // Listen for custom event from paymentProviders (for localhost)
-    const handlePaddleEvent = event => {
-      console.warn('🔍 [PADDLE CHECKOUT] Custom event received:', event.detail);
-      handlePaddleCheckout();
-    };
-    window.addEventListener('paddle-checkout', handlePaddleEvent);
-
     // Also listen for popstate (browser back/forward)
     const handlePopStateChange = () => {
       handlePaddleCheckout();
@@ -223,7 +216,6 @@ const App = () => {
     window.addEventListener('popstate', handlePopStateChange);
 
     return () => {
-      window.removeEventListener('paddle-checkout', handlePaddleEvent);
       window.removeEventListener('popstate', handlePopStateChange);
     };
   }, []);

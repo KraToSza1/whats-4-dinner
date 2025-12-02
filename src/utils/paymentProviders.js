@@ -55,28 +55,9 @@ async function createStripeCheckout(plan, billingPeriod, userEmail) {
  */
 async function createPaddleCheckout(plan, billingPeriod, userEmail) {
   try {
-    // When using vercel dev, API routes work locally at /api/*
-    // When using npm run dev, we need to use deployed URL
-    // In production, use relative URL
-
-    const isLocalDev =
-      window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const isVercelDev = isLocalDev && window.location.port === '3000'; // vercel dev runs on port 3000
-    const deployedUrl =
-      import.meta.env.VITE_VERCEL_URL ||
-      'whats-4-dinner-git-master-raymonds-projects-17a8f0f7.vercel.app';
-
-    // Use local API route if vercel dev is running (port 3000)
-    // Otherwise use deployed URL for npm run dev (port 5173)
-    // In production, use relative URL
-    const apiUrl = import.meta.env.PROD
-      ? '/api/paddle/create-checkout'
-      : isVercelDev
-        ? '/api/paddle/create-checkout' // vercel dev - use local route
-        : `https://${deployedUrl}/api/paddle/create-checkout`; // npm run dev - use deployed URL
-
-    // Ensure we're using the correct URL
-    const finalUrl = apiUrl.startsWith('http') ? apiUrl : `${window.location.origin}${apiUrl}`;
+    // Always use relative URL - works on Vercel deployment
+    const apiUrl = '/api/paddle/create-checkout';
+    const finalUrl = `${window.location.origin}${apiUrl}`;
 
     console.warn('💳 [PADDLE] Creating checkout:', {
       plan,
@@ -84,30 +65,7 @@ async function createPaddleCheckout(plan, billingPeriod, userEmail) {
       userEmail: userEmail ? 'provided' : 'none',
       apiUrl,
       finalUrl,
-      isLocalDev,
-      isVercelDev,
-      isProduction: import.meta.env.PROD,
     });
-
-    // First, test if the API route is accessible
-    if (isVercelDev) {
-      try {
-        const healthCheck = await fetch(`${window.location.origin}/api/health`, {
-          method: 'GET',
-        });
-        if (!healthCheck.ok) {
-          throw new Error(
-            `API health check failed. Make sure "npx vercel dev" is running. Status: ${healthCheck.status}`
-          );
-        }
-        console.warn('✅ [PADDLE] API health check passed');
-      } catch (healthError) {
-        console.error('❌ [PADDLE] API health check failed:', healthError);
-        throw new Error(
-          'Cannot connect to API server. Make sure "npx vercel dev" is running on port 3000.'
-        );
-      }
-    }
 
     let response;
     let responseText = '';
@@ -143,15 +101,9 @@ async function createPaddleCheckout(plan, billingPeriod, userEmail) {
         fetchError.message.includes('Failed to fetch') ||
         fetchError.name === 'TypeError'
       ) {
-        if (isVercelDev) {
-          throw new Error(
-            'Cannot connect to payment API. Make sure "npx vercel dev" is running and the API route is accessible.'
-          );
-        } else {
-          throw new Error(
-            'Cannot connect to payment server. If using "npm run dev", API calls use the deployed Vercel URL. Make sure your deployment is live.'
-          );
-        }
+        throw new Error(
+          'Cannot connect to payment server. Please check your Vercel deployment and ensure the API route is accessible.'
+        );
       }
       throw fetchError;
     }
@@ -159,16 +111,11 @@ async function createPaddleCheckout(plan, billingPeriod, userEmail) {
     // Response text already retrieved above - use the variables we set
 
     if (!response.ok) {
-      // Handle 404 specifically - API route not found (local dev issue)
+      // Handle 404 specifically - API route not found
       if (response.status === 404) {
-        const isLocalDev =
-          window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        if (isLocalDev) {
-          throw new Error(
-            'API route not found. To test payments locally, run: npx vercel dev\n\n' +
-              'Or test on your deployed Vercel URL where API routes work automatically.'
-          );
-        }
+        throw new Error(
+          'API route not found. Please check your Vercel deployment and ensure the API route is configured correctly.'
+        );
       }
 
       // Try to parse error, but handle empty responses
