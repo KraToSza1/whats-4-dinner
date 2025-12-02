@@ -127,11 +127,13 @@ export default async function handler(req, res) {
       requestBody: JSON.stringify(requestBody, null, 2),
     });
 
+    // Paddle API v2 requires specific headers
     const response = await fetch(`${paddleUrl}/transactions`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        'Paddle-Version': '1', // Some endpoints may need version header
       },
       body: JSON.stringify(requestBody),
     });
