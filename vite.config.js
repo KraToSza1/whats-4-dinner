@@ -8,6 +8,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
+        // Increase file size limit for precaching (default is 2MB)
+        // Main bundle is ~2.13MB, so we set it to 3MB to allow precaching
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3MB
         // Exclude API routes from service worker navigation
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [

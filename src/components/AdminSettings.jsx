@@ -30,7 +30,7 @@ export default function AdminSettings() {
     appDescription: 'Your personal cooking assistant',
     maintenanceMode: false,
     maintenanceMessage: 'We are currently performing maintenance. Please check back soon!',
-    
+
     // Feature Flags
     enableChallenges: true,
     enableStreaks: true,
@@ -38,31 +38,30 @@ export default function AdminSettings() {
     enableXP: true,
     enableMealPlanner: true,
     enableGroceryList: true,
-    enableAnalytics: true,
     enableBudgetTracker: true,
-    
+
     // Limits & Quotas
     maxRecipesPerUser: 1000,
     maxFavoritesPerUser: 500,
     maxGroceryListsPerUser: 50,
     maxMealPlansPerUser: 10,
-    
+
     // Email Settings
     emailNotificationsEnabled: true,
     emailFromName: "What's 4 Dinner?",
     emailFromAddress: 'noreply@whats4dinner.com',
-    
+
     // Cache Settings
     cacheEnabled: true,
     cacheTTL: 3600, // 1 hour in seconds
     enableCDN: false,
-    
+
     // Security Settings
     requireEmailVerification: false,
     allowGuestAccess: true,
     maxLoginAttempts: 5,
     sessionTimeout: 86400, // 24 hours in seconds
-    
+
     // Analytics Settings
     enableAnalytics: true,
     enableErrorTracking: true,
@@ -111,15 +110,16 @@ export default function AdminSettings() {
     setSaving(true);
     try {
       // Save to Supabase
-      const { error: supabaseError } = await supabase
-        .from('admin_settings')
-        .upsert({
+      const { error: supabaseError } = await supabase.from('admin_settings').upsert(
+        {
           key: 'app_settings',
           value: settings,
           updated_at: new Date().toISOString(),
-        }, {
+        },
+        {
           onConflict: 'key',
-        });
+        }
+      );
 
       if (supabaseError) {
         console.error('Error saving to Supabase:', supabaseError);
@@ -159,12 +159,12 @@ export default function AdminSettings() {
     toast.success('📥 Settings exported!');
   };
 
-  const importSettings = (event) => {
+  const importSettings = event => {
     const file = event.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = e => {
       try {
         const imported = JSON.parse(e.target.result);
         setSettings({ ...settings, ...imported });
@@ -226,12 +226,7 @@ export default function AdminSettings() {
           <label className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-2 cursor-pointer">
             <Upload className="w-4 h-4" />
             Import
-            <input
-              type="file"
-              accept=".json"
-              onChange={importSettings}
-              className="hidden"
-            />
+            <input type="file" accept=".json" onChange={importSettings} className="hidden" />
           </label>
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -345,15 +340,15 @@ export default function AdminSettings() {
             >
               <div className="flex items-center gap-3">
                 <span className="text-2xl">{feature.icon}</span>
-                <span className="font-semibold text-slate-900 dark:text-white">{feature.label}</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {feature.label}
+                </span>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
                   checked={settings[feature.key]}
-                  onChange={e =>
-                    setSettings({ ...settings, [feature.key]: e.target.checked })
-                  }
+                  onChange={e => setSettings({ ...settings, [feature.key]: e.target.checked })}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-500"></div>
@@ -393,9 +388,7 @@ export default function AdminSettings() {
                 }
                 className="w-full px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                {limit.suffix}
-              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{limit.suffix}</p>
             </div>
           ))}
         </div>
@@ -457,7 +450,8 @@ export default function AdminSettings() {
                 className="w-full px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Cache duration in seconds (current: {settings.cacheTTL}s = {Math.floor(settings.cacheTTL / 60)} minutes)
+                Cache duration in seconds (current: {settings.cacheTTL}s ={' '}
+                {Math.floor(settings.cacheTTL / 60)} minutes)
               </p>
             </div>
           )}
@@ -478,12 +472,15 @@ export default function AdminSettings() {
               About Settings Storage
             </h4>
             <p className="text-sm text-blue-800 dark:text-blue-300">
-              Settings are stored in Supabase's <code className="bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">admin_settings</code> table.
-              If Supabase is unavailable, settings will be saved to localStorage as a backup.
+              Settings are stored in Supabase's{' '}
+              <code className="bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
+                admin_settings
+              </code>{' '}
+              table. If Supabase is unavailable, settings will be saved to localStorage as a backup.
               To create the table in Supabase, run this SQL:
             </p>
             <pre className="mt-3 p-4 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-xs overflow-x-auto">
-{`CREATE TABLE IF NOT EXISTS admin_settings (
+              {`CREATE TABLE IF NOT EXISTS admin_settings (
   key TEXT PRIMARY KEY,
   value JSONB NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -495,4 +492,3 @@ export default function AdminSettings() {
     </div>
   );
 }
-
