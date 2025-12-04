@@ -12,7 +12,7 @@ import { trackFeatureUsage, FEATURES } from '../utils/featureTracking.js';
 
 /**
  * Enhanced Pantry Page
- * 
+ *
  * Features:
  * - Beautiful modern UI with gradients and animations
  * - Smart recipe suggestions based on pantry
@@ -94,9 +94,11 @@ export default function PantryPage() {
       });
 
       setRecipes(results || []);
-      
+
       if (results && results.length > 0) {
-        toast.success(`Found ${results.length} recipe${results.length !== 1 ? 's' : ''} with your ingredients!`);
+        toast.success(
+          `Found ${results.length} recipe${results.length !== 1 ? 's' : ''} with your ingredients!`
+        );
       } else {
         toast.info('No recipes found. Try adding more ingredients!');
       }
@@ -135,8 +137,7 @@ export default function PantryPage() {
     const avgCookTime =
       recipes.length > 0
         ? Math.round(
-            recipes.reduce((sum, r) => sum + (parseInt(r.readyInMinutes) || 0), 0) /
-              recipes.length
+            recipes.reduce((sum, r) => sum + (parseInt(r.readyInMinutes) || 0), 0) / recipes.length
           )
         : 0;
     const avgServings =
@@ -183,7 +184,7 @@ export default function PantryPage() {
                 </motion.div>
                 <div className="flex-1">
                   <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
-                    
+                    What's in Your Pantry?
                   </h1>
                   <p className="text-amber-100 text-base sm:text-lg">
                     Select ingredients you have on hand and discover amazing recipes
