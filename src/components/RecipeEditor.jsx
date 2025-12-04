@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Image as ImageIcon } from 'lucide-react';
 import {
   getRecipeForEditing,
   updateRecipeTitle,
@@ -17,11 +18,16 @@ import {
 import { useToast } from './Toast';
 import { getUnitSystem, convertMeasurement, UNIT_SYSTEMS } from '../utils/unitConverter';
 import { supabase } from '../lib/supabaseClient';
+import { PLACEHOLDER } from '../utils/img';
 import BulkRecipeEditor from './BulkRecipeEditor';
 
-export default function RecipeEditor() {
+export default function RecipeEditor({
+  recipeId: initialRecipeId = null,
+  onClose = null,
+  focusOnImage = false,
+}) {
   const toast = useToast();
-  const [viewMode, setViewMode] = useState('browse'); // "browse", "edit", or "bulk"
+  const [viewMode, setViewMode] = useState(initialRecipeId ? 'edit' : 'browse'); // "browse", "edit", or "bulk"
   const [searchQuery, setSearchQuery] = useState('');
   const [recipes, setRecipes] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -362,25 +368,54 @@ export default function RecipeEditor() {
       }
 
       // Nutrition - ChatGPT provides per-serving, we store per-serving in editor (system scales on save)
+      // Handle both formats: "protein" OR "protein_g", "carbs" OR "carbohydrates_g", etc.
       if (data.nutrition) {
         console.log('  Nutrition: Overlaying ChatGPT nutrition data...');
+
+        // Helper function to get value from nutrition object, trying multiple field name variations
+        const getNutritionValue = (nut, fieldName, altNames = []) => {
+          // Try primary field name first
+          if (nut[fieldName] !== undefined && nut[fieldName] !== null) {
+            return nut[fieldName];
+          }
+          // Try alternative field names
+          for (const altName of altNames) {
+            if (nut[altName] !== undefined && nut[altName] !== null) {
+              return nut[altName];
+            }
+          }
+          return null;
+        };
+
         const nutritionData = {
-          calories: data.nutrition.calories?.toString() || '',
-          protein: data.nutrition.protein?.toString() || '',
-          fat: data.nutrition.fat?.toString() || '',
-          carbs: data.nutrition.carbs?.toString() || '',
-          fiber: data.nutrition.fiber?.toString() || '',
-          sugar: data.nutrition.sugar?.toString() || '',
-          sodium: data.nutrition.sodium?.toString() || '',
-          cholesterol: data.nutrition.cholesterol?.toString() || '',
-          saturated_fat: data.nutrition.saturated_fat?.toString() || '',
-          trans_fat: data.nutrition.trans_fat?.toString() || '',
-          vitamin_a: data.nutrition.vitamin_a?.toString() || '',
-          vitamin_c: data.nutrition.vitamin_c?.toString() || '',
-          vitamin_d: data.nutrition.vitamin_d?.toString() || '',
-          potassium: data.nutrition.potassium?.toString() || '',
-          calcium: data.nutrition.calcium?.toString() || '',
-          iron: data.nutrition.iron?.toString() || '',
+          calories: getNutritionValue(data.nutrition, 'calories')?.toString() || '',
+          protein: getNutritionValue(data.nutrition, 'protein', ['protein_g'])?.toString() || '',
+          fat: getNutritionValue(data.nutrition, 'fat', ['fat_g'])?.toString() || '',
+          carbs:
+            getNutritionValue(data.nutrition, 'carbs', [
+              'carbohydrates_g',
+              'carbs_g',
+            ])?.toString() || '',
+          fiber: getNutritionValue(data.nutrition, 'fiber', ['fiber_g'])?.toString() || '',
+          sugar: getNutritionValue(data.nutrition, 'sugar', ['sugar_g'])?.toString() || '',
+          sodium: getNutritionValue(data.nutrition, 'sodium', ['sodium_mg'])?.toString() || '',
+          cholesterol:
+            getNutritionValue(data.nutrition, 'cholesterol', ['cholesterol_mg'])?.toString() || '',
+          saturated_fat:
+            getNutritionValue(data.nutrition, 'saturated_fat', ['saturated_fat_g'])?.toString() ||
+            '',
+          trans_fat:
+            getNutritionValue(data.nutrition, 'trans_fat', ['trans_fat_g'])?.toString() || '',
+          vitamin_a:
+            getNutritionValue(data.nutrition, 'vitamin_a', ['vitamin_a_iu'])?.toString() || '',
+          vitamin_c:
+            getNutritionValue(data.nutrition, 'vitamin_c', ['vitamin_c_mg'])?.toString() || '',
+          vitamin_d:
+            getNutritionValue(data.nutrition, 'vitamin_d', ['vitamin_d_iu'])?.toString() || '',
+          potassium:
+            getNutritionValue(data.nutrition, 'potassium', ['potassium_mg'])?.toString() || '',
+          calcium: getNutritionValue(data.nutrition, 'calcium', ['calcium_mg'])?.toString() || '',
+          iron: getNutritionValue(data.nutrition, 'iron', ['iron_mg'])?.toString() || '',
         };
         console.log('  Nutrition values:', {
           calories: nutritionData.calories,
@@ -603,6 +638,103 @@ export default function RecipeEditor() {
       toast.error(`Failed to create recipe: ${result.error}`);
     }
   };
+
+  // Load recipe by ID (for when opened from MissingImagesViewer)
+  useEffect(() => {
+    if (initialRecipeId && viewMode === 'edit' && !selectedRecipe) {
+      const loadRecipeById = async () => {
+        setLoading(true);
+        const result = await getRecipeForEditing(initialRecipeId);
+        setLoading(false);
+
+        if (result.success) {
+          const recipeData_recipe = result.data.recipe;
+          setRecipeData(result.data);
+          setSelectedRecipe({
+            id: initialRecipeId,
+            title: recipeData_recipe.title || 'Untitled Recipe',
+            hero_image_url: recipeData_recipe.hero_image_url,
+          });
+
+          // Load all recipe fields (same as handleSelectRecipe)
+          setTitle(recipeData_recipe.title || '');
+          setDescription(recipeData_recipe.description || '');
+          const imageToSet = recipeData_recipe.hero_image_url || '';
+          setImageUrl(imageToSet);
+          setImageUrlTimestamp(null);
+          setPrepMinutes(recipeData_recipe.prep_minutes?.toString() || '');
+          setCookMinutes(recipeData_recipe.cook_minutes?.toString() || '');
+          setServings(recipeData_recipe.servings?.toString() || '');
+          setDifficulty(recipeData_recipe.difficulty || 'easy');
+          setCuisine(Array.isArray(recipeData_recipe.cuisine) ? recipeData_recipe.cuisine : []);
+          setCuisineInput(
+            Array.isArray(recipeData_recipe.cuisine) ? recipeData_recipe.cuisine.join(', ') : ''
+          );
+          setMealTypes(
+            Array.isArray(recipeData_recipe.meal_types) ? recipeData_recipe.meal_types : []
+          );
+          setDiets(Array.isArray(recipeData_recipe.diets) ? recipeData_recipe.diets : []);
+          setAuthor(recipeData_recipe.author || '');
+
+          // Load nutrition (convert from total to per-serving)
+          const nutritionData = result.data.nutrition || {};
+          const recipeServings = recipeData_recipe.servings || 1;
+          const servingsDivisor = recipeServings > 0 ? recipeServings : 1;
+          const convertToPerServing = value => {
+            if (!value || value === null || value === undefined) return '';
+            const num = typeof value === 'string' ? parseFloat(value) : value;
+            if (isNaN(num) || num === 0) return '';
+            const perServing = num / servingsDivisor;
+            return perServing % 1 === 0 ? perServing.toString() : perServing.toFixed(1);
+          };
+          setNutrition({
+            calories: convertToPerServing(nutritionData.calories),
+            protein: convertToPerServing(nutritionData.protein),
+            fat: convertToPerServing(nutritionData.fat),
+            carbs: convertToPerServing(nutritionData.carbs),
+            fiber: convertToPerServing(nutritionData.fiber),
+            sugar: convertToPerServing(nutritionData.sugar),
+            sodium: convertToPerServing(nutritionData.sodium),
+            cholesterol: convertToPerServing(nutritionData.cholesterol),
+            saturated_fat: convertToPerServing(nutritionData.saturated_fat),
+            trans_fat: convertToPerServing(nutritionData.trans_fat),
+            vitamin_a: convertToPerServing(nutritionData.vitamin_a),
+            vitamin_c: convertToPerServing(nutritionData.vitamin_c),
+            vitamin_d: convertToPerServing(nutritionData.vitamin_d),
+            potassium: convertToPerServing(nutritionData.potassium),
+            calcium: convertToPerServing(nutritionData.calcium),
+            iron: convertToPerServing(nutritionData.iron),
+          });
+
+          // Load ingredients and steps
+          const loadedIngredients = (result.data.ingredients || []).map(ing => ({
+            ingredient_name: ing.ingredient.name || '',
+            quantity: ing.quantity?.toString() || '',
+            unit: ing.unit || '',
+            preparation: ing.preparation || '',
+          }));
+          setIngredients(loadedIngredients);
+          setOriginalIngredients(loadedIngredients);
+
+          const loadedSteps = (result.data.steps || []).map(step => ({
+            instruction: step.instruction || '',
+            timer_seconds: step.timer_seconds || null,
+          }));
+          setSteps(loadedSteps);
+
+          // Auto-focus on Basic tab if focusOnImage is true
+          if (focusOnImage) {
+            setActiveTab('basic');
+          }
+        } else {
+          toast.error('Failed to load recipe');
+        }
+      };
+
+      loadRecipeById();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRecipeId]);
 
   // Load recipe for editing
   const handleSelectRecipe = async recipe => {
@@ -1755,6 +1887,15 @@ export default function RecipeEditor() {
       setImageUrlTimestamp(uploadTimestamp);
       setSelectedRecipe({ ...selectedRecipe, hero_image_url: newImageUrl });
 
+      // If opened from MissingImagesViewer, trigger refresh of parent
+      if (focusOnImage && typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('recipeImageUpdated', {
+            detail: { recipeId: selectedRecipe.id, imageUrl: newImageUrl },
+          })
+        );
+      }
+
       // Update recipeData if it exists (store original URL without cache-bust)
       if (recipeData) {
         setRecipeData({
@@ -1906,11 +2047,12 @@ export default function RecipeEditor() {
                   >
                     <div className="aspect-square relative">
                       <img
-                        src={recipe.hero_image_url || '/placeholder-recipe.jpg'}
+                        src={recipe.hero_image_url || PLACEHOLDER}
                         alt={recipe.title}
                         className="w-full h-full object-cover"
                         onError={e => {
-                          e.target.src = '/placeholder-recipe.jpg';
+                          // Stop infinite loop - just hide the image if it fails
+                          e.target.style.display = 'none';
                         }}
                       />
                       {!recipe.hero_image_url && (
@@ -2033,33 +2175,30 @@ export default function RecipeEditor() {
           <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
             <div className="flex gap-4">
               <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-800">
-                <img
-                  key={`${imageUrl || 'placeholder'}-${imageUrlTimestamp || ''}`} // Key forces remount when URL or timestamp changes
-                  src={
-                    imageUrl
-                      ? `${imageUrl}${imageUrlTimestamp ? `?t=${imageUrlTimestamp}` : ''}`
-                      : '/placeholder-recipe.jpg'
-                  }
-                  alt={selectedRecipe?.title || 'Recipe'}
-                  className="w-full h-full object-cover"
-                  onError={e => {
-                    console.error('❌ [RECIPE EDITOR] Image failed to load', {
-                      attemptedUrl: e.target.src,
-                      imageUrl,
-                      timestamp: imageUrlTimestamp,
-                    });
-                    if (e.target.src !== '/placeholder-recipe.jpg') {
-                      e.target.src = '/placeholder-recipe.jpg';
+                {imageUrl ? (
+                  <img
+                    key={`${imageUrl}-${imageUrlTimestamp || ''}`}
+                    src={`${imageUrl}${imageUrlTimestamp ? `?t=${imageUrlTimestamp}` : ''}`}
+                    alt={selectedRecipe?.title || 'Recipe'}
+                    className="w-full h-full object-cover"
+                    onError={e => {
+                      // Silently hide failed images - no logging to prevent spam
+                      if (e.target) {
+                        e.target.style.display = 'none';
+                        e.target.onerror = null; // Remove handler to stop retries
+                      }
+                    }}
+                    onLoad={() =>
+                      console.log('🖼️ [RECIPE EDITOR] Image loaded successfully', {
+                        imageUrl: imageUrl?.substring(0, 50) + '...',
+                      })
                     }
-                  }}
-                  onLoad={() =>
-                    console.log('🖼️ [RECIPE EDITOR] Image loaded successfully', {
-                      imageUrl: imageUrl?.substring(0, 50) + '...',
-                      fullUrl: imageUrl,
-                      timestamp: imageUrlTimestamp,
-                    })
-                  }
-                />
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
+                    No Image
+                  </div>
+                )}
               </div>
               <div className="flex-1">
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
@@ -2204,6 +2343,39 @@ export default function RecipeEditor() {
             {/* Basic Info Tab */}
             {activeTab === 'basic' && (
               <div className="space-y-6">
+                {/* Missing Image Alert Banner */}
+                {focusOnImage && !imageUrl && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-gradient-to-r from-red-500 to-orange-500 rounded-xl p-6 border-2 border-red-300 dark:border-red-700 shadow-lg"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                        <ImageIcon className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-xl font-bold text-white mb-2">
+                          📸 Missing Image Detected
+                        </h3>
+                        <p className="text-white/90 mb-4">
+                          This recipe is missing an image. To fix it, scroll down to the{' '}
+                          <strong>"Upload New Image File"</strong> section below and upload a JPEG
+                          image (≤100KB recommended).
+                        </p>
+                        <div className="bg-white/20 rounded-lg p-3">
+                          <p className="text-white text-sm font-semibold mb-1">Quick Steps:</p>
+                          <ol className="text-white/90 text-sm list-decimal list-inside space-y-1">
+                            <li>Scroll down to find the "Upload New Image File" section</li>
+                            <li>Click "Choose File" and select a JPEG image</li>
+                            <li>Click the "Upload" button</li>
+                            <li>The image will be automatically compressed and saved</li>
+                          </ol>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     Recipe Title *
@@ -2887,22 +3059,25 @@ export default function RecipeEditor() {
                     Current Image
                   </label>
                   <div className="w-full max-w-md h-64 rounded-lg border-2 border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-200 dark:bg-slate-800">
-                    <img
-                      key={imageUrl || 'placeholder'} // Key prevents flashing
-                      src={imageUrl || '/placeholder-recipe.jpg'}
-                      alt={selectedRecipe?.title || 'Recipe'}
-                      className="w-full h-full object-cover"
-                      onError={e => {
-                        if (e.target.src !== '/placeholder-recipe.jpg') {
-                          e.target.src = '/placeholder-recipe.jpg';
-                        }
-                      }}
-                      onLoad={() =>
-                        console.log('🖼️ [RECIPE EDITOR] Image tab image loaded', {
-                          imageUrl: imageUrl?.substring(0, 50) + '...',
-                        })
-                      }
-                    />
+                    {imageUrl ? (
+                      <img
+                        key={imageUrl}
+                        src={imageUrl}
+                        alt={selectedRecipe?.title || 'Recipe'}
+                        className="w-full h-full object-cover"
+                        onError={e => {
+                          // Silently hide failed images - no logging to prevent spam
+                          if (e.target) {
+                            e.target.style.display = 'none';
+                            e.target.onerror = null; // Remove handler to stop retries
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-400 text-sm">
+                        No Image
+                      </div>
+                    )}
                   </div>
                 </div>
 

@@ -4,19 +4,28 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Home } from 'lucide-react';
 
 /**
- * Enhanced Back to Home button component
+ * Enhanced Back button component
  * Used across multiple pages for consistent navigation
+ * 
+ * @param {string} className - Additional CSS classes
+ * @param {Function} onClick - Custom click handler (if provided, overrides default navigation)
+ * @param {boolean} toHome - If true, navigates to home. If false, goes back in history. Default: true
+ * @param {string} label - Button label text. Default: "Home" or "Back" based on toHome prop
  */
-export default function BackToHome({ className = '', onClick }) {
+export default function BackToHome({ className = '', onClick, toHome = true, label }) {
   const navigate = useNavigate();
 
   const handleClick = () => {
     if (onClick) {
       onClick();
-    } else {
+    } else if (toHome) {
       navigate('/');
+    } else {
+      navigate(-1);
     }
   };
+
+  const buttonLabel = label || (toHome ? 'Home' : 'Back');
 
   return (
     <motion.button
@@ -41,7 +50,7 @@ export default function BackToHome({ className = '', onClick }) {
                 overflow-hidden
                 ${className}
             `}
-      aria-label="Navigate back to home"
+      aria-label={`Navigate ${toHome ? 'back to home' : 'back'}`}
     >
       {/* Animated background shimmer */}
       <motion.div
@@ -70,7 +79,7 @@ export default function BackToHome({ className = '', onClick }) {
       </motion.div>
 
       {/* Text - consistent across all screens */}
-      <span className="relative z-10 font-medium">Home</span>
+      <span className="relative z-10 font-medium">{buttonLabel}</span>
 
       {/* Hover effect indicator */}
       <motion.div

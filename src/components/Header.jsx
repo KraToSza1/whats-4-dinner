@@ -658,6 +658,17 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                           <span className="text-xl">🥘</span>
                           <span className="font-medium">My Pantry</span>
                         </button>
+
+                        <button
+                          onClick={() => {
+                            setShowMenu(false);
+                            window.dispatchEvent(new CustomEvent('openMiniGames'));
+                          }}
+                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm sm:text-base hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg flex items-center gap-2 sm:gap-3 transition-all touch-manipulation"
+                        >
+                          <span className="text-xl">🎮</span>
+                          <span className="font-medium">Minigames</span>
+                        </button>
                       </div>
 
                       <div className="border-t border-slate-200 dark:border-slate-700 my-2" />

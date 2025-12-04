@@ -194,12 +194,99 @@ export function adjustPriceForRegion(usdPrice, countryCode) {
 
 /**
  * Get recommended weekly budget based on country and family size
+ * Uses realistic food cost data based on actual grocery prices and cost of living
+ * Values are in USD and will be converted to local currency by the caller
  */
 export function getRecommendedBudget(countryCode, familySize = 1) {
-  const colIndex = getCostOfLivingIndex(countryCode);
-  const baseBudget = 100; // Base weekly budget for 1 person in US
-  const adjustedBudget = (baseBudget * colIndex) / 100;
-  return Math.round(adjustedBudget * familySize * 100) / 100;
+  // Realistic weekly food budgets per person in USD (based on actual grocery costs)
+  // These represent minimum viable budgets for healthy eating, not bare survival
+  const WEEKLY_FOOD_BUDGETS_USD = {
+    // North America
+    US: 80, // $80/week = ~$320/month per person (realistic US grocery budget)
+    CA: 85, // Canada slightly higher
+    MX: 35, // Mexico - lower cost but still realistic
+    
+    // Europe - Higher cost countries
+    CH: 120, // Switzerland - very expensive
+    NO: 95,  // Norway
+    IS: 100, // Iceland
+    DK: 90,  // Denmark
+    SE: 85,  // Sweden
+    IE: 75,  // Ireland
+    NL: 70,  // Netherlands
+    AT: 70,  // Austria
+    BE: 70,  // Belgium
+    FI: 70,  // Finland
+    FR: 65,  // France
+    DE: 65,  // Germany
+    IT: 60,  // Italy
+    GB: 70,  // UK
+    ES: 55,  // Spain
+    PT: 50,  // Portugal
+    GR: 50,  // Greece
+    PL: 45,  // Poland
+    CZ: 45,  // Czech Republic
+    HU: 40,  // Hungary
+    
+    // Asia
+    SG: 90,  // Singapore - very expensive
+    JP: 75,  // Japan
+    HK: 85,  // Hong Kong
+    KR: 70,  // South Korea
+    TW: 60,  // Taiwan
+    MY: 40,  // Malaysia
+    TH: 35,  // Thailand
+    CN: 40,  // China
+    PH: 30,  // Philippines
+    ID: 30,  // Indonesia
+    VN: 30,  // Vietnam
+    IN: 25,  // India
+    
+    // Middle East
+    IL: 80,  // Israel
+    AE: 70,  // UAE
+    SA: 50,  // Saudi Arabia
+    TR: 40,  // Turkey
+    
+    // Americas
+    BR: 35,  // Brazil
+    AR: 30,  // Argentina
+    CL: 50,  // Chile
+    
+    // Oceania
+    AU: 85,  // Australia
+    NZ: 80,  // New Zealand
+    
+    // Africa - Realistic budgets based on actual food costs
+    ZA: 50,  // South Africa: R500-R1000/week = ~$27-$54 USD (using $50 as realistic middle)
+    EG: 30,  // Egypt
+    MA: 35,  // Morocco
+    NG: 30,  // Nigeria
+    KE: 30,  // Kenya
+    
+    // Default fallback
+    default: 60, // Conservative default
+  };
+  
+  // Get base budget for country
+  const baseBudgetPerPerson = WEEKLY_FOOD_BUDGETS_USD[countryCode] || WEEKLY_FOOD_BUDGETS_USD.default;
+  
+  // Calculate for family size (with slight discount for larger families due to bulk buying)
+  let totalBudget;
+  if (familySize === 1) {
+    totalBudget = baseBudgetPerPerson;
+  } else if (familySize === 2) {
+    totalBudget = baseBudgetPerPerson * 1.8; // 10% discount per person
+  } else if (familySize === 3) {
+    totalBudget = baseBudgetPerPerson * 2.6; // 13% discount per person
+  } else if (familySize === 4) {
+    totalBudget = baseBudgetPerPerson * 3.4; // 15% discount per person
+  } else {
+    // For larger families, use 3.4 + 0.8 per additional person
+    totalBudget = baseBudgetPerPerson * (3.4 + (familySize - 4) * 0.8);
+  }
+  
+  return Math.round(totalBudget * 100) / 100;
 }
 
 /**

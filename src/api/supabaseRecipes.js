@@ -732,11 +732,33 @@ export async function searchSupabaseRecipes({
   maxCarbs = '',
   intolerances = '',
   limit = 24,
+  offset = 0, // Add offset for server-side pagination
 }) {
   const t0 = now();
   try {
-    // Validate and sanitize inputs
-    const validatedLimit = Math.min(Math.max(Number(limit) || 24, 1), 100); // Clamp between 1-100
+    // Only log in development to reduce console noise
+    if (import.meta.env.DEV) {
+      console.log('🔍 [SEARCH API] searchSupabaseRecipes called', {
+        query: query?.substring(0, 50) || '(empty)',
+        limit,
+        offset,
+        includeIngredients: includeIngredients?.length || 0,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    
+    // Validate and sanitize inputs - increase max limit to support browsing large recipe databases
+    const validatedLimit = Math.min(Math.max(Number(limit) || 24, 1), 1000); // Clamp between 1-1000 (increased to support large databases)
+    const validatedOffset = Math.max(Number(offset) || 0, 0); // Offset for pagination
+    
+    if (import.meta.env.DEV) {
+      console.log('📊 [SEARCH API] Validated params', {
+        validatedLimit,
+        validatedOffset,
+        requestedLimit: limit,
+        requestedOffset: offset,
+      });
+    }
 
     const debugPayload = {
       query,
@@ -769,15 +791,26 @@ export async function searchSupabaseRecipes({
 
     // Removed verbose logging - only log errors
 
+    // Build the query - show ONLY complete/edited recipes for regular users
+    // Complete/edited = recipes that have been edited via Recipe Editor OR have complete nutrition
     let builder = supabase
       .from('recipes')
       .select(
-        'id,title,description,hero_image_url,prep_minutes,cook_minutes,servings,difficulty,cuisine,meal_types,diets,author,calories,has_complete_nutrition'
+        'id,title,description,hero_image_url,prep_minutes,cook_minutes,servings,difficulty,cuisine,meal_types,diets,author,calories,has_complete_nutrition,source',
+        { count: 'exact' } // Get total count for pagination
       )
-      // Only show recipes with complete nutrition (for production)
-      .eq('has_complete_nutrition', true)
-      .order('updated_at', { ascending: false })
-      .limit(validatedLimit);
+      // Only show complete/edited recipes: source = 'recipe_editor' OR has_complete_nutrition = true
+      .or('source.eq.recipe_editor,has_complete_nutrition.eq.true')
+      .order('updated_at', { ascending: false }) // Order by most recently updated
+      .range(validatedOffset, validatedOffset + validatedLimit - 1); // Server-side pagination: range(start, end)
+    
+    if (import.meta.env.DEV) {
+      console.log('📋 [SEARCH API] Query builder created', {
+        rangeStart: validatedOffset,
+        rangeEnd: validatedOffset + validatedLimit - 1,
+        expectedCount: validatedLimit,
+      });
+    }
 
     // Smart search: Split query into words and search for each
     // Enhanced with better escaping and validation
@@ -918,7 +951,19 @@ export async function searchSupabaseRecipes({
       maxCarbs: hasMaxCarbs ? maxCarbsNumber : null,
     });
 
-    const { data, error } = await builder;
+    const { data, error, count } = await builder;
+    
+    if (import.meta.env.DEV) {
+      console.log('📥 [SEARCH API] Database response received', {
+        dataLength: data?.length || 0,
+        hasError: !!error,
+        totalCount: count ?? 'N/A',
+        requestedLimit: validatedLimit,
+        offset: validatedOffset,
+        errorMessage: error?.message || 'none',
+      });
+    }
+    
     if (error) {
       console.error('❌ [SUPABASE ERROR] searchSupabaseRecipes failed:', {
         error: error.message,
@@ -926,21 +971,24 @@ export async function searchSupabaseRecipes({
         details: error.details,
         query,
         filters: { diet, mealType, maxTime },
+        offset: validatedOffset,
+        limit: validatedLimit,
       });
       throw error;
     }
+    
+    if (import.meta.env.DEV) {
+      console.log('✅ [SEARCH API] Query successful', {
+        recipesFetched: data?.length || 0,
+        totalCount: count ?? 'unknown',
+        offset: validatedOffset,
+        limit: validatedLimit,
+        hasMore: count ? validatedOffset + (data?.length || 0) < count : (data?.length || 0) === validatedLimit,
+      });
+    }
 
-    let mapped = (data || []).map(mapSupabaseRecipe).filter(recipe => {
-      // Only show recipes with valid images
-      const hasImage = !!(recipe?.image || recipe?.heroImageUrl);
-      if (!hasImage) {
-        supabaseLog('searchSupabaseRecipes:filtered', {
-          id: recipe?.id,
-          reason: 'missing_image',
-        });
-      }
-      return hasImage;
-    });
+    // Map all recipes - show recipes with or without images
+    let mapped = (data || []).map(mapSupabaseRecipe).filter(Boolean);
 
     // If we have a text query, score and sort results by relevance with STRICT prioritization
     if (trimmedQuery && mapped.length > 0) {
@@ -994,12 +1042,12 @@ export async function searchSupabaseRecipes({
       exactMatches.sort((a, b) => b._relevanceScore - a._relevanceScore);
       partialMatches.sort((a, b) => b._relevanceScore - a._relevanceScore);
 
-      // If we have exact matches, ONLY return those (or limit to top 5)
+      // Return all matches (exact first, then partial) up to the requested limit
+      // Don't artificially limit to 5-10 - return all matching results
       if (exactMatches.length > 0) {
-        mapped = exactMatches.slice(0, 5);
+        mapped = [...exactMatches, ...partialMatches].slice(0, validatedLimit);
       } else {
-        // Otherwise return partial matches, but limit to top 10
-        mapped = partialMatches.slice(0, 10);
+        mapped = partialMatches.slice(0, validatedLimit);
       }
 
       // Remove scoring properties before returning
@@ -1192,14 +1240,31 @@ export async function searchSupabaseRecipes({
 
     // Removed verbose logging - only log errors
 
+    const duration = Number((now() - t0).toFixed(2));
+    
+    if (import.meta.env.DEV) {
+      console.log('✅ [SEARCH API] Search complete', {
+        finalRecipeCount: mapped.length,
+        rawDataCount: data?.length || 0,
+        totalCount: count ?? 'unknown',
+        offset: validatedOffset,
+        limit: validatedLimit,
+        durationMs: duration,
+        firstRecipeId: mapped[0]?.id || null,
+        lastRecipeId: mapped[mapped.length - 1]?.id || null,
+      });
+    }
+    
     supabaseLog('searchSupabaseRecipes:complete', {
       count: mapped.length,
+      totalCount: count ?? null,
       first: mapped[0]?.id ?? null,
       rawCount: data?.length ?? 0,
-      durationMs: Number((now() - t0).toFixed(2)),
+      durationMs: duration,
     });
 
-    return mapped;
+    // Return both data and total count for proper pagination
+    return { data: mapped, totalCount: count ?? null };
   } catch (error) {
     console.error('[Supabase] searchSupabaseRecipes:error', error);
     throw error;

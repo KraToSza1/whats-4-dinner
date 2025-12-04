@@ -1,0 +1,19 @@
+POLICY 1: Public Read Access (SELECT)
+
+Policy name:
+Public can read recipe-images
+
+Allowed operation:
+☑ SELECT (check this box only)
+☐ INSERT (uncheck)
+☐ UPDATE (uncheck)
+☐ DELETE (uncheck)
+
+Target roles:
+Leave default (public/all)
+
+Policy definition (USING):
+bucket_id = 'recipe-images'
+
+Click "Review" then "Save policy"
+

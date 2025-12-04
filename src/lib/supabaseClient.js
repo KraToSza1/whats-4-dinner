@@ -12,14 +12,17 @@ const keyRole = supabaseAnonKey
       ? 'ANON (CORRECT)'
       : 'UNKNOWN'
   : 'MISSING';
-console.log('Supabase Config Check:', {
-  hasUrl: !!supabaseUrl,
-  hasKey: !!supabaseAnonKey,
-  urlLength: supabaseUrl?.length || 0,
-  keyLength: supabaseAnonKey?.length || 0,
-  keyRole: keyRole,
-  allEnvVars: Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')),
-});
+// Only log in development to reduce console noise
+if (import.meta.env.DEV) {
+  console.log('Supabase Config Check:', {
+    hasUrl: !!supabaseUrl,
+    hasKey: !!supabaseAnonKey,
+    urlLength: supabaseUrl?.length || 0,
+    keyLength: supabaseAnonKey?.length || 0,
+    keyRole: keyRole,
+    allEnvVars: Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')),
+  });
+}
 
 if (keyRole.includes('SERVICE_ROLE')) {
   console.error('🚨 CRITICAL ERROR: You are using SERVICE_ROLE key in the browser!');

@@ -16,18 +16,27 @@ export default function InstallButton({ compact = false, showBanner = false }) {
   };
 
   useEffect(() => {
-    console.log('🔍 [InstallButton] useEffect triggered', { compact, showBanner });
+    // Only log in development to reduce console noise
+    if (import.meta.env.DEV) {
+      console.log('🔍 [InstallButton] useEffect triggered', { compact, showBanner });
+    }
 
     // Check immediately if app is already installed
     const installed = checkIfInstalled();
-    console.log('🔍 [InstallButton] Check if installed:', {
-      installed,
-      displayMode: window.matchMedia('(display-mode: standalone)').matches,
-      iosStandalone: window.navigator.standalone === true,
-    });
+    // Only log in development to reduce console noise
+    if (import.meta.env.DEV) {
+      console.log('🔍 [InstallButton] Check if installed:', {
+        installed,
+        displayMode: window.matchMedia('(display-mode: standalone)').matches,
+        iosStandalone: window.navigator.standalone === true,
+      });
+    }
 
     if (installed) {
-      console.log('✅ [InstallButton] App is already installed, hiding button');
+      // Only log in development to reduce console noise
+      if (import.meta.env.DEV) {
+        console.log('✅ [InstallButton] App is already installed, hiding button');
+      }
       setIsInstalled(true);
       setIsInstallable(false);
       return;
@@ -46,26 +55,41 @@ export default function InstallButton({ compact = false, showBanner = false }) {
     // Check if we already have a stored prompt (from previous page load)
     // This helps if the event fired before the component mounted
     if (window.deferredPrompt) {
-      console.log('✅ [InstallButton] Found existing deferredPrompt in window');
+      // Only log in development to reduce console noise
+      if (import.meta.env.DEV) {
+        console.log('✅ [InstallButton] Found existing deferredPrompt in window');
+      }
       setDeferredPrompt(window.deferredPrompt);
       setIsInstallable(true);
     } else {
-      console.log('⚠️ [InstallButton] No existing deferredPrompt found');
+      // Only log in development to reduce console noise
+      if (import.meta.env.DEV) {
+        console.log('⚠️ [InstallButton] No existing deferredPrompt found');
+      }
     }
 
     // Listen for the beforeinstallprompt event
     const handleBeforeInstallPrompt = e => {
-      console.log('🎉 [InstallButton] beforeinstallprompt event fired!', e);
+      // Only log in development to reduce console noise
+      if (import.meta.env.DEV) {
+        console.log('🎉 [InstallButton] beforeinstallprompt event fired!', e);
+      }
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
       // Stash the event so it can be triggered later
       setDeferredPrompt(e);
       window.deferredPrompt = e; // Store globally for persistence
       setIsInstallable(true);
-      console.log('✅ [InstallButton] Install prompt is now available');
+      // Only log in development to reduce console noise
+      if (import.meta.env.DEV) {
+        console.log('✅ [InstallButton] Install prompt is now available');
+      }
     };
 
-    console.log('👂 [InstallButton] Adding beforeinstallprompt listener');
+    // Only log in development to reduce console noise
+    if (import.meta.env.DEV) {
+      console.log('👂 [InstallButton] Adding beforeinstallprompt listener');
+    }
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     // Debug: Log installability status (only in dev)
@@ -87,7 +111,10 @@ export default function InstallButton({ compact = false, showBanner = false }) {
 
     // Listen for app installed event (fires when user accepts install)
     const handleAppInstalled = () => {
-      console.log('🎊 [InstallButton] appinstalled event fired!');
+      // Only log in development to reduce console noise
+      if (import.meta.env.DEV) {
+        console.log('🎊 [InstallButton] appinstalled event fired!');
+      }
       setIsInstalled(true);
       setIsInstallable(false);
       setDeferredPrompt(null);
@@ -95,7 +122,10 @@ export default function InstallButton({ compact = false, showBanner = false }) {
       setBannerDismissed(true); // Also dismiss banner
     };
 
-    console.log('👂 [InstallButton] Adding appinstalled listener');
+    // Only log in development to reduce console noise
+    if (import.meta.env.DEV) {
+      console.log('👂 [InstallButton] Adding appinstalled listener');
+    }
     window.addEventListener('appinstalled', handleAppInstalled);
 
     // Check periodically if install becomes available (for delayed events)
@@ -144,19 +174,22 @@ export default function InstallButton({ compact = false, showBanner = false }) {
 
   // Don't show if already installed
   if (isInstalled) {
-    console.log('🚫 [InstallButton] Not rendering - app is installed');
+    // Suppress logging - app is installed, no need to log every render
     return null;
   }
 
-  console.log('🔍 [InstallButton] Render check:', {
-    isInstalled,
-    isInstallable,
-    hasDeferredPrompt: !!deferredPrompt,
-    compact,
-    showBanner,
-    bannerDismissed,
-    showInstructions,
-  });
+  // Only log in development to reduce console noise
+  if (import.meta.env.DEV) {
+    console.log('🔍 [InstallButton] Render check:', {
+      isInstalled,
+      isInstallable,
+      hasDeferredPrompt: !!deferredPrompt,
+      compact,
+      showBanner,
+      bannerDismissed,
+      showInstructions,
+    });
+  }
 
   // Show instructions modal if clicked without prompt
   if (showInstructions) {
@@ -195,23 +228,41 @@ export default function InstallButton({ compact = false, showBanner = false }) {
 
   // In compact mode (menu), only show if we have a real install prompt
   if (compact && (!isInstallable || !deferredPrompt)) {
-    console.log('🚫 [InstallButton] Not rendering menu button - no prompt available');
+    // Only log in development to reduce console noise
+    if (import.meta.env.DEV) {
+      if (import.meta.env.DEV) {
+        console.log('🚫 [InstallButton] Not rendering menu button - no prompt available');
+      }
+    }
     return null; // Don't show in menu if not installable or no prompt
   }
 
   if (!compact && !isInstallable && !showBanner) {
-    console.log('🚫 [InstallButton] Not rendering standalone button - not installable');
+    // Only log in development to reduce console noise
+    if (import.meta.env.DEV) {
+      if (import.meta.env.DEV) {
+        console.log('🚫 [InstallButton] Not rendering standalone button - not installable');
+      }
+    }
     return null; // Don't show standalone button if not installable
   }
 
   // Don't show button if we don't have a deferredPrompt (will just show instructions)
   // Only show if we have a real install prompt OR if user explicitly wants instructions
   if (!deferredPrompt && !compact) {
-    console.log('🚫 [InstallButton] Not rendering - no deferredPrompt and not compact');
+    // Only log in development to reduce console noise
+    if (import.meta.env.DEV) {
+      if (import.meta.env.DEV) {
+        console.log('🚫 [InstallButton] Not rendering - no deferredPrompt and not compact');
+      }
+    }
     return null; // No prompt available, don't show button (instructions modal handles this)
   }
 
-  console.log('✅ [InstallButton] Rendering button/banner');
+  // Only log in development to reduce console noise
+  if (import.meta.env.DEV) {
+    console.log('✅ [InstallButton] Rendering button/banner');
+  }
 
   // Banner style (top of page) - only show if we have a real install prompt ready
   if (showBanner && deferredPrompt && isInstallable && !bannerDismissed && !isInstalled) {

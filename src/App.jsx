@@ -16,11 +16,13 @@ import Privacy from './pages/Privacy.jsx';
 import Analytics from './pages/Analytics.jsx';
 import BillingManagement from './pages/BillingManagement.jsx';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute.jsx';
+import MissingImagesPage from './pages/MissingImagesPage.jsx';
+import MissingNutritionPage from './pages/MissingNutritionPage.jsx';
 
 import Filters from './components/Filters.jsx';
 import GroceryDrawer from './components/GroceryDrawer.jsx';
 import DailyRecipe from './components/DailyRecipe.jsx';
-import GamificationDashboard from './components/GamificationDashboard.jsx';
+import Pagination from './components/Pagination.jsx';
 import Favorites from './pages/Favorites.jsx';
 import MealRemindersPage from './pages/MealRemindersPage.jsx';
 import BudgetTrackerPage from './pages/BudgetTrackerPage.jsx';
@@ -34,6 +36,7 @@ import { InlineRecipeLoader, FullPageRecipeLoader } from './components/FoodLoade
 import PullToRefresh from './components/PullToRefresh.jsx';
 import BackToTop from './components/BackToTop.jsx';
 import CookingAnimation from './components/CookingAnimation.jsx';
+import CookingMiniGames from './components/CookingMiniGames.jsx';
 import { GroceryListProvider } from './context/GroceryListContext.jsx';
 import { useFilters } from './context/FilterContext.jsx';
 
@@ -52,7 +55,11 @@ import AdBanner, { InlineAd } from './components/AdBanner.jsx';
 import ProModalWrapper from './components/ProModalWrapper.jsx';
 import PremiumFeatureModalWrapper from './components/PremiumFeatureModalWrapper.jsx';
 import { useToast } from './components/Toast.jsx';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import DailyChallenge from './components/DailyChallenge.jsx';
+import StreakCounter from './components/StreakCounter.jsx';
+import XPBar from './components/XPBar.jsx';
+import { Sparkles, Flame, Trophy } from 'lucide-react';
 
 // "chicken,  rice , , tomato" -> ["chicken","rice","tomato"]
 const toIngredientArray = raw =>
@@ -72,7 +79,17 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastSearch, setLastSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recipesPerPage, setRecipesPerPage] = useState(() => {
+    try {
+      const saved = localStorage.getItem('recipesPerPage');
+      return saved ? Math.max(12, Math.min(120, parseInt(saved, 10))) : 24;
+    } catch {
+      return 24;
+    }
+  });
   const [preferenceSummary, setPreferenceSummary] = useState(null);
+  const [miniGamesOpen, setMiniGamesOpen] = useState(false);
   const [pantry, setPantry] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('filters:pantry') || '[]');
@@ -89,6 +106,18 @@ const App = () => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Listen for mini games open event
+  useEffect(() => {
+    const handleOpenMiniGames = () => {
+      setMiniGamesOpen(true);
+    };
+
+    window.addEventListener('openMiniGames', handleOpenMiniGames);
+    return () => {
+      window.removeEventListener('openMiniGames', handleOpenMiniGames);
+    };
+  }, []);
+
   // Initialize Paddle globally when app loads
   useEffect(() => {
     const initializePaddle = () => {
@@ -97,13 +126,16 @@ const App = () => {
         import.meta.env.VITE_PADDLE_CLIENT_TOKEN ||
         import.meta.env.VITE_PADDLE_TOKEN;
 
-      console.warn('🔍 [PADDLE INIT] Token check:', {
-        hasToken: !!paddleToken,
-        tokenLength: paddleToken?.length || 0,
-        tokenPrefix: paddleToken?.substring(0, 15) || 'none',
-        tokenStartsWithTest: paddleToken?.startsWith('test_') || false,
-        envVars: Object.keys(import.meta.env).filter(k => k.includes('PADDLE')),
-      });
+      // Only log in development to reduce console noise
+      if (import.meta.env.DEV) {
+        console.warn('🔍 [PADDLE INIT] Token check:', {
+          hasToken: !!paddleToken,
+          tokenLength: paddleToken?.length || 0,
+          tokenPrefix: paddleToken?.substring(0, 15) || 'none',
+          tokenStartsWithTest: paddleToken?.startsWith('test_') || false,
+          envVars: Object.keys(import.meta.env).filter(k => k.includes('PADDLE')),
+        });
+      }
 
       if (!paddleToken) {
         console.error(
@@ -131,9 +163,12 @@ const App = () => {
           window.Paddle.Initialize({
             token: paddleToken,
           });
-          console.warn('✅ [PADDLE INIT] Paddle initialized', {
-            environment: isSandbox ? 'sandbox' : 'production',
-          });
+          // Only log in development to reduce console noise
+          if (import.meta.env.DEV) {
+            console.warn('✅ [PADDLE INIT] Paddle initialized', {
+              environment: isSandbox ? 'sandbox' : 'production',
+            });
+          }
         } catch (err) {
           console.error('❌ [PADDLE] Failed to initialize:', err);
         }
@@ -622,7 +657,7 @@ const App = () => {
   // Enhanced with robust error handling, query validation, and smart fallbacks
   const fetchRecipes = useCallback(
     async (raw = '', options = {}) => {
-      const { allowEmpty = false } = options;
+      const { allowEmpty = false, limitOverride } = options;
 
       // Robust query parsing and validation
       const trimmedQuery = typeof raw === 'string' ? raw.trim() : '';
@@ -727,6 +762,23 @@ const App = () => {
             : '';
 
         // Execute search with timeout protection
+        const page = options.page || 1;
+        const offset = options.offset || (page - 1) * recipesPerPage;
+        const requestedLimit = limitOverride || recipesPerPage;
+
+        // Only log in development to reduce console noise
+        if (import.meta.env.DEV) {
+          console.log('🔍 [FETCH RECIPES] Starting search', {
+            query: trimmedQuery?.substring(0, 50) || '(empty)',
+            page,
+            offset,
+            requestedLimit,
+            recipesPerPage,
+            limitOverride: limitOverride || 'none',
+            shouldShowDefaultFeed,
+          });
+        }
+
         const searchPromise = searchSupabaseRecipes({
           query: trimmedQuery,
           includeIngredients: shouldShowDefaultFeed ? [] : includeIngredients,
@@ -740,7 +792,8 @@ const App = () => {
           minProtein: minProtein || '',
           maxCarbs: maxCarbs || '',
           intolerances: intolerancesString,
-          limit: 24,
+          limit: requestedLimit,
+          offset: offset, // Add offset for server-side pagination
         });
 
         // Add timeout to prevent hanging requests (30 seconds)
@@ -748,10 +801,71 @@ const App = () => {
           setTimeout(() => reject(new Error('Search request timed out. Please try again.')), 30000);
         });
 
-        const supabaseResults = await Promise.race([searchPromise, timeoutPromise]);
+        const searchResult = await Promise.race([searchPromise, timeoutPromise]);
+
+        // Handle both old format (array) and new format (object with data and totalCount)
+        const supabaseResults = Array.isArray(searchResult)
+          ? searchResult
+          : searchResult?.data || [];
+        const totalCountFromServer = searchResult?.totalCount ?? null;
+
+        // Only log in development to reduce console noise
+        if (import.meta.env.DEV) {
+          console.log('📥 [FETCH RECIPES] Search results received', {
+            resultsCount: supabaseResults?.length || 0,
+            expectedCount: requestedLimit,
+            totalCountFromServer: totalCountFromServer ?? 'not provided',
+            page: page || 1,
+            offset,
+            hasResults: !!supabaseResults?.length,
+            firstRecipe: supabaseResults?.[0]?.title?.substring(0, 30) || 'none',
+          });
+        }
 
         if (supabaseResults?.length) {
           setRecipes(supabaseResults);
+
+          // Use actual total count from server if available, otherwise estimate
+          if (totalCountFromServer !== null && totalCountFromServer !== undefined) {
+            if (import.meta.env.DEV) {
+              console.log('📊 [FETCH RECIPES] Using server-provided total count', {
+                received: supabaseResults.length,
+                requested: requestedLimit,
+                offset,
+                totalCount: totalCountFromServer,
+              });
+            }
+            setTotalRecipesCount(totalCountFromServer);
+          } else if (supabaseResults.length < requestedLimit) {
+            // If we got fewer than requested, that's likely all there is
+            const estimatedTotal = offset + supabaseResults.length;
+            if (import.meta.env.DEV) {
+              console.log('📊 [FETCH RECIPES] Estimated total recipes (no server count)', {
+                received: supabaseResults.length,
+                requested: requestedLimit,
+                offset,
+                estimatedTotal,
+              });
+            }
+            setTotalRecipesCount(estimatedTotal);
+          } else {
+            // Got full page - assume there are more (conservative estimate)
+            const estimatedTotal = Math.max(offset + requestedLimit * 2, 1000);
+            if (import.meta.env.DEV) {
+              console.log('📊 [FETCH RECIPES] Full page received - estimating more exist', {
+                received: supabaseResults.length,
+                requested: requestedLimit,
+                offset,
+                estimatedTotal,
+              });
+            }
+            setTotalRecipesCount(estimatedTotal);
+          }
+
+          // Only reset to page 1 if this is a NEW search (not pagination)
+          if (!options.page || page === 1) {
+            setCurrentPage(1);
+          }
           // Clear any previous errors on success
           setError(null);
 
@@ -817,6 +931,8 @@ const App = () => {
       pantry,
       filters.maxCalories,
       filters.healthScore,
+      // Removed recipesPerPage from deps to prevent duplicate fetches when it changes
+      // handleItemsPerPageChange manually triggers fetchRecipes
     ]
   );
 
@@ -841,6 +957,7 @@ const App = () => {
 
     // Set new timeout
     filterDebounceRef.current = setTimeout(() => {
+      setCurrentPage(1); // Reset to first page when filters change
       fetchRecipes(lastSearch || '', { allowEmpty: true });
     }, 500);
   }, [
@@ -894,6 +1011,101 @@ const App = () => {
     return new Set(favorites.map(f => f.id));
   }, [favorites]);
 
+  // State for total recipe count (for server-side pagination)
+  const [totalRecipesCount, setTotalRecipesCount] = useState(0);
+
+  // Calculate pagination - now using server-side pagination
+  const totalPages =
+    totalRecipesCount > 0
+      ? Math.ceil(totalRecipesCount / recipesPerPage)
+      : Math.ceil(recipes.length / recipesPerPage); // Fallback to client-side if count not available
+  const startIndex = (currentPage - 1) * recipesPerPage;
+  const endIndex = startIndex + recipesPerPage;
+
+  // Server-side pagination: recipes should contain just the current page's recipes
+  // But if recipesPerPage changed, we might have more recipes than expected
+  // Slice to ensure we only show the correct number for the current page
+  const paginatedRecipes = recipes.slice(startIndex, endIndex);
+
+  // Only log in development to reduce console noise
+  if (import.meta.env.DEV) {
+    console.log('📄 [PAGINATION] Current state', {
+      currentPage,
+      recipesPerPage,
+      totalRecipes: recipes.length,
+      totalRecipesCount,
+      totalPages,
+      startIndex,
+      endIndex,
+      showingRecipes: paginatedRecipes.length,
+    });
+
+    console.log('🎯 [PAGINATION] Displaying recipes', {
+      paginatedRecipesCount: paginatedRecipes.length,
+      expectedCount: recipesPerPage,
+      currentPage,
+      isFullPage: paginatedRecipes.length === recipesPerPage,
+      hasMore: paginatedRecipes.length === recipesPerPage,
+    });
+  }
+
+  // Handle page change - now with server-side pagination!
+  const handlePageChange = async page => {
+    // Only log in development to reduce console noise
+    if (import.meta.env.DEV) {
+      console.log('🔄 [PAGINATION] Page change requested', {
+        fromPage: currentPage,
+        toPage: page,
+        recipesPerPage,
+        currentRecipesCount: recipes.length,
+        totalRecipesCount,
+        needToFetch: page * recipesPerPage > recipes.length,
+      });
+    }
+
+    setCurrentPage(page);
+
+    // Calculate offset for server-side pagination
+    const offset = (page - 1) * recipesPerPage;
+
+    // For server-side pagination: Always fetch the page we need from the server
+    if (import.meta.env.DEV) {
+      console.log('📥 [PAGINATION] Fetching recipes for page', {
+        page,
+        offset,
+        limit: recipesPerPage,
+        lastSearch: lastSearch || '(empty - default feed)',
+      });
+    }
+
+    // Fetch the specific page from server
+    await fetchRecipes(lastSearch || '', {
+      allowEmpty: true,
+      page: page,
+      offset: offset,
+    });
+
+    // Scroll to top of results
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Handle items per page change
+  const handleItemsPerPageChange = async newPerPage => {
+    // Prevent duplicate fetches by updating state first, then fetching
+    setRecipesPerPage(newPerPage);
+    localStorage.setItem('recipesPerPage', newPerPage.toString());
+    setCurrentPage(1); // Reset to first page
+
+    // Always re-fetch recipes with the new limit to ensure we have enough recipes
+    if (recipes.length > 0 || lastSearch) {
+      // Use the new per-page value directly (no need for limitOverride)
+      await fetchRecipes(lastSearch || '', { allowEmpty: true, page: 1, offset: 0 });
+    }
+
+    // Scroll to top of results
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <Router>
       <GroceryListProvider>
@@ -923,9 +1135,107 @@ const App = () => {
                       <DailyRecipe onRecipeSelect={toggleFavorite} />
                     </div>
 
-                    {/* Gamification Dashboard - Progress Tracking */}
+                    {/* Modern Dashboard Layout - Hero + Side Cards */}
                     <div className="mb-4 xs:mb-6 sm:mb-8">
-                      <GamificationDashboard />
+                      {/* Responsive Layout: Stacked on mobile, side-by-side on desktop */}
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
+                        {/* Left Side: Streak & Progress Cards (Stacked) */}
+                        <div className="lg:col-span-1 space-y-4 sm:space-y-5">
+                          {/* Streak Card */}
+                          <motion.div
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="group relative overflow-hidden bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 shadow-lg border-2 border-orange-200 dark:border-orange-800 hover:border-orange-400 dark:hover:border-orange-600 transition-all duration-300"
+                          >
+                            {/* Gradient Accent */}
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 via-red-500 to-pink-500"></div>
+
+                            <div className="flex items-start gap-4">
+                              <motion.div
+                                animate={{ scale: [1, 1.1, 1] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                                className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg shrink-0"
+                              >
+                                <Flame className="w-6 h-6 text-white" />
+                              </motion.div>
+                              <div className="flex-1 min-w-0">
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                                  Cooking Streak
+                                </h3>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 mb-3">
+                                  Keep the fire burning!
+                                </p>
+                                <StreakCounter size="default" showLongest={false} />
+                              </div>
+                            </div>
+                          </motion.div>
+
+                          {/* Progress Card */}
+                          <motion.div
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.1 }}
+                            className="group relative overflow-hidden bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 shadow-lg border-2 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all duration-300"
+                          >
+                            {/* Gradient Accent */}
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500"></div>
+
+                            <div className="flex items-start gap-4">
+                              <motion.div
+                                animate={{ rotate: [0, 360] }}
+                                transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+                                className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shrink-0"
+                              >
+                                <Sparkles className="w-6 h-6 text-white" />
+                              </motion.div>
+                              <div className="flex-1 min-w-0">
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                                  Your Progress
+                                </h3>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 mb-3">
+                                  Level up and earn rewards!
+                                </p>
+                                <XPBar size="small" showLevel={true} showTitle={false} />
+                              </div>
+                            </div>
+                          </motion.div>
+                        </div>
+
+                        {/* Right Side: Challenges Card (Full Height) */}
+                        <motion.div
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.2 }}
+                          className="lg:col-span-2 group relative overflow-hidden bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 shadow-lg border-2 border-purple-200 dark:border-purple-800 hover:border-purple-400 dark:hover:border-purple-600 transition-all duration-300"
+                        >
+                          {/* Gradient Accent */}
+                          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500"></div>
+
+                          <div className="flex items-start gap-4 mb-4">
+                            <motion.div
+                              animate={{ y: [0, -5, 0] }}
+                              transition={{ duration: 2, repeat: Infinity }}
+                              className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shrink-0"
+                            >
+                              <Trophy className="w-6 h-6 text-white" />
+                            </motion.div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                                Daily Challenges
+                              </h3>
+                              <p className="text-xs text-slate-600 dark:text-slate-400">
+                                Complete challenges to earn XP!
+                              </p>
+                            </div>
+                          </div>
+
+                          <DailyChallenge
+                            onComplete={_challenge => {
+                              // Challenge completion handled internally
+                            }}
+                          />
+                        </motion.div>
+                      </div>
                     </div>
 
                     {/* Ad Banner (Top) */}
@@ -979,16 +1289,32 @@ const App = () => {
                           </div>
 
                           <div className="grid gap-3 xs:gap-4 sm:gap-5 grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                            {recipes.map((recipe, idx) => (
-                              <RecipeCard
-                                key={recipe.id}
-                                recipe={recipe}
-                                index={idx}
-                                onFavorite={() => toggleFavorite(recipe)}
-                                isFavorite={favoriteIds.has(recipe.id)}
-                              />
-                            ))}
+                            {paginatedRecipes.map((recipe, idx) => {
+                              // For server-side pagination, calculate index based on current page
+                              const recipeIndex = (currentPage - 1) * recipesPerPage + idx;
+                              return (
+                                <RecipeCard
+                                  key={recipe.id}
+                                  recipe={recipe}
+                                  index={recipeIndex}
+                                  onFavorite={() => toggleFavorite(recipe)}
+                                  isFavorite={favoriteIds.has(recipe.id)}
+                                />
+                              );
+                            })}
                           </div>
+
+                          {/* Pagination */}
+                          {recipes.length > 0 && (
+                            <Pagination
+                              currentPage={currentPage}
+                              totalPages={totalPages}
+                              onPageChange={handlePageChange}
+                              totalItems={recipes.length}
+                              itemsPerPage={recipesPerPage}
+                              onItemsPerPageChange={handleItemsPerPageChange}
+                            />
+                          )}
                         </section>
                       </>
                     )}
@@ -1041,6 +1367,9 @@ const App = () => {
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/billing" element={<BillingManagement />} />
+            {/* Admin routes - specific routes must come BEFORE /admin */}
+            <Route path="/admin/missing-images" element={<MissingImagesPage />} />
+            <Route path="/admin/missing-nutrition" element={<MissingNutritionPage />} />
             <Route path="/admin" element={<ProtectedAdminRoute />} />
             <Route
               path="/favorites"
@@ -1069,6 +1398,9 @@ const App = () => {
 
           {/* Back to top button */}
           <BackToTop />
+
+          {/* Cooking Mini Games */}
+          <CookingMiniGames isOpen={miniGamesOpen} onClose={() => setMiniGamesOpen(false)} />
         </div>
       </GroceryListProvider>
     </Router>

@@ -31,7 +31,7 @@ export const PLAN_DETAILS = {
     favoritesLimit: -1, // Unlimited favorites
     groceryListsLimit: -1, // Unlimited grocery lists
     mealPlannerDays: 0, // Meal planner disabled
-    collectionsLimit: 0, // Collections disabled
+    collectionsLimit: -1, // Unlimited collections - FREE for everyone!
     analyticsEnabled: false, // Analytics disabled
     budgetTrackerEnabled: false, // Budget tracker disabled
     nutritionDetails: 'full', // Full nutrition details - FREE for everyone!
@@ -51,6 +51,7 @@ export const PLAN_DETAILS = {
       'Unlimited searches',
       'Unlimited favorites',
       'Unlimited grocery lists',
+      '📁 Unlimited collections',
       'Water tracker',
       'Full nutrition details',
     ],
@@ -184,20 +185,29 @@ export function clearPlanCache() {
  * Falls back to localStorage if not authenticated
  */
 export async function getCurrentPlan() {
-  console.warn('🔍 [SUBSCRIPTION] ============================================');
-  console.warn('🔍 [SUBSCRIPTION] getCurrentPlan() called');
-  console.warn('🔍 [SUBSCRIPTION] ============================================');
+  // Only log in development to reduce console noise
+  if (import.meta.env.DEV) {
+    console.warn('🔍 [SUBSCRIPTION] ============================================');
+    console.warn('🔍 [SUBSCRIPTION] getCurrentPlan() called');
+    console.warn('🔍 [SUBSCRIPTION] ============================================');
+  }
 
   try {
     // Check cache first
     if (cachedPlan && Date.now() - planCacheTime < PLAN_CACHE_TTL) {
-      console.warn('✅ [SUBSCRIPTION] Using cached plan:', cachedPlan);
+      if (import.meta.env.DEV) {
+        console.warn('✅ [SUBSCRIPTION] Using cached plan:', cachedPlan);
+      }
       return cachedPlan;
     }
-    console.warn('📋 [SUBSCRIPTION] Cache expired or empty, fetching from Supabase...');
+    if (import.meta.env.DEV) {
+      console.warn('📋 [SUBSCRIPTION] Cache expired or empty, fetching from Supabase...');
+    }
 
     // Try to get from Supabase if authenticated
-    console.warn('📋 [SUBSCRIPTION] Step 1: Getting user from Supabase auth...');
+    if (import.meta.env.DEV) {
+      console.warn('📋 [SUBSCRIPTION] Step 1: Getting user from Supabase auth...');
+    }
     const {
       data: { user },
       error: userError,
@@ -206,17 +216,23 @@ export async function getCurrentPlan() {
     if (userError) {
       console.error('❌ [SUBSCRIPTION] Step 1 FAILED: Error getting user:', userError);
     } else if (user) {
-      console.warn('✅ [SUBSCRIPTION] Step 1 SUCCESS: User found:', {
-        userId: user.id,
-        userEmail: user.email,
-      });
+      if (import.meta.env.DEV) {
+        console.warn('✅ [SUBSCRIPTION] Step 1 SUCCESS: User found:', {
+          userId: user.id,
+          userEmail: user.email,
+        });
+      }
     } else {
-      console.warn('⚠️ [SUBSCRIPTION] Step 1: No user (not authenticated)');
+      if (import.meta.env.DEV) {
+        console.warn('⚠️ [SUBSCRIPTION] Step 1: No user (not authenticated)');
+      }
     }
 
     if (user) {
-      console.warn('📋 [SUBSCRIPTION] Step 2: Fetching profile from Supabase...');
-      console.warn('📋 [SUBSCRIPTION] Querying profiles table for user ID:', user.id);
+      if (import.meta.env.DEV) {
+        console.warn('📋 [SUBSCRIPTION] Step 2: Fetching profile from Supabase...');
+        console.warn('📋 [SUBSCRIPTION] Querying profiles table for user ID:', user.id);
+      }
 
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -224,29 +240,35 @@ export async function getCurrentPlan() {
         .eq('id', user.id)
         .maybeSingle(); // Use maybeSingle() instead of single() to handle missing rows gracefully
 
-      console.warn('📋 [SUBSCRIPTION] Step 2: Supabase query result:', {
-        hasProfile: !!profile,
-        profile: profile,
-        hasError: !!error,
-        error: error
-          ? {
-              message: error.message,
-              code: error.code,
-              details: error.details,
-            }
-          : null,
-      });
+      if (import.meta.env.DEV) {
+        console.warn('📋 [SUBSCRIPTION] Step 2: Supabase query result:', {
+          hasProfile: !!profile,
+          profile: profile,
+          hasError: !!error,
+          error: error
+            ? {
+                message: error.message,
+                code: error.code,
+                details: error.details,
+              }
+            : null,
+        });
+      }
 
       // If profile doesn't exist, create one with free plan
       if (error && error.code === 'PGRST116') {
-        console.warn('📋 [SUBSCRIPTION] Step 2: Profile not found, creating default profile...');
+        if (import.meta.env.DEV) {
+          console.warn('📋 [SUBSCRIPTION] Step 2: Profile not found, creating default profile...');
+        }
         // Row not found - create profile
         const { error: insertError } = await supabase
           .from('profiles')
           .insert({ id: user.id, plan: 'free' });
 
         if (!insertError) {
-          console.warn('✅ [SUBSCRIPTION] Step 2: Default profile created');
+          if (import.meta.env.DEV) {
+            console.warn('✅ [SUBSCRIPTION] Step 2: Default profile created');
+          }
           // Return free plan after creating profile
           cachedPlan = PLANS.FREE;
           planCacheTime = Date.now();
@@ -258,8 +280,10 @@ export async function getCurrentPlan() {
 
       if (!error && profile?.plan) {
         const plan = profile.plan.toLowerCase();
-        console.warn('✅ [SUBSCRIPTION] Step 2 SUCCESS: Profile found with plan:', plan);
-        console.warn('📋 [SUBSCRIPTION] Full profile data:', profile);
+        if (import.meta.env.DEV) {
+          console.warn('✅ [SUBSCRIPTION] Step 2 SUCCESS: Profile found with plan:', plan);
+          console.warn('📋 [SUBSCRIPTION] Full profile data:', profile);
+        }
 
         // Validate plan
         if (Object.values(PLANS).includes(plan)) {
@@ -271,9 +295,11 @@ export async function getCurrentPlan() {
           } catch {
             // Ignore localStorage errors
           }
-          console.warn('✅ [SUBSCRIPTION] ============================================');
-          console.warn('✅ [SUBSCRIPTION] RETURNING PLAN:', plan);
-          console.warn('✅ [SUBSCRIPTION] ============================================');
+          if (import.meta.env.DEV) {
+            console.warn('✅ [SUBSCRIPTION] ============================================');
+            console.warn('✅ [SUBSCRIPTION] RETURNING PLAN:', plan);
+            console.warn('✅ [SUBSCRIPTION] ============================================');
+          }
           return plan;
         } else {
           console.error('❌ [SUBSCRIPTION] Invalid plan value:', plan);
@@ -281,15 +307,21 @@ export async function getCurrentPlan() {
       } else if (error) {
         console.error('❌ [SUBSCRIPTION] Step 2 FAILED: Error fetching profile:', error);
       } else {
-        console.warn('⚠️ [SUBSCRIPTION] Step 2: Profile exists but no plan field');
+        if (import.meta.env.DEV) {
+          console.warn('⚠️ [SUBSCRIPTION] Step 2: Profile exists but no plan field');
+        }
       }
     }
 
     // Fallback to localStorage
-    console.warn('📋 [SUBSCRIPTION] Step 3: Checking localStorage fallback...');
+    if (import.meta.env.DEV) {
+      console.warn('📋 [SUBSCRIPTION] Step 3: Checking localStorage fallback...');
+    }
     try {
       const plan = localStorage.getItem(SUBSCRIPTION_KEY);
-      console.warn('📋 [SUBSCRIPTION] localStorage plan:', plan);
+      if (import.meta.env.DEV) {
+        console.warn('📋 [SUBSCRIPTION] localStorage plan:', plan);
+      }
 
       if (plan && Object.values(PLANS).includes(plan)) {
         // SECURITY: Family plan can only come from Supabase (verified payment)
@@ -297,33 +329,43 @@ export async function getCurrentPlan() {
         // reject it and default to free (prevents localStorage manipulation)
         if (user && plan === PLANS.FAMILY) {
           // If we got here, Supabase didn't have "family" plan, so reject localStorage value
-          console.warn(
-            '⚠️ [SUBSCRIPTION] Family plan found in localStorage but not in Supabase. Rejecting and defaulting to free.'
-          );
+          if (import.meta.env.DEV) {
+            console.warn(
+              '⚠️ [SUBSCRIPTION] Family plan found in localStorage but not in Supabase. Rejecting and defaulting to free.'
+            );
+          }
           cachedPlan = PLANS.FREE;
           planCacheTime = Date.now();
           localStorage.setItem(SUBSCRIPTION_KEY, PLANS.FREE);
           return PLANS.FREE;
         }
 
-        console.warn('✅ [SUBSCRIPTION] Step 3 SUCCESS: Using localStorage plan:', plan);
+        if (import.meta.env.DEV) {
+          console.warn('✅ [SUBSCRIPTION] Step 3 SUCCESS: Using localStorage plan:', plan);
+        }
         cachedPlan = plan;
         planCacheTime = Date.now();
         return plan;
       } else {
-        console.warn('⚠️ [SUBSCRIPTION] Step 3: No valid plan in localStorage');
+        if (import.meta.env.DEV) {
+          console.warn('⚠️ [SUBSCRIPTION] Step 3: No valid plan in localStorage');
+        }
       }
     } catch (err) {
       console.error('❌ [SUBSCRIPTION] Step 3: localStorage error:', err);
     }
 
     // Default to FREE plan
-    console.warn('📋 [SUBSCRIPTION] Step 4: Defaulting to FREE plan');
+    if (import.meta.env.DEV) {
+      console.warn('📋 [SUBSCRIPTION] Step 4: Defaulting to FREE plan');
+    }
     cachedPlan = PLANS.FREE;
     planCacheTime = Date.now();
-    console.warn('✅ [SUBSCRIPTION] ============================================');
-    console.warn('✅ [SUBSCRIPTION] RETURNING DEFAULT PLAN: free');
-    console.warn('✅ [SUBSCRIPTION] ============================================');
+    if (import.meta.env.DEV) {
+      console.warn('✅ [SUBSCRIPTION] ============================================');
+      console.warn('✅ [SUBSCRIPTION] RETURNING DEFAULT PLAN: free');
+      console.warn('✅ [SUBSCRIPTION] ============================================');
+    }
     return PLANS.FREE;
   } catch (error) {
     console.error('[Subscription] Error getting plan:', error);
@@ -451,7 +493,7 @@ export function hasFeature(feature) {
     leaderboards: () => plan === PLANS.UNLIMITED || plan === PLANS.FAMILY,
     meal_planner: () => planDetails.mealPlannerDays > 0,
     ai_meal_planner: () => planDetails.aiMealPlanner,
-    collections: () => planDetails.collectionsLimit > 0,
+    collections: () => planDetails.collectionsLimit !== 0, // Free for everyone (unlimited = -1, disabled = 0)
     export_data: () => planDetails.exportEnabled,
     import_data: () => planDetails.importEnabled,
     advanced_filters: () => planDetails.filtersEnabled,

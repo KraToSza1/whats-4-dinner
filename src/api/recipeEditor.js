@@ -226,7 +226,7 @@ export async function updateRecipeImage(recipeId, imageUrl) {
     imageUrl: imageUrl?.substring(0, 50) + '...',
   });
   try {
-    const { data, error } = await supabase
+    const { data, error, count } = await supabase
       .from('recipes')
       .update({
         hero_image_url: imageUrl,
@@ -234,12 +234,26 @@ export async function updateRecipeImage(recipeId, imageUrl) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', recipeId)
-      .select()
-      .single();
+      .select();
 
     if (error) throw error;
-    console.log('✅ [RECIPE EDITOR API] updateRecipeImage success', { recipeId });
-    return { success: true, data };
+
+    if (!data || data.length === 0) {
+      console.error('❌ [RECIPE EDITOR API] updateRecipeImage: No rows updated', {
+        recipeId,
+        hint: 'RLS policy may be blocking UPDATE. Check recipes table RLS policies.',
+      });
+      return {
+        success: false,
+        error: 'Update blocked - check RLS policies on recipes table',
+      };
+    }
+
+    console.log('✅ [RECIPE EDITOR API] updateRecipeImage success', {
+      recipeId,
+      updatedRows: data.length,
+    });
+    return { success: true, data: data[0] };
   } catch (error) {
     console.error('❌ [RECIPE EDITOR API] updateRecipeImage error:', error);
     return { success: false, error: error.message };
@@ -325,13 +339,21 @@ export async function updateRecipeNutrition(recipeId, nutritionData) {
 
     // VALIDATION: Check for unrealistic nutrition values
     // Calories should be reasonable for a recipe (typically 200-5000 kcal total)
-    // If calories seem too high, warn the user
+    // Fetch recipe servings for proper validation
+    const { data: recipeData } = await supabase
+      .from('recipes')
+      .select('servings')
+      .eq('id', recipeId)
+      .single();
+    
+    const recipeServings = recipeData?.servings || 1;
+    
     if (nutritionToSave.calories > 0) {
-      const caloriesPerServing = nutritionToSave.calories / (nutritionData.servings || 1);
+      const caloriesPerServing = nutritionToSave.calories / recipeServings;
       if (caloriesPerServing > 2000) {
         console.warn('⚠️ [RECIPE EDITOR API] WARNING: Calories per serving seems very high!', {
           totalCalories: nutritionToSave.calories,
-          servings: nutritionData.servings || 1,
+          servings: recipeServings,
           caloriesPerServing: caloriesPerServing.toFixed(1),
           note: 'This might indicate the values were multiplied incorrectly',
         });
@@ -341,7 +363,7 @@ export async function updateRecipeNutrition(recipeId, nutritionData) {
           '❌ [RECIPE EDITOR API] ERROR: Total calories exceeds 10,000 - this is likely incorrect!',
           {
             totalCalories: nutritionToSave.calories,
-            servings: nutritionData.servings || 1,
+            servings: recipeServings,
             caloriesPerServing: caloriesPerServing.toFixed(1),
             warning: 'Please verify these values are correct before saving',
           }
@@ -529,31 +551,160 @@ export async function updateRecipeSteps(recipeId, steps) {
     stepsCount: steps.length,
   });
   try {
-    // Delete existing steps
+    // Filter out empty/invalid steps
+    const validSteps = steps.filter(step => {
+      const instruction = typeof step === 'string' ? step.trim() : step?.instruction?.trim() || '';
+      return instruction.length > 0;
+    });
+
+    if (validSteps.length === 0) {
+      console.warn('⚠️ [RECIPE EDITOR API] No valid steps to insert');
+      // Delete all existing steps if no valid steps provided
+      await supabase.from('recipe_steps').delete().eq('recipe_id', recipeId);
+      return { success: true, data: [] };
+    }
+
+    // Delete existing steps FIRST and verify deletion
     console.log('🗑️ [RECIPE EDITOR API] Deleting existing steps for recipe', recipeId);
+    
+    // First, get count of existing steps
+    const { count: existingCount } = await supabase
+      .from('recipe_steps')
+      .select('*', { count: 'exact', head: true })
+      .eq('recipe_id', recipeId);
+    
+    console.log('🔍 [RECIPE EDITOR API] Found existing steps to delete:', existingCount || 0);
+    
+    // Delete all existing steps
     const { error: deleteError } = await supabase
       .from('recipe_steps')
       .delete()
       .eq('recipe_id', recipeId);
 
     if (deleteError) throw deleteError;
-    console.log('✅ [RECIPE EDITOR API] Existing steps deleted');
+    
+    // Verify deletion completed by checking if any steps remain
+    let retries = 0;
+    let stepsRemain = true;
+    while (stepsRemain && retries < 10) {
+      await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
+      const { count: remainingCount } = await supabase
+        .from('recipe_steps')
+        .select('*', { count: 'exact', head: true })
+        .eq('recipe_id', recipeId);
+      
+      stepsRemain = (remainingCount || 0) > 0;
+      retries++;
+      if (stepsRemain) {
+        console.log(`⏳ [RECIPE EDITOR API] Waiting for deletion... (attempt ${retries}/10, remaining: ${remainingCount})`);
+      }
+    }
+    
+    if (stepsRemain) {
+      throw new Error('Failed to delete existing steps after 10 retries');
+    }
+    
+    console.log('✅ [RECIPE EDITOR API] Existing steps deleted and verified', { deletedCount: existingCount });
 
-    // Insert new steps
-    const stepsToInsert = steps.map((step, index) => ({
+    // Insert new steps with guaranteed unique sequential positions
+    const stepsToInsert = validSteps.map((step, index) => ({
       recipe_id: recipeId,
-      position: index + 1,
-      instruction: step.instruction || step,
+      position: index + 1, // Sequential positions starting from 1
+      instruction: typeof step === 'string' ? step.trim() : (step?.instruction || '').trim(),
       timer_seconds:
-        step.timer_seconds !== null && step.timer_seconds !== undefined
+        step?.timer_seconds !== null && step?.timer_seconds !== undefined
           ? parseInt(step.timer_seconds)
           : 0,
     }));
 
-    console.log('➕ [RECIPE EDITOR API] Inserting new steps', { count: stepsToInsert.length });
+    // Double-check positions are unique
+    const positions = stepsToInsert.map(s => s.position);
+    const uniquePositions = new Set(positions);
+    if (positions.length !== uniquePositions.size) {
+      console.error('❌ [RECIPE EDITOR API] Duplicate positions detected!', { positions });
+      // Fix: reassign positions sequentially
+      stepsToInsert.forEach((step, index) => {
+        step.position = index + 1;
+      });
+    }
+
+    console.log('➕ [RECIPE EDITOR API] Inserting new steps', {
+      count: stepsToInsert.length,
+      positions: stepsToInsert.map(s => s.position),
+    });
     const { data, error } = await supabase.from('recipe_steps').insert(stepsToInsert).select();
 
-    if (error) throw error;
+    if (error) {
+      // If batch insert fails due to duplicate positions, verify deletion and retry
+      if (error.code === '23505' || error.message.includes('duplicate key')) {
+        console.warn('⚠️ [RECIPE EDITOR API] Batch insert failed, checking database state:', error.message);
+        
+        // Check what steps actually exist in the database
+        const { data: existingSteps, error: checkError } = await supabase
+          .from('recipe_steps')
+          .select('position')
+          .eq('recipe_id', recipeId)
+          .order('position');
+        
+        if (checkError) {
+          console.error('❌ [RECIPE EDITOR API] Error checking existing steps:', checkError);
+          throw new Error(`Failed to check existing steps: ${checkError.message}`);
+        }
+        
+        if (existingSteps && existingSteps.length > 0) {
+          console.warn(`⚠️ [RECIPE EDITOR API] Found ${existingSteps.length} existing steps that should have been deleted. Attempting delete again...`);
+          
+          // Try deleting again
+          const { error: retryDeleteError } = await supabase
+            .from('recipe_steps')
+            .delete()
+            .eq('recipe_id', recipeId);
+          
+          if (retryDeleteError) {
+            throw new Error(`Failed to delete existing steps on retry: ${retryDeleteError.message}`);
+          }
+          
+          // Wait and verify deletion again
+          await new Promise(resolve => setTimeout(resolve, 200));
+          const { count: stillExisting } = await supabase
+            .from('recipe_steps')
+            .select('*', { count: 'exact', head: true })
+            .eq('recipe_id', recipeId);
+          
+          if (stillExisting && stillExisting > 0) {
+            throw new Error(`Steps still exist after retry delete. This may be a database constraint or RLS issue.`);
+          }
+          
+          // Now retry the batch insert
+          console.log('🔄 [RECIPE EDITOR API] Retrying batch insert after cleanup...');
+          const { data: retryData, error: retryError } = await supabase.from('recipe_steps').insert(stepsToInsert).select();
+          
+          if (retryError) {
+            throw new Error(`Failed to insert steps after cleanup: ${retryError.message}`);
+          }
+          
+          // Update recipe
+          await supabase
+            .from('recipes')
+            .update({
+              source: 'recipe_editor',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', recipeId);
+          
+          console.log('✅ [RECIPE EDITOR API] Steps inserted successfully after cleanup', {
+            recipeId,
+            stepsInserted: retryData?.length,
+          });
+          return { success: true, data: retryData };
+        } else {
+          // No existing steps, but insert still failed - this is strange
+          throw new Error(`Insert failed but no existing steps found. Database constraint issue: ${error.message}`);
+        }
+      } else {
+        throw error;
+      }
+    }
 
     // Update recipe updated_at and mark as edited via Recipe Editor
     await supabase
@@ -902,15 +1053,47 @@ export async function updateRecipeIngredients(recipeId, ingredients) {
       : 'No ingredients'
   );
   try {
-    // Delete existing ingredients
+    // Delete existing ingredients and verify deletion
     console.log('🗑️ [RECIPE EDITOR API] Deleting existing ingredients for recipe', recipeId);
+    
+    // First, get count of existing ingredients
+    const { count: existingCount } = await supabase
+      .from('recipe_ingredients')
+      .select('*', { count: 'exact', head: true })
+      .eq('recipe_id', recipeId);
+    
+    console.log('🔍 [RECIPE EDITOR API] Found existing ingredients to delete:', existingCount || 0);
+    
+    // Delete all existing ingredients
     const { error: deleteError } = await supabase
       .from('recipe_ingredients')
       .delete()
       .eq('recipe_id', recipeId);
 
     if (deleteError) throw deleteError;
-    console.log('✅ [RECIPE EDITOR API] Existing ingredients deleted');
+    
+    // Verify deletion completed by checking if any ingredients remain
+    let retries = 0;
+    let ingredientsRemain = true;
+    while (ingredientsRemain && retries < 10) {
+      await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
+      const { count: remainingCount } = await supabase
+        .from('recipe_ingredients')
+        .select('*', { count: 'exact', head: true })
+        .eq('recipe_id', recipeId);
+      
+      ingredientsRemain = (remainingCount || 0) > 0;
+      retries++;
+      if (ingredientsRemain) {
+        console.log(`⏳ [RECIPE EDITOR API] Waiting for ingredient deletion... (attempt ${retries}/10, remaining: ${remainingCount})`);
+      }
+    }
+    
+    if (ingredientsRemain) {
+      throw new Error('Failed to delete existing ingredients after 10 retries');
+    }
+    
+    console.log('✅ [RECIPE EDITOR API] Existing ingredients deleted and verified', { deletedCount: existingCount });
 
     // Process each ingredient - find or create ingredient by name
     const ingredientsToInsert = [];
@@ -1036,8 +1219,70 @@ export async function updateRecipeIngredients(recipeId, ingredients) {
         .insert(ingredientsToInsert)
         .select();
 
-      if (error) throw error;
-      console.log('✅ [RECIPE EDITOR API] Ingredients inserted', { count: data?.length });
+      if (error) {
+        // If duplicate constraint error, verify deletion and retry
+        if (error.code === '23505' || error.message.includes('duplicate key')) {
+          console.warn('⚠️ [RECIPE EDITOR API] Ingredients insert failed, checking database state:', error.message);
+          
+          // Check what ingredients actually exist
+          const { data: existingIngredients, error: checkError } = await supabase
+            .from('recipe_ingredients')
+            .select('*')
+            .eq('recipe_id', recipeId);
+          
+          if (checkError) {
+            console.error('❌ [RECIPE EDITOR API] Error checking existing ingredients:', checkError);
+            throw new Error(`Failed to check existing ingredients: ${checkError.message}`);
+          }
+          
+          if (existingIngredients && existingIngredients.length > 0) {
+            console.warn(`⚠️ [RECIPE EDITOR API] Found ${existingIngredients.length} existing ingredients that should have been deleted. Attempting delete again...`);
+            
+            // Try deleting again
+            const { error: retryDeleteError } = await supabase
+              .from('recipe_ingredients')
+              .delete()
+              .eq('recipe_id', recipeId);
+            
+            if (retryDeleteError) {
+              throw new Error(`Failed to delete existing ingredients on retry: ${retryDeleteError.message}`);
+            }
+            
+            // Wait and verify deletion again
+            await new Promise(resolve => setTimeout(resolve, 200));
+            const { count: stillExisting } = await supabase
+              .from('recipe_ingredients')
+              .select('*', { count: 'exact', head: true })
+              .eq('recipe_id', recipeId);
+            
+            if (stillExisting && stillExisting > 0) {
+              throw new Error(`Ingredients still exist after retry delete. This may be a database constraint or RLS issue.`);
+            }
+            
+            // Now retry the batch insert
+            console.log('🔄 [RECIPE EDITOR API] Retrying ingredients insert after cleanup...');
+            const { data: retryData, error: retryError } = await supabase
+              .from('recipe_ingredients')
+              .insert(ingredientsToInsert)
+              .select();
+            
+            if (retryError) {
+              throw new Error(`Failed to insert ingredients after cleanup: ${retryError.message}`);
+            }
+            
+            console.log('✅ [RECIPE EDITOR API] Ingredients inserted successfully after cleanup', {
+              count: retryData?.length,
+            });
+          } else {
+            // No existing ingredients, but insert still failed
+            throw new Error(`Insert failed but no existing ingredients found. Database constraint issue: ${error.message}`);
+          }
+        } else {
+          throw error;
+        }
+      } else {
+        console.log('✅ [RECIPE EDITOR API] Ingredients inserted', { count: data?.length });
+      }
     } else {
       console.log('⚠️ [RECIPE EDITOR API] No valid ingredients to insert');
     }

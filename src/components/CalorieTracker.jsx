@@ -6,6 +6,7 @@ import { useToast } from './Toast.jsx';
 import { searchSupabaseRecipes } from '../api/supabaseRecipes.js';
 import { CompactRecipeLoader } from './FoodLoaders.jsx';
 import { useFilters } from '../context/FilterContext.jsx';
+import { trackFeatureUsage, FEATURES } from '../utils/featureTracking';
 import {
   Flame,
   TrendingUp,
@@ -194,6 +195,11 @@ export default function CalorieTracker() {
   const [weightLogs, setWeightLogs] = useState(readWeightLogs());
   const [todayCalories, setTodayCalories] = useState(0);
   const [todayMacros, setTodayMacros] = useState({ protein: 0, carbs: 0, fats: 0, fiber: 0 });
+
+  useEffect(() => {
+    // Track feature usage
+    trackFeatureUsage(FEATURES.CALORIE_TRACKER, { action: 'view' });
+  }, []);
 
   useEffect(() => {
     if (profile) {
@@ -762,58 +768,99 @@ export default function CalorieTracker() {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      {/* Header Card */}
-      <div className="bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl p-6 sm:p-8 text-white shadow-xl">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-          <div>
-            <h3 className="font-bold text-2xl sm:text-3xl mb-2">Calorie Tracker</h3>
-            <p className="text-blue-100 text-sm sm:text-base">
-              Track your daily intake & reach your goals
-            </p>
-          </div>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowSetup(true)}
-            className="px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-semibold flex items-center gap-2 transition-colors"
-          >
-            <Edit3 className="w-4 h-4" />
-            Edit Profile
-          </motion.button>
+      {/* Header Card - Enhanced */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-3xl p-6 sm:p-8 text-white shadow-2xl overflow-hidden"
+      >
+        {/* Animated Background Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 left-0 w-72 h-72 bg-white rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
         </div>
+        
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+            <div>
+              <h3 className="font-bold text-3xl sm:text-4xl mb-2 flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                  <Target className="w-6 h-6" />
+                </div>
+                Calorie Tracker
+              </h3>
+              <p className="text-blue-100 text-base sm:text-lg">
+                Track your daily intake & reach your goals 🎯
+              </p>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowSetup(true)}
+              className="px-5 py-3 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-semibold flex items-center gap-2 transition-all shadow-lg border border-white/30"
+            >
+              <Edit3 className="w-5 h-5" />
+              Edit Profile
+            </motion.button>
+          </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-            <div className="text-2xl sm:text-3xl font-bold mb-1">{todayCalories}</div>
-            <div className="text-xs sm:text-sm text-blue-100">Calories Today</div>
-          </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-            <div className="text-2xl sm:text-3xl font-bold mb-1">{goalCalories}</div>
-            <div className="text-xs sm:text-sm text-blue-100">Daily Goal</div>
-          </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-            <div className="text-2xl sm:text-3xl font-bold mb-1 flex items-center gap-1">
-              <Flame className="w-5 h-5" />
-              {streak}
-            </div>
-            <div className="text-xs sm:text-sm text-blue-100">Day Streak</div>
-          </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-            <div className="text-2xl sm:text-3xl font-bold mb-1 flex items-center gap-1">
-              {weightChange > 0 ? (
-                <TrendingUp className="w-5 h-5" />
-              ) : weightChange < 0 ? (
-                <TrendingDown className="w-5 h-5" />
-              ) : (
-                <Activity className="w-5 h-5" />
-              )}
-              {currentWeight.toFixed(1)}
-            </div>
-            <div className="text-xs sm:text-sm text-blue-100">Weight (kg)</div>
+          {/* Stats Row - Enhanced */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.1 }}
+              className="bg-white/15 backdrop-blur-md rounded-2xl p-5 border border-white/30 shadow-lg hover:bg-white/20 transition-all"
+            >
+              <div className="text-3xl sm:text-4xl font-bold mb-2 bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+                {todayCalories}
+              </div>
+              <div className="text-xs sm:text-sm text-blue-100 font-medium">Calories Today</div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2 }}
+              className="bg-white/15 backdrop-blur-md rounded-2xl p-5 border border-white/30 shadow-lg hover:bg-white/20 transition-all"
+            >
+              <div className="text-3xl sm:text-4xl font-bold mb-2 bg-gradient-to-r from-white to-purple-100 bg-clip-text text-transparent">
+                {goalCalories}
+              </div>
+              <div className="text-xs sm:text-sm text-blue-100 font-medium">Daily Goal</div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3 }}
+              className="bg-white/15 backdrop-blur-md rounded-2xl p-5 border border-white/30 shadow-lg hover:bg-white/20 transition-all"
+            >
+              <div className="text-3xl sm:text-4xl font-bold mb-2 flex items-center gap-2 bg-gradient-to-r from-white to-orange-100 bg-clip-text text-transparent">
+                <Flame className="w-6 h-6 text-orange-200" />
+                {streak}
+              </div>
+              <div className="text-xs sm:text-sm text-blue-100 font-medium">Day Streak</div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.4 }}
+              className="bg-white/15 backdrop-blur-md rounded-2xl p-5 border border-white/30 shadow-lg hover:bg-white/20 transition-all"
+            >
+              <div className="text-3xl sm:text-4xl font-bold mb-2 flex items-center gap-2 bg-gradient-to-r from-white to-pink-100 bg-clip-text text-transparent">
+                {weightChange > 0 ? (
+                  <TrendingUp className="w-6 h-6 text-red-200" />
+                ) : weightChange < 0 ? (
+                  <TrendingDown className="w-6 h-6 text-emerald-200" />
+                ) : (
+                  <Activity className="w-6 h-6 text-blue-200" />
+                )}
+                {currentWeight.toFixed(1)}
+              </div>
+              <div className="text-xs sm:text-sm text-blue-100 font-medium">Weight (kg)</div>
+            </motion.div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Stats Cards - BMR, TDEE, etc */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -873,49 +920,84 @@ export default function CalorieTracker() {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          {/* Progress Card */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-lg">
+          {/* Progress Card - Enhanced */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800 rounded-3xl p-6 sm:p-8 border-2 border-slate-200 dark:border-slate-700 shadow-xl"
+          >
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h4 className="font-bold text-xl text-slate-900 dark:text-white mb-1">
+                <h4 className="font-bold text-2xl text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                    <Target className="w-5 h-5 text-white" />
+                  </div>
                   Daily Progress
                 </h4>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+                <p className="text-base text-slate-600 dark:text-slate-400 font-medium">
                   {remaining > 0
-                    ? `${remaining} calories remaining`
+                    ? `🎯 ${remaining} calories remaining`
                     : over > 0
-                      ? `${over} calories over`
-                      : 'Goal reached! 🎯'}
+                      ? `⚠️ ${over} calories over`
+                      : '🎉 Goal reached! Perfect!'}
                 </p>
               </div>
               <div className="text-right">
-                <div className="text-3xl font-bold text-slate-900 dark:text-white">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 200 }}
+                  className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent"
+                >
                   {percentage.toFixed(0)}%
-                </div>
-                <div className="text-xs text-slate-500">of goal</div>
+                </motion.div>
+                <div className="text-xs text-slate-500 font-medium">of goal</div>
               </div>
             </div>
 
-            {/* Progress Bar */}
-            <div className="relative h-6 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-4">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.min(100, percentage)}%` }}
-                transition={{ duration: 1, ease: 'easeOut' }}
-                className={`h-full rounded-full ${
-                  todayCalories <= goalCalories
-                    ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500'
-                    : 'bg-gradient-to-r from-red-500 to-orange-500'
-                }`}
-              />
-            </div>
-
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-600 dark:text-slate-400">0</span>
-              <span className="font-semibold text-slate-900 dark:text-white">
-                {todayCalories} / {goalCalories}
-              </span>
-              <span className="text-slate-600 dark:text-slate-400">{goalCalories}</span>
+            {/* Enhanced Progress Bar */}
+            <div className="relative mb-6">
+              <div className="relative h-8 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(100, percentage)}%` }}
+                  transition={{ duration: 1.5, ease: 'easeOut' }}
+                  className={`h-full rounded-full relative ${
+                    todayCalories <= goalCalories
+                      ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500'
+                      : 'bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500'
+                  }`}
+                >
+                  {/* Shimmer effect */}
+                  <motion.div
+                    animate={{
+                      x: ['-100%', '100%'],
+                    }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 2,
+                      ease: 'linear',
+                    }}
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                  />
+                </motion.div>
+                {/* Percentage indicator on bar */}
+                {percentage > 10 && (
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 text-xs font-bold text-white drop-shadow-md"
+                    style={{ left: `${Math.min(percentage, 90)}%` }}
+                  >
+                    {percentage.toFixed(0)}%
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-between text-sm mt-2 font-medium">
+                <span className="text-slate-600 dark:text-slate-400">0</span>
+                <span className="font-bold text-slate-900 dark:text-white text-base">
+                  {todayCalories} / {goalCalories} cal
+                </span>
+                <span className="text-slate-600 dark:text-slate-400">{goalCalories}</span>
+              </div>
             </div>
 
             {/* Quick Actions */}
@@ -940,77 +1022,110 @@ export default function CalorieTracker() {
                 )}
               </motion.button>
             )}
-          </div>
+          </motion.div>
 
-          {/* Macro Cards */}
+          {/* Macro Cards - Enhanced */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Protein */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-lg">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-2xl p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg hover:shadow-xl transition-all"
+            >
               <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
-                    <span className="text-xl">💪</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg">
+                    <span className="text-2xl">💪</span>
                   </div>
-                  <span className="font-semibold text-slate-900 dark:text-white">Protein</span>
+                  <span className="font-bold text-lg text-slate-900 dark:text-white">Protein</span>
                 </div>
-                <span className="text-sm text-slate-600 dark:text-slate-400">
-                  {Math.round(todayMacros.protein)}g / {proteinTarget}g
-                </span>
               </div>
-              <div className="relative h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div className="mb-2">
+                <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+                  {Math.round(todayMacros.protein)}g
+                </div>
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  of {proteinTarget}g target
+                </div>
+              </div>
+              <div className="relative h-4 bg-emerald-200 dark:bg-emerald-900/50 rounded-full overflow-hidden shadow-inner">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{
                     width: `${Math.min(100, (todayMacros.protein / proteinTarget) * 100)}%`,
                   }}
-                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full"
+                  transition={{ duration: 1, delay: 0.2 }}
+                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full shadow-md"
                 />
               </div>
-            </div>
+            </motion.div>
 
             {/* Carbs */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-lg">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl p-6 border-2 border-blue-200 dark:border-blue-800 shadow-lg hover:shadow-xl transition-all"
+            >
               <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                    <span className="text-xl">🍞</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                    <span className="text-2xl">🍞</span>
                   </div>
-                  <span className="font-semibold text-slate-900 dark:text-white">Carbs</span>
+                  <span className="font-bold text-lg text-slate-900 dark:text-white">Carbs</span>
                 </div>
-                <span className="text-sm text-slate-600 dark:text-slate-400">
-                  {Math.round(todayMacros.carbs)}g / {carbTarget}g
-                </span>
               </div>
-              <div className="relative h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div className="mb-2">
+                <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                  {Math.round(todayMacros.carbs)}g
+                </div>
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  of {carbTarget}g target
+                </div>
+              </div>
+              <div className="relative h-4 bg-blue-200 dark:bg-blue-900/50 rounded-full overflow-hidden shadow-inner">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.min(100, (todayMacros.carbs / carbTarget) * 100)}%` }}
-                  className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full"
+                  transition={{ duration: 1, delay: 0.3 }}
+                  className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full shadow-md"
                 />
               </div>
-            </div>
+            </motion.div>
 
             {/* Fats */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-lg">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-2xl p-6 border-2 border-orange-200 dark:border-orange-800 shadow-lg hover:shadow-xl transition-all"
+            >
               <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-yellow-500 flex items-center justify-center">
-                    <span className="text-xl">🥑</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-yellow-500 flex items-center justify-center shadow-lg">
+                    <span className="text-2xl">🥑</span>
                   </div>
-                  <span className="font-semibold text-slate-900 dark:text-white">Fats</span>
+                  <span className="font-bold text-lg text-slate-900 dark:text-white">Fats</span>
                 </div>
-                <span className="text-sm text-slate-600 dark:text-slate-400">
-                  {Math.round(todayMacros.fats)}g / {fatTarget}g
-                </span>
               </div>
-              <div className="relative h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div className="mb-2">
+                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                  {Math.round(todayMacros.fats)}g
+                </div>
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  of {fatTarget}g target
+                </div>
+              </div>
+              <div className="relative h-4 bg-orange-200 dark:bg-orange-900/50 rounded-full overflow-hidden shadow-inner">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.min(100, (todayMacros.fats / fatTarget) * 100)}%` }}
-                  className="h-full bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full"
+                  transition={{ duration: 1, delay: 0.4 }}
+                  className="h-full bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full shadow-md"
                 />
               </div>
-            </div>
+            </motion.div>
           </div>
 
           {/* Today's Meals */}
@@ -1032,28 +1147,51 @@ export default function CalorieTracker() {
             </div>
             {todayMeals.length > 0 ? (
               <div className="space-y-3">
-                {todayMeals.map(meal => (
+                {todayMeals.map((meal, index) => (
                   <motion.div
                     key={meal.id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700"
+                    transition={{ delay: index * 0.05 }}
+                    className="group flex items-center gap-4 p-4 bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 shadow-md hover:shadow-xl transition-all"
                   >
                     <div className="flex-1">
-                      <div className="font-semibold text-slate-900 dark:text-white mb-1">
-                        {meal.recipeTitle}
+                      <div className="font-bold text-lg text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-500"></div>
+                        {meal.recipeTitle || meal.name || 'Meal'}
                       </div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">
-                        {meal.calories} cal
-                        {(meal.protein || meal.carbs || meal.fats) && (
-                          <span className="ml-2">
-                            • P: {Math.round(meal.protein || 0)}g • C: {Math.round(meal.carbs || 0)}
-                            g • F: {Math.round(meal.fats || 0)}g
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <div className="flex items-center gap-2 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                          <Flame className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          <span className="font-semibold text-blue-700 dark:text-blue-300">
+                            {meal.calories} cal
                           </span>
+                        </div>
+                        {(meal.protein || meal.carbs || meal.fats) && (
+                          <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+                            {meal.protein > 0 && (
+                              <span className="flex items-center gap-1">
+                                <span className="text-emerald-600">💪</span>
+                                {Math.round(meal.protein)}g
+                              </span>
+                            )}
+                            {meal.carbs > 0 && (
+                              <span className="flex items-center gap-1">
+                                <span className="text-blue-600">🍞</span>
+                                {Math.round(meal.carbs)}g
+                              </span>
+                            )}
+                            {meal.fats > 0 && (
+                              <span className="flex items-center gap-1">
+                                <span className="text-orange-600">🥑</span>
+                                {Math.round(meal.fats)}g
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                       {meal.timestamp && (
-                        <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           {new Date(meal.timestamp).toLocaleTimeString('en-US', {
                             hour: 'numeric',
@@ -1063,10 +1201,10 @@ export default function CalorieTracker() {
                       )}
                     </div>
                     <motion.button
-                      whileHover={{ scale: 1.1 }}
+                      whileHover={{ scale: 1.1, rotate: 90 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => handleRemoveMeal(today, meal.id)}
-                      className="p-2 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      className="p-2 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100"
                     >
                       <X className="w-5 h-5" />
                     </motion.button>
@@ -1074,27 +1212,36 @@ export default function CalorieTracker() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
-                  <UtensilsCrossed className="w-10 h-10 text-slate-400" />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center py-16"
+              >
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 flex items-center justify-center mx-auto mb-6 shadow-lg">
+                  <UtensilsCrossed className="w-12 h-12 text-blue-500 dark:text-blue-400" />
                 </div>
-                <p className="text-slate-600 dark:text-slate-400 mb-4">
-                  No meals logged today. Add recipes from recipe pages!
+                <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                  No meals logged today
+                </h4>
+                <p className="text-slate-600 dark:text-slate-400 mb-6 max-w-md mx-auto">
+                  Start tracking by adding recipes from recipe pages! When you mark a recipe as "made", it automatically gets added here.
                 </p>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleQuickAddMeal}
-                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg transition-all"
+                  className="px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold shadow-xl transition-all flex items-center gap-2 mx-auto"
                 >
+                  <Zap className="w-5 h-5" />
                   Browse Recipes
                 </motion.button>
                 {remaining > 0 && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                    💡 Tip: Recipes will be filtered to fit your remaining {remaining} calories
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-4 flex items-center justify-center gap-2">
+                    <span className="text-lg">💡</span>
+                    Recipes will be filtered to fit your remaining {remaining} calories
                   </p>
                 )}
-              </div>
+              </motion.div>
             )}
           </div>
 

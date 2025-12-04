@@ -2,15 +2,16 @@
  * Admin Utilities
  * Secure admin access control based on user email
  *
- * ONLY 2 ADMINS ALLOWED:
+ * ADMIN ALLOWLIST:
  * 1. raymondvdw@gmail.com (Main Admin)
- * 2. Second admin can be set via VITE_SECOND_ADMIN_EMAIL environment variable
+ * 2. elanridp@gmail.com (Admin)
  */
 
 // STRICT ADMIN EMAIL ALLOWLIST - Only these emails can access admin
 const ADMIN_EMAILS = [
   'raymondvdw@gmail.com', // Main Admin
-  // Second admin can be set via environment variable
+  'elanridp@gmail.com', // Admin
+  // Additional admin can be set via environment variable (optional)
   ...(import.meta.env.VITE_SECOND_ADMIN_EMAIL
     ? [import.meta.env.VITE_SECOND_ADMIN_EMAIL.trim().toLowerCase()]
     : []),

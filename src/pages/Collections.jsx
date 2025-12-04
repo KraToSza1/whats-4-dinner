@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import RecipeCard from '../components/RecipeCard.jsx';
@@ -14,29 +14,12 @@ import { getSupabaseRecipeById } from '../api/supabaseRecipes.js';
 import { InlineRecipeLoader } from '../components/FoodLoaders.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { Search, Plus, X, FolderPlus, Trash2 } from 'lucide-react';
-import { canPerformAction, getPlanDetails, hasFeature } from '../utils/subscription.js';
 
 export default function Collections() {
   const navigate = useNavigate();
   const toast = useToast();
-  const hasChecked = useRef(false);
 
-  // ENFORCE COLLECTIONS LIMIT - Check access on mount (only once)
-  useEffect(() => {
-    if (hasChecked.current) return;
-    hasChecked.current = true;
-
-    if (!hasFeature('collections')) {
-      navigate('/');
-      setTimeout(() => {
-        window.dispatchEvent(
-          new CustomEvent('openPremiumFeatureModal', {
-            detail: { feature: 'collections' },
-          })
-        );
-      }, 300);
-    }
-  }, [navigate]);
+  // Collections is now FREE for everyone - no access check needed!
 
   const [collections, setCollections] = useState(getCollections());
   const [selectedCollection, setSelectedCollection] = useState(null);
@@ -102,19 +85,7 @@ export default function Collections() {
       return;
     }
 
-    // ENFORCE COLLECTIONS LIMIT - Check if user can create more collections
-    const currentCollections = getCollections().filter(c => c.custom);
-    const canCreate = canPerformAction('collection', currentCollections.length);
-
-    if (!canCreate) {
-      const planDetails = getPlanDetails();
-      toast.error(
-        `📁 Collections limit reached! You've created ${currentCollections.length} collection${currentCollections.length === 1 ? '' : 's'}. The Free plan allows ${planDetails.collectionsLimit} collection${planDetails.collectionsLimit === 1 ? '' : 's'}. Upgrade to create unlimited collections and organize all your recipes!`,
-        { duration: 5000 }
-      );
-      window.dispatchEvent(new CustomEvent('openProModal'));
-      return;
-    }
+    // Collections is FREE for everyone - no limit check needed!
 
     const newCollection = addCollection(name);
     setCollections(getCollections());

@@ -31,11 +31,14 @@ import { getSimilarRecipes, getCompleteMealSuggestions } from '../utils/recipeRe
 import { FEATURES } from '../config';
 import { useToast } from '../components/Toast.jsx';
 import { hasFeature } from '../utils/subscription.js';
+import { trackFeatureUsage, FEATURES as FEATURE_CONSTANTS } from '../utils/featureTracking.js';
+import { addRecipeToCalorieTracker } from '../utils/calorieIntegration.js';
 import { IngredientReveal, FoodConfetti } from '../components/animations/FoodParticles.jsx';
 import CookMode from '../components/CookMode.jsx';
 import MealPrepMode from '../components/MealPrepMode.jsx';
 import NutritionLabel from '../components/NutritionLabel.jsx';
 import CookingSkills from '../components/CookingSkills.jsx';
+import BackToHome from '../components/BackToHome.jsx';
 import { getRecipeCost } from '../components/BudgetTracker.jsx';
 import { formatCurrency } from '../utils/currency.js';
 import { useAchievements, AchievementUnlock } from '../components/animations/Achievements.jsx';
@@ -305,6 +308,25 @@ export default function RecipePage() {
       success: true,
     });
 
+    // Add to calorie tracker if nutrition data available
+    if (recipe.calories || recipe.nutrition?.calories) {
+      try {
+        addRecipeToCalorieTracker(recipe, targetServings, 'dinner');
+      } catch (error) {
+        // Silently fail if calorie tracker not available
+        if (import.meta.env.DEV) {
+          console.warn('Could not add recipe to calorie tracker:', error);
+        }
+      }
+    }
+
+    // Track feature usage
+    trackFeatureUsage(FEATURE_CONSTANTS.RECIPE_COOK, {
+      recipeId: recipe.id,
+      servings: targetServings,
+      calories: recipe.calories || recipe.nutrition?.calories || 0,
+    });
+
     // Track for gamification (XP, badges, streaks)
     const result = trackRecipeCook(recipe);
     if (result?.leveledUp) {
@@ -344,6 +366,8 @@ export default function RecipePage() {
         localStorage.setItem('viewedRecipes', JSON.stringify(viewedRecipes));
         checkAchievements('recipe_view', viewedRecipes.length);
       }
+      // Track feature usage
+      trackFeatureUsage(FEATURE_CONSTANTS.RECIPE_SEARCH, { recipeId: recipe.id });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recipe?.id]); // checkAchievements is stable via useCallback, but we only want to run when recipe.id changes
@@ -1050,12 +1074,7 @@ export default function RecipePage() {
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
         <div className="sticky top-0 z-20 bg-white/70 dark:bg-slate-900/70 backdrop-blur border-b border-slate-200 dark:border-slate-800">
           <div className="mx-auto max-w-4xl px-4 sm:px-6 py-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="px-3 py-1.5 rounded-md border border-slate-300 dark:border-slate-700"
-            >
-              ← Back
-            </button>
+            <BackToHome toHome={false} label="Back" />
           </div>
         </div>
         <div className="mx-auto max-w-4xl px-4 sm:px-6 py-10">
@@ -1126,6 +1145,55 @@ export default function RecipePage() {
     }
   };
 
+  const addAllToPantry = () => {
+    try {
+      const currentPantry = JSON.parse(localStorage.getItem('filters:pantry') || '[]');
+      const ingredientNames =
+        scaledIngredients.length > 0
+          ? scaledIngredients.map(i => {
+              // Extract base ingredient name (remove quantities and units)
+              const name = i.name || i.original || '';
+              return name.toLowerCase().trim().replace(/\s+/g, '_');
+            })
+          : (recipe?.extendedIngredients || []).map(i => {
+              const name = i.name || i.original || '';
+              return name.toLowerCase().trim().replace(/\s+/g, '_');
+            });
+      
+      const filtered = ingredientNames.filter(Boolean);
+      const newIngredients = filtered.filter(ing => !currentPantry.includes(ing));
+      
+      if (newIngredients.length > 0) {
+        const updatedPantry = [...currentPantry, ...newIngredients];
+        localStorage.setItem('filters:pantry', JSON.stringify(updatedPantry));
+        
+        // Dispatch event for other components
+        window.dispatchEvent(
+          new CustomEvent('pantryUpdated', {
+            detail: { pantry: updatedPantry },
+          })
+        );
+        
+        toast.success(`Added ${newIngredients.length} ingredient${newIngredients.length !== 1 ? 's' : ''} to your pantry! 🥘`);
+        
+        // Track interaction
+        if (recipe?.id) {
+          trackRecipeInteraction(recipe.id, 'add_to_pantry', {
+            title: recipe.title,
+            ingredientCount: newIngredients.length,
+          });
+        }
+      } else {
+        toast.info('All ingredients are already in your pantry!');
+      }
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error('Error adding to pantry:', error);
+      }
+      toast.error('Failed to add ingredients to pantry');
+    }
+  };
+
   console.log('📄 [RECIPE PAGE] Component render', {
     recipeId: recipe?.id,
     confettiTrigger,
@@ -1166,15 +1234,7 @@ export default function RecipePage() {
       {/* Top bar */}
       <div className="sticky top-0 z-20 bg-white/70 dark:bg-slate-900/70 backdrop-blur border-b border-slate-200 dark:border-slate-800">
         <div className="mx-auto max-w-4xl px-3 sm:px-4 lg:px-6 py-2 sm:py-3 flex items-center justify-between gap-2">
-          <motion.button
-            whileHover={{ scale: 1.05, x: -2 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => navigate(-1)}
-            className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-700 border border-slate-200 dark:border-slate-600 text-sm sm:text-base font-semibold hover:from-slate-200 hover:to-slate-100 dark:hover:from-slate-700 dark:hover:to-slate-600 shadow-sm hover:shadow-md transition-all min-h-[44px] sm:min-h-0 touch-manipulation flex items-center gap-2"
-          >
-            <span className="text-lg">←</span>
-            <span className="hidden sm:inline">Back</span>
-          </motion.button>
+          <BackToHome toHome={false} label="Back" />
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             {/* Collections */}
@@ -1626,6 +1686,16 @@ export default function RecipePage() {
               >
                 <span className="text-base xs:text-lg">➕</span>
                 <span>Add All to List</span>
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05, boxShadow: '0 5px 15px rgba(245, 158, 11, 0.4)' }}
+                whileTap={{ scale: 0.95 }}
+                className="flex-1 xs:flex-none px-3 xs:px-4 py-2.5 xs:py-2 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold text-xs xs:text-sm shadow-lg hover:shadow-xl transition-all touch-manipulation min-h-[44px] xs:min-h-0 flex items-center justify-center gap-1.5 xs:gap-2"
+                onClick={addAllToPantry}
+                title="Add all ingredients to your pantry"
+              >
+                <span className="text-base xs:text-lg">🥘</span>
+                <span>Add to Pantry</span>
               </motion.button>
               {nutrient('Calories') && (
                 <motion.button

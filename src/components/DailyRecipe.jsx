@@ -101,7 +101,9 @@ export default function DailyRecipe({ onRecipeSelect }) {
                 }
               })
               .catch(error => {
-                console.warn('⚠️ [DAILY RECIPE] Error checking database for image:', error);
+                if (import.meta.env.DEV) {
+                  console.warn('⚠️ [DAILY RECIPE] Error checking database for image:', error);
+                }
               });
           }
 
@@ -117,7 +119,9 @@ export default function DailyRecipe({ onRecipeSelect }) {
         try {
           randomRecipe = await getSupabaseRandomRecipe();
           if (!randomRecipe) {
-            console.warn('⚠️ [DAILY RECIPE] Supabase returned null');
+            if (import.meta.env.DEV) {
+              console.warn('⚠️ [DAILY RECIPE] Supabase returned null');
+            }
           }
         } catch (supabaseError) {
           console.error('❌ [DAILY RECIPE] Supabase random recipe failed:', {
@@ -218,7 +222,9 @@ export default function DailyRecipe({ onRecipeSelect }) {
       navigate(`/recipe/${dailyRecipe.id}`, { state: { recipe: dailyRecipe } });
       onRecipeSelect?.(dailyRecipe);
     } else {
-      console.warn('⚠️ [DAILY RECIPE] Clicked but no recipe available');
+      if (import.meta.env.DEV) {
+        console.warn('⚠️ [DAILY RECIPE] Clicked but no recipe available');
+      }
     }
   };
 
@@ -327,18 +333,21 @@ export default function DailyRecipe({ onRecipeSelect }) {
               // Image loads successfully
             };
             testImg.onerror = err => {
-              console.warn(
-                '⚠️ [DAILY RECIPE] Image URL test: Image file does NOT exist in Supabase storage',
-                {
-                  recipeId: dailyRecipe.id,
-                  recipeTitle: dailyRecipe.title,
-                  url: imageUrl,
-                  issue:
-                    'The image URL is stored in the database, but the file was not uploaded to Supabase storage.',
-                  solution:
-                    'Upload the image file to Supabase storage at the path specified in the URL, or remove the image URL from the database.',
-                }
-              );
+              // Only log warnings in development to reduce console noise
+              if (import.meta.env.DEV) {
+                console.warn(
+                  '⚠️ [DAILY RECIPE] Image URL test: Image file does NOT exist in Supabase storage',
+                  {
+                    recipeId: dailyRecipe.id,
+                    recipeTitle: dailyRecipe.title,
+                    url: imageUrl,
+                    issue:
+                      'The image URL is stored in the database, but the file was not uploaded to Supabase storage.',
+                    solution:
+                      'Upload the image file to Supabase storage at the path specified in the URL, or remove the image URL from the database.',
+                  }
+                );
+              }
             };
             testImg.src = imageUrl;
           }
@@ -352,22 +361,25 @@ export default function DailyRecipe({ onRecipeSelect }) {
               referrerPolicy="no-referrer"
               loading="lazy"
               onError={e => {
-                console.error(
-                  '❌ [DAILY RECIPE] Image failed to load:',
-                  JSON.stringify(
-                    {
-                      id: dailyRecipe.id,
-                      title: dailyRecipe.title,
-                      attemptedSrc: e.currentTarget.src,
-                      originalSrc: e.currentTarget.getAttribute('data-original-src'),
-                      heroImageUrl: dailyRecipe.heroImageUrl,
-                      image: dailyRecipe.image,
-                      hero_image_url: dailyRecipe.hero_image_url,
-                    },
-                    null,
-                    2
-                  )
-                );
+                // Only log errors in development to reduce console noise
+                if (import.meta.env.DEV) {
+                  console.error(
+                    '❌ [DAILY RECIPE] Image failed to load:',
+                    JSON.stringify(
+                      {
+                        id: dailyRecipe.id,
+                        title: dailyRecipe.title,
+                        attemptedSrc: e.currentTarget.src,
+                        originalSrc: e.currentTarget.getAttribute('data-original-src'),
+                        heroImageUrl: dailyRecipe.heroImageUrl,
+                        image: dailyRecipe.image,
+                        hero_image_url: dailyRecipe.hero_image_url,
+                      },
+                      null,
+                      2
+                    )
+                  );
+                }
 
                 // If image fails and we have a Supabase storage URL, try refreshing the recipe from database
                 // This helps when recipes are edited and images are uploaded
@@ -431,15 +443,17 @@ export default function DailyRecipe({ onRecipeSelect }) {
                       }
                     } else {
                       // Recipe already failed or too many attempts - just show placeholder
-                      console.warn(
-                        '⚠️ [DAILY RECIPE] Image failed but not refreshing (already failed or max attempts reached):',
-                        {
-                          recipeId: dailyRecipe.id,
-                          alreadyFailed,
-                          refreshAttempts,
-                          maxAttempts: maxRefreshAttempts,
-                        }
-                      );
+                      if (import.meta.env.DEV) {
+                        console.warn(
+                          '⚠️ [DAILY RECIPE] Image failed but not refreshing (already failed or max attempts reached):',
+                          {
+                            recipeId: dailyRecipe.id,
+                            alreadyFailed,
+                            refreshAttempts,
+                            maxAttempts: maxRefreshAttempts,
+                          }
+                        );
+                      }
                     }
                   }
                 }
@@ -453,13 +467,18 @@ export default function DailyRecipe({ onRecipeSelect }) {
               transition={{ duration: 0.2 }}
             />
           ) : (
-            console.warn('⚠️ [DAILY RECIPE] No image URL available:', {
-              id: dailyRecipe.id,
-              title: dailyRecipe.title,
-              heroImageUrl: dailyRecipe.heroImageUrl,
-              image: dailyRecipe.image,
-              hero_image_url: dailyRecipe.hero_image_url,
-            }) || null
+            (() => {
+              if (import.meta.env.DEV) {
+                console.warn('⚠️ [DAILY RECIPE] No image URL available:', {
+                  id: dailyRecipe.id,
+                  title: dailyRecipe.title,
+                  heroImageUrl: dailyRecipe.heroImageUrl,
+                  image: dailyRecipe.image,
+                  hero_image_url: dailyRecipe.hero_image_url,
+                });
+              }
+              return null;
+            })()
           );
         })()}
 

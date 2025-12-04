@@ -1,7 +1,33 @@
 /* src/index.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+/* ------------ Tailwind v4 Theme Configuration ------------ */
+@theme {
+  /* Custom breakpoints */
+  --breakpoint-xs: 475px;
+  --breakpoint-3xl: 1920px;
+  --breakpoint-4xl: 2560px;
+
+  /* Brand colors */
+  --color-brand-50: #effef7;
+  --color-brand-100: #d8fde9;
+  --color-brand-200: #b0f8d3;
+  --color-brand-300: #7bf1bb;
+  --color-brand-400: #49e5a3;
+  --color-brand-500: #1fcd89;
+  --color-brand-600: #14a872;
+  --color-brand-700: #117f5a;
+  --color-brand-800: #0e6147;
+  --color-brand-900: #0b4f3a;
+
+  /* Custom shadows */
+  --shadow-card: 0 10px 18px -10px rgba(0, 0, 0, 0.25);
+  --shadow-soft: 0 6px 10px -6px rgba(0, 0, 0, 0.2);
+
+  /* Font families */
+  --font-family-display: Outfit, Inter, system-ui, sans-serif;
+  --font-family-sans: Inter, system-ui, sans-serif;
+}
 
 /* ------------ Base + theme polish ------------ */
 @layer base {
@@ -121,16 +147,16 @@
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors;
   }
   .btn-primary {
-    @apply btn bg-emerald-600 text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400/60;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors bg-emerald-600 text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400/60;
   }
   .btn-ghost {
-    @apply btn border border-slate-300 dark:border-slate-700 hover:bg-slate-100/80 dark:hover:bg-slate-800/60;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors border border-slate-300 dark:border-slate-700 hover:bg-slate-100/80 dark:hover:bg-slate-800/60;
   }
   .btn-danger {
-    @apply btn bg-rose-600 text-white hover:bg-rose-700;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors bg-rose-600 text-white hover:bg-rose-700;
   }
   .btn-muted {
-    @apply btn bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-300/70 dark:hover:bg-slate-700/70;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-300/70 dark:hover:bg-slate-700/70;
   }
 
   /* Inputs */
@@ -138,7 +164,7 @@
     @apply w-full rounded-xl bg-white dark:bg-slate-800 ring-1 ring-black/10 dark:ring-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400/70;
   }
   .select {
-    @apply input pr-8;
+    @apply w-full rounded-xl bg-white dark:bg-slate-800 ring-1 ring-black/10 dark:ring-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400/70 pr-8;
   }
   .field {
     @apply flex flex-col gap-1 text-sm;
@@ -149,7 +175,7 @@
     @apply rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-800/70 shadow-sm;
   }
   .card {
-    @apply surface overflow-hidden;
+    @apply rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-800/70 shadow-sm overflow-hidden;
   }
   .card-hover {
     @apply transition hover:shadow-lg hover:-translate-y-0.5;
@@ -173,21 +199,21 @@
 
   /* Shared page shells - fully responsive */
   .page-shell {
-    @apply w-full mx-auto max-w-6xl px-2 xs:px-3 sm:px-4 md:px-5 lg:px-6 xl:px-8;
+    @apply w-full mx-auto max-w-6xl px-2 sm:px-4 md:px-5 lg:px-6 xl:px-8;
   }
   .page-shell-tight {
-    @apply w-full mx-auto max-w-4xl px-2 xs:px-3 sm:px-4 md:px-5 lg:px-8;
+    @apply w-full mx-auto max-w-4xl px-2 sm:px-4 md:px-5 lg:px-8;
   }
 
   /* Responsive layout helpers */
   .stack-responsive {
-    @apply flex flex-col gap-3 xs:gap-4 sm:gap-5 md:gap-6;
+    @apply flex flex-col gap-3 sm:gap-5 md:gap-6;
   }
   .stack-responsive-lg {
-    @apply flex flex-col gap-4 xs:gap-5 sm:gap-6 md:gap-8;
+    @apply flex flex-col gap-4 sm:gap-6 md:gap-8;
   }
   .card-cluster {
-    @apply grid gap-2 xs:gap-3 sm:gap-4 md:gap-5;
+    @apply grid gap-2 sm:gap-4 md:gap-5;
   }
   .card-cluster.auto-fit-sm {
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -208,41 +234,41 @@
 
   /* Responsive text scaling */
   .text-responsive-xs {
-    @apply text-[10px] xs:text-xs sm:text-sm;
+    @apply text-[10px] sm:text-sm;
   }
   .text-responsive-sm {
-    @apply text-xs xs:text-sm sm:text-base;
+    @apply text-xs sm:text-base;
   }
   .text-responsive-base {
-    @apply text-sm xs:text-base sm:text-lg;
+    @apply text-sm sm:text-lg;
   }
   .text-responsive-lg {
-    @apply text-base xs:text-lg sm:text-xl md:text-2xl;
+    @apply text-base sm:text-xl md:text-2xl;
   }
   .text-responsive-xl {
-    @apply text-lg xs:text-xl sm:text-2xl md:text-3xl;
+    @apply text-lg sm:text-2xl md:text-3xl;
   }
 
   /* Responsive spacing */
   .spacing-responsive {
-    @apply p-2 xs:p-3 sm:p-4 md:p-6;
+    @apply p-2 sm:p-4 md:p-6;
   }
   .spacing-responsive-sm {
-    @apply p-1.5 xs:p-2 sm:p-3 md:p-4;
+    @apply p-1.5 sm:p-3 md:p-4;
   }
   .spacing-responsive-lg {
-    @apply p-4 xs:p-5 sm:p-6 md:p-8;
+    @apply p-4 sm:p-6 md:p-8;
   }
 
   /* Responsive gaps */
   .gap-responsive {
-    @apply gap-2 xs:gap-3 sm:gap-4 md:gap-6;
+    @apply gap-2 sm:gap-4 md:gap-6;
   }
   .gap-responsive-sm {
-    @apply gap-1 xs:gap-2 sm:gap-3;
+    @apply gap-1 sm:gap-3;
   }
   .gap-responsive-lg {
-    @apply gap-4 xs:gap-5 sm:gap-6 md:gap-8;
+    @apply gap-4 sm:gap-6 md:gap-8;
   }
 }
 

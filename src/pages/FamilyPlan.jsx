@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/Toast.jsx';
 import { hasFeature } from '../utils/subscription.js';
+import { MEDICAL_CONDITIONS } from '../utils/medicalConditions.js';
 import {
   Calendar,
   ShoppingCart,
@@ -13,10 +14,17 @@ import {
   AlertTriangle,
   Users,
   TrendingUp,
+  Edit2,
+  CheckCircle2,
+  X,
+  Shield,
+  Activity,
 } from 'lucide-react';
+import BackToHome from '../components/BackToHome.jsx';
 
 const STORAGE_KEY = 'family:members:v1';
 const MEAL_LOG_KEY = 'family:meal:logs:v1';
+const FAMILY_NAME_KEY = 'family:name:v1';
 
 const ALLERGIES = [
   'Peanuts',
@@ -104,6 +112,18 @@ function writeMealLogs(logs) {
   localStorage.setItem(MEAL_LOG_KEY, JSON.stringify(logs));
 }
 
+function readFamilyName() {
+  try {
+    return localStorage.getItem(FAMILY_NAME_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeFamilyName(name) {
+  localStorage.setItem(FAMILY_NAME_KEY, name);
+}
+
 export default function FamilyPlan() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -117,6 +137,9 @@ export default function FamilyPlan() {
   const [editingMember, setEditingMember] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
   const [mealLogs, setMealLogs] = useState(readMealLogs);
+  const [familyName, setFamilyName] = useState(() => readFamilyName());
+  const [editingFamilyName, setEditingFamilyName] = useState(false);
+  const [tempFamilyName, setTempFamilyName] = useState('');
 
   // ENFORCE FAMILY PLAN ACCESS - Check access on mount (only once)
   useEffect(() => {
@@ -308,8 +331,11 @@ export default function FamilyPlan() {
     heightUnit: 'in', // in or cm
     allergies: [],
     dietaryRestrictions: [],
+    medicalConditions: [], // Array of medical condition IDs
     portionSize: 'normal',
     notes: '',
+    doctorNotes: '', // Doctor's notes/medical notes
+    lastDoctorVisit: '', // Date of last doctor visit
   });
 
   useEffect(() => {
@@ -319,6 +345,10 @@ export default function FamilyPlan() {
   useEffect(() => {
     writeMealLogs(mealLogs);
   }, [mealLogs]);
+
+  useEffect(() => {
+    writeFamilyName(familyName);
+  }, [familyName]);
 
   const handleAddMember = () => {
     const defaultPortion = getPortionMultiplier('child', '').value;
@@ -333,8 +363,11 @@ export default function FamilyPlan() {
       heightUnit: 'in',
       allergies: [],
       dietaryRestrictions: [],
+      medicalConditions: [],
       portionSize: defaultPortion,
       notes: '',
+      doctorNotes: '',
+      lastDoctorVisit: '',
     });
     setEditingMember(null);
     setShowAddModal(true);
@@ -384,8 +417,11 @@ export default function FamilyPlan() {
       heightUnit: 'in',
       allergies: [],
       dietaryRestrictions: [],
+      medicalConditions: [],
       portionSize: 'normal',
       notes: '',
+      doctorNotes: '', // Doctor's notes/medical notes
+      lastDoctorVisit: '', // Date of last doctor visit (ISO string)
     });
 
     setShowAddModal(false);
@@ -427,31 +463,43 @@ export default function FamilyPlan() {
     });
   };
 
+  const handleToggleMedicalCondition = conditionId => {
+    setFormData({
+      ...formData,
+      medicalConditions: formData.medicalConditions.includes(conditionId)
+        ? formData.medicalConditions.filter(c => c !== conditionId)
+        : [...formData.medicalConditions, conditionId],
+    });
+  };
+
   const handleMealComplete = (memberId, date, mealType) => {
     const dateKey = date || new Date().toISOString().split('T')[0];
-    const logKey = `${dateKey}-${mealType}`;
+    const newLogs = { ...mealLogs };
 
-    if (!mealLogs[dateKey]) {
-      mealLogs[dateKey] = [];
+    if (!newLogs[dateKey]) {
+      newLogs[dateKey] = [];
     }
 
-    const existingIndex = mealLogs[dateKey].findIndex(
+    const existingIndex = newLogs[dateKey].findIndex(
       log => log.memberId === memberId && log.mealType === mealType
     );
 
     if (existingIndex >= 0) {
-      // Toggle
-      mealLogs[dateKey] = mealLogs[dateKey].filter((_, i) => i !== existingIndex);
+      // Toggle - remove
+      newLogs[dateKey] = newLogs[dateKey].filter((_, i) => i !== existingIndex);
     } else {
       // Add
-      mealLogs[dateKey].push({
-        memberId,
-        mealType,
-        completedAt: new Date().toISOString(),
-      });
+      newLogs[dateKey] = [
+        ...newLogs[dateKey],
+        {
+          memberId,
+          mealType,
+          completedAt: new Date().toISOString(),
+        },
+      ];
     }
 
-    setMealLogs({ ...mealLogs });
+    setMealLogs(newLogs);
   };
 
   // Get meals for a member based on their age/role
@@ -545,18 +593,71 @@ export default function FamilyPlan() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
+          <BackToHome className="mb-4" />
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Family Plan</h1>
+            <div className="flex-1">
+              {editingFamilyName ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={tempFamilyName}
+                    onChange={e => setTempFamilyName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        setFamilyName(tempFamilyName.trim() || '');
+                        setEditingFamilyName(false);
+                      } else if (e.key === 'Escape') {
+                        setTempFamilyName(familyName);
+                        setEditingFamilyName(false);
+                      }
+                    }}
+                    className="text-3xl font-bold bg-transparent border-b-2 border-emerald-500 focus:outline-none focus:border-emerald-600 dark:text-white"
+                    placeholder="Enter family name..."
+                    autoFocus
+                  />
+                  <button
+                    onClick={() => {
+                      setFamilyName(tempFamilyName.trim() || '');
+                      setEditingFamilyName(false);
+                    }}
+                    className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded"
+                  >
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTempFamilyName(familyName);
+                      setEditingFamilyName(false);
+                    }}
+                    className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+                  >
+                    <X className="w-5 h-5 text-red-600" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group">
+                  <h1 className="text-3xl font-bold mb-2">{familyName || 'Family Plan'}</h1>
+                  <button
+                    onClick={() => {
+                      setTempFamilyName(familyName);
+                      setEditingFamilyName(true);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded"
+                    title="Edit family name"
+                  >
+                    <Edit2 className="w-4 h-4 text-slate-500" />
+                  </button>
+                </div>
+              )}
               <p className="text-slate-600 dark:text-slate-400">
-                Manage family members, allergies, and meal tracking
+                Manage family members, allergies, medical conditions, and meal tracking
               </p>
             </div>
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleAddMember}
-              className="px-3 sm:px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm sm:text-base min-h-[36px] sm:min-h-0 touch-manipulation flex items-center justify-center gap-1.5 sm:gap-2"
+              className="px-3 sm:px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm sm:text-base min-h-[36px] sm:min-h-0 touch-manipulation flex items-center justify-center gap-1.5 sm:gap-2 ml-4"
               title="Add family member"
             >
               <span className="text-lg sm:text-xl">➕</span>
@@ -631,82 +732,309 @@ export default function FamilyPlan() {
           </motion.section>
         )}
 
-        {/* Family Health & Safety Summary */}
+        {/* Family Health & Safety Summary - ENHANCED with Family Members */}
         {members.length > 0 && (
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl shadow-sm border border-amber-200 dark:border-amber-800 p-6 mb-6"
+            className="bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 dark:from-amber-900/20 dark:via-orange-900/20 dark:to-red-900/20 rounded-2xl shadow-lg border-2 border-amber-200 dark:border-amber-800 p-6 sm:p-8 mb-6"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-600" />
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+                <Shield className="w-6 h-6 sm:w-7 sm:h-7 text-amber-600" />
                 Family Health & Safety
               </h2>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
               {/* All Allergies */}
               {(() => {
                 const allAllergies = [...new Set(members.flatMap(m => m.allergies || []))];
-                return allAllergies.length > 0 ? (
-                  <div className="bg-white dark:bg-slate-800 rounded-lg p-4">
-                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                      <span className="text-red-500">⚠️</span>
+                return (
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-md border border-red-200 dark:border-red-900/30">
+                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-red-500" />
                       Allergies to Avoid
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {allAllergies.map(allergy => (
-                        <span
-                          key={allergy}
-                          className="px-2 py-1 text-xs bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-full font-medium"
-                        >
-                          {allergy}
-                        </span>
-                      ))}
-                    </div>
+                    {allAllergies.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {allAllergies.map(allergy => (
+                          <span
+                            key={allergy}
+                            className="px-2 py-1 text-xs bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 rounded-full font-medium"
+                          >
+                            {allergy}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">None recorded</p>
+                    )}
                   </div>
-                ) : null;
+                );
               })()}
               {/* All Dietary Restrictions */}
               {(() => {
                 const allRestrictions = [
                   ...new Set(members.flatMap(m => m.dietaryRestrictions || [])),
                 ];
-                return allRestrictions.length > 0 ? (
-                  <div className="bg-white dark:bg-slate-800 rounded-lg p-4">
-                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                      <span className="text-blue-500">🥗</span>
+                return (
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-md border border-blue-200 dark:border-blue-900/30">
+                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                      <span className="text-lg">🥗</span>
                       Dietary Preferences
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {allRestrictions.map(restriction => (
-                        <span
-                          key={restriction}
-                          className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-full font-medium"
-                        >
-                          {restriction}
-                        </span>
-                      ))}
-                    </div>
+                    {allRestrictions.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {allRestrictions.map(restriction => (
+                          <span
+                            key={restriction}
+                            className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 rounded-full font-medium"
+                          >
+                            {restriction}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">None recorded</p>
+                    )}
                   </div>
-                ) : null;
+                );
+              })()}
+              {/* Medical Conditions Summary */}
+              {(() => {
+                const allMedicalConditions = [
+                  ...new Set(members.flatMap(m => m.medicalConditions || [])),
+                ];
+                return (
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-md border border-purple-200 dark:border-purple-900/30">
+                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-purple-500" />
+                      Medical Conditions
+                    </div>
+                    {allMedicalConditions.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {allMedicalConditions.map(conditionId => {
+                          const condition = MEDICAL_CONDITIONS.find(c => c.id === conditionId);
+                          return condition ? (
+                            <span
+                              key={conditionId}
+                              className="px-2 py-1 text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 rounded-full font-medium flex items-center gap-1"
+                            >
+                              <span>{condition.icon}</span>
+                              <span>{condition.name}</span>
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">None recorded</p>
+                    )}
+                  </div>
+                );
               })()}
             </div>
-            {(() => {
-              const allAllergies = [...new Set(members.flatMap(m => m.allergies || []))];
-              const allRestrictions = [
-                ...new Set(members.flatMap(m => m.dietaryRestrictions || [])),
-              ];
-              if (allAllergies.length === 0 && allRestrictions.length === 0) {
-                return (
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
-                    ✅ No allergies or dietary restrictions recorded. Add them when editing family
-                    members to get personalized recipe suggestions!
-                  </p>
-                );
-              }
-              return null;
-            })()}
+
+            {/* Family Members Display - Moved here under Health & Safety */}
+            <div className="mt-6">
+              <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                <Users className="w-5 h-5 text-amber-600" />
+                All Family Members ({members.length})
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {members.map(member => {
+                  const roleEmojis = {
+                    baby: '👶',
+                    toddler: '🧒',
+                    child: '👦',
+                    teenager: '🧑',
+                    teen: '🧑',
+                    mom: '👩',
+                    dad: '👨',
+                    parent: '👤',
+                    grandma: '👵',
+                    grandpa: '👴',
+                  };
+                  const emoji = roleEmojis[member.role] || '👤';
+                  const bmi = calculateBMI(
+                    member.weight,
+                    member.height,
+                    member.weightUnit,
+                    member.heightUnit
+                  );
+                  const bmiCategory = getBMICategory(bmi, member.ageMonths, member.role);
+                  const hasIssues =
+                    (member.allergies && member.allergies.length > 0) ||
+                    (member.dietaryRestrictions && member.dietaryRestrictions.length > 0) ||
+                    (member.medicalConditions && member.medicalConditions.length > 0);
+
+                  return (
+                    <motion.div
+                      key={member.id}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className={`bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-5 shadow-md border-2 transition-all hover:shadow-lg ${
+                        hasIssues
+                          ? 'border-red-300 dark:border-red-800 bg-red-50/30 dark:bg-red-900/10'
+                          : 'border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {/* Member Header */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="text-3xl sm:text-4xl flex-shrink-0">{emoji}</div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-lg text-slate-900 dark:text-white truncate">
+                              {member.name}
+                            </h4>
+                            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 capitalize">
+                              {member.role}
+                              {member.ageMonths &&
+                                ` • ${Math.round(parseFloat(member.ageMonths) / 12)} years`}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleEditMember(member)}
+                            className="p-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-lg transition-colors"
+                            title="Edit member"
+                          >
+                            <Edit2 className="w-4 h-4 text-emerald-600" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteMember(member.id)}
+                            className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                            title="Remove member"
+                          >
+                            <X className="w-4 h-4 text-red-600" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Issues Display */}
+                      {hasIssues ? (
+                        <div className="space-y-2 mb-3">
+                          {/* Allergies */}
+                          {member.allergies && member.allergies.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-1 flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                Allergies:
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {member.allergies.map(allergy => (
+                                  <span
+                                    key={allergy}
+                                    className="px-1.5 py-0.5 text-[10px] bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 rounded font-medium"
+                                  >
+                                    {allergy}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Dietary Restrictions */}
+                          {member.dietaryRestrictions && member.dietaryRestrictions.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-1 flex items-center gap-1">
+                                <span>🥗</span>
+                                Dietary:
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {member.dietaryRestrictions.map(restriction => (
+                                  <span
+                                    key={restriction}
+                                    className="px-1.5 py-0.5 text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 rounded font-medium"
+                                  >
+                                    {restriction}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Medical Conditions */}
+                          {member.medicalConditions && member.medicalConditions.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-purple-700 dark:text-purple-400 mb-1 flex items-center gap-1">
+                                <Activity className="w-3 h-3" />
+                                Medical Conditions:
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {member.medicalConditions.map(conditionId => {
+                                  const condition = MEDICAL_CONDITIONS.find(
+                                    c => c.id === conditionId
+                                  );
+                                  return condition ? (
+                                    <span
+                                      key={conditionId}
+                                      className="px-1.5 py-0.5 text-[10px] bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 rounded font-medium flex items-center gap-0.5"
+                                      title={condition.description}
+                                    >
+                                      <span>{condition.icon}</span>
+                                      <span>{condition.name}</span>
+                                    </span>
+                                  ) : null;
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="mb-3 flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>No allergies, restrictions, or medical conditions</span>
+                        </div>
+                      )}
+
+                      {/* Doctor's Notes - PROMINENT DISPLAY */}
+                      {(member.doctorNotes || member.lastDoctorVisit) && (
+                        <div className="mt-3 pt-3 border-t-2 border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-lg">🩺</span>
+                            <p className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wide">
+                              Doctor's Notes
+                            </p>
+                            {member.lastDoctorVisit && (
+                              <span className="ml-auto text-[10px] text-blue-600 dark:text-blue-400">
+                                Last visit:{' '}
+                                {new Date(member.lastDoctorVisit).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                            )}
+                          </div>
+                          {member.doctorNotes && (
+                            <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+                              <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words">
+                                {member.doctorNotes}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* BMI Info */}
+                      {bmi && bmiCategory && (
+                        <div className="pt-2 border-t border-slate-200 dark:border-slate-700 mt-3">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-600 dark:text-slate-400">BMI:</span>
+                            <span className="font-semibold text-slate-900 dark:text-white">
+                              {bmi} ({bmiCategory.emoji} {bmiCategory.label})
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
           </motion.section>
         )}
 
@@ -1066,8 +1394,8 @@ export default function FamilyPlan() {
           </motion.section>
         )}
 
-        {/* Family Members */}
-        {members.length === 0 ? (
+        {/* Empty State - Only show if no members */}
+        {members.length === 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1076,7 +1404,8 @@ export default function FamilyPlan() {
             <div className="text-6xl mb-4">👨‍👩‍👧‍👦</div>
             <h2 className="text-2xl font-bold mb-2">No family members yet</h2>
             <p className="text-slate-600 dark:text-slate-400 mb-6">
-              Add family members to track allergies, dietary restrictions, and meals
+              Add family members to track allergies, dietary restrictions, medical conditions, and
+              meals
             </p>
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -1090,248 +1419,6 @@ export default function FamilyPlan() {
               <span className="xs:hidden">Add Member</span>
             </motion.button>
           </motion.div>
-        ) : (
-          <div>
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5 text-emerald-600" />
-              Family Members
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {members.map(member => {
-                const roleEmojis = {
-                  mom: '👩',
-                  dad: '👨',
-                  parent: '👤',
-                  child: '👦',
-                  baby: '👶',
-                  toddler: '🧒',
-                  teenager: '🧑',
-                  teen: '🧑',
-                  grandma: '👵',
-                  grandpa: '👴',
-                  grandparent: '👴',
-                  nanny: '👷',
-                  'au pair': '👨‍🏫',
-                  caregiver: '👨‍⚕️',
-                  guardian: '🛡️',
-                  other: '👤',
-                };
-                const roleEmoji = roleEmojis[member.role] || '👤';
-                return (
-                  <motion.div
-                    key={member.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    whileHover={{ y: -4 }}
-                    className="bg-white dark:bg-slate-900 rounded-xl shadow-md border-2 border-slate-200 dark:border-slate-800 p-4 sm:p-6 hover:border-emerald-300 dark:hover:border-emerald-700 transition-all"
-                  >
-                    <div className="flex items-start justify-between mb-3 sm:mb-4">
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div className="text-3xl sm:text-4xl">{roleEmoji}</div>
-                        <div>
-                          <h3 className="text-lg sm:text-xl font-bold break-words">
-                            {member.name}
-                          </h3>
-                          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 capitalize">
-                            {member.role}
-                            {member.ageRange && ` • ${member.ageRange}`}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => handleEditMember(member)}
-                          className="p-2 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors touch-manipulation"
-                          title="Edit"
-                        >
-                          ✏️
-                        </motion.button>
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => handleDeleteMember(member.id)}
-                          className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors touch-manipulation"
-                          title="Delete"
-                        >
-                          🗑️
-                        </motion.button>
-                      </div>
-                    </div>
-
-                    {member.allergies.length > 0 && (
-                      <div className="mb-2 sm:mb-3 p-2 sm:p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-900/30">
-                        <label className="text-[10px] sm:text-xs font-semibold text-red-700 dark:text-red-300 mb-1.5 sm:mb-2 block flex items-center gap-1">
-                          <span>⚠️</span>
-                          Allergies
-                        </label>
-                        <div className="flex flex-wrap gap-1 sm:gap-1.5">
-                          {member.allergies.map(allergy => (
-                            <span
-                              key={allergy}
-                              className="px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-full font-medium break-words"
-                            >
-                              {allergy}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {member.dietaryRestrictions.length > 0 && (
-                      <div className="mb-2 sm:mb-3 p-2 sm:p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-900/30">
-                        <label className="text-[10px] sm:text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1.5 sm:mb-2 block flex items-center gap-1">
-                          <span>🥗</span>
-                          Dietary Preferences
-                        </label>
-                        <div className="flex flex-wrap gap-1 sm:gap-1.5">
-                          {member.dietaryRestrictions.map(restriction => (
-                            <span
-                              key={restriction}
-                              className="px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-full font-medium break-words"
-                            >
-                              {restriction}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Weight & Height Info */}
-                    {(member.weight || member.height) && (
-                      <div className="mb-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2 block flex items-center gap-1">
-                          <span>📏</span>
-                          Growth Info
-                        </label>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          {member.weight && (
-                            <div>
-                              <span className="text-slate-600 dark:text-slate-400">Weight: </span>
-                              <span className="font-semibold">
-                                {member.weight} {member.weightUnit || 'lbs'}
-                              </span>
-                            </div>
-                          )}
-                          {member.height && (
-                            <div>
-                              <span className="text-slate-600 dark:text-slate-400">Height: </span>
-                              <span className="font-semibold">
-                                {member.height} {member.heightUnit || 'in'}
-                              </span>
-                            </div>
-                          )}
-                          {member.ageMonths && (
-                            <div className="col-span-2">
-                              <span className="text-slate-600 dark:text-slate-400">Age: </span>
-                              <span className="font-semibold">
-                                {member.ageMonths} months (
-                                {Math.floor(parseFloat(member.ageMonths) / 12)} years{' '}
-                                {parseFloat(member.ageMonths) % 12} months)
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        {(() => {
-                          const bmi = calculateBMI(
-                            member.weight,
-                            member.height,
-                            member.weightUnit,
-                            member.heightUnit
-                          );
-                          const bmiCategory = bmi
-                            ? getBMICategory(bmi, member.ageMonths, member.role)
-                            : null;
-                          return bmi && bmiCategory ? (
-                            <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs text-slate-600 dark:text-slate-400">
-                                  BMI:{' '}
-                                </span>
-                                <span className="text-xs font-bold">{bmi}</span>
-                                <span
-                                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                    bmiCategory.color === 'green'
-                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
-                                      : bmiCategory.color === 'amber'
-                                        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200'
-                                        : bmiCategory.color === 'red'
-                                          ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
-                                          : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200'
-                                  }`}
-                                >
-                                  {bmiCategory.emoji} {bmiCategory.label}
-                                </span>
-                              </div>
-                            </div>
-                          ) : null;
-                        })()}
-                      </div>
-                    )}
-
-                    {/* Nutritional Recommendations Display */}
-                    {(() => {
-                      const recommendations = getNutritionalRecommendations(
-                        member.role,
-                        member.ageMonths,
-                        member.weight
-                      );
-                      return recommendations.length > 0 ? (
-                        <div className="mb-2 sm:mb-3 p-2 sm:p-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-900/30">
-                          <label className="text-[10px] sm:text-xs font-semibold text-purple-700 dark:text-purple-300 mb-1.5 sm:mb-2 block flex items-center gap-1">
-                            <span>💡</span>
-                            Recommendations
-                          </label>
-                          <ul className="space-y-0.5 sm:space-y-1">
-                            {recommendations.slice(0, 2).map((rec, idx) => (
-                              <li
-                                key={idx}
-                                className="text-[10px] sm:text-xs text-purple-800 dark:text-purple-200 break-words"
-                              >
-                                • {rec}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null;
-                    })()}
-
-                    <div className="p-2 sm:p-3 bg-emerald-50 dark:bg-emerald-900/10 rounded-lg border border-emerald-200 dark:border-emerald-900/30">
-                      <label className="text-[10px] sm:text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1.5 sm:mb-2 block flex items-center gap-1">
-                        <span>🍽️</span>
-                        Portion Size
-                      </label>
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
-                        <span className="text-xs sm:text-sm font-bold capitalize text-emerald-800 dark:text-emerald-200 break-words">
-                          {PORTION_SIZES.find(s => s.value === member.portionSize)?.label ||
-                            member.portionSize}
-                        </span>
-                        {PORTION_SIZES.find(s => s.value === member.portionSize) && (
-                          <span className="text-[10px] sm:text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full w-fit">
-                            {PORTION_SIZES.find(s => s.value === member.portionSize).multiplier}x
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Notes */}
-                    {member.notes && (
-                      <div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-200 dark:border-amber-900/30">
-                        <label className="text-[10px] sm:text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1 block flex items-center gap-1">
-                          <span>📝</span>
-                          Notes
-                        </label>
-                        <p className="text-[10px] sm:text-xs text-amber-800 dark:text-amber-200 break-words">
-                          {member.notes}
-                        </p>
-                      </div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
         )}
 
         {/* Add/Edit Modal */}
@@ -1641,10 +1728,68 @@ export default function FamilyPlan() {
                       ) : null;
                     })()}
 
-                    {/* Notes */}
+                    {/* Doctor's Notes - PROMINENT SECTION */}
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border-2 border-blue-200 dark:border-blue-800">
+                      <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-blue-800 dark:text-blue-300 mb-3">
+                        <span className="text-xl">🩺</span>
+                        Doctor's Notes & Medical Information
+                      </label>
+
+                      {/* Last Doctor Visit Date */}
+                      <div className="mb-3">
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                          Last Doctor Visit Date
+                        </label>
+                        <input
+                          type="date"
+                          value={
+                            formData.lastDoctorVisit ? formData.lastDoctorVisit.split('T')[0] : ''
+                          }
+                          onChange={e =>
+                            setFormData({
+                              ...formData,
+                              lastDoctorVisit: e.target.value
+                                ? new Date(e.target.value).toISOString()
+                                : '',
+                            })
+                          }
+                          className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base rounded-md border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 touch-manipulation"
+                          max={new Date().toISOString().split('T')[0]}
+                        />
+                        {formData.lastDoctorVisit && (
+                          <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1">
+                            Visit date:{' '}
+                            {new Date(formData.lastDoctorVisit).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                            })}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Doctor's Notes Textarea */}
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                          Doctor's Notes / Medical Instructions
+                        </label>
+                        <textarea
+                          value={formData.doctorNotes}
+                          onChange={e => setFormData({ ...formData, doctorNotes: e.target.value })}
+                          className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base rounded-md border-2 border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 min-h-[120px] touch-manipulation resize-y focus:border-blue-500 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
+                          placeholder="Enter doctor's notes, medical instructions, prescriptions, dietary recommendations, or any important medical information here..."
+                        />
+                        <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1.5">
+                          💡 These notes will be visible on the member's card and help ensure meal
+                          planning considers all medical requirements.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Personal Notes */}
                     <div>
                       <label className="block text-xs sm:text-sm font-medium mb-2">
-                        Notes
+                        Personal Notes
                         <span className="ml-1 sm:ml-2 text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">
                           (Track important info, preferences, etc.)
                         </span>
@@ -1697,6 +1842,76 @@ export default function FamilyPlan() {
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    {/* Medical Conditions - ENHANCED */}
+                    <div>
+                      <label className="flex items-center gap-2 text-xs sm:text-sm font-medium mb-2">
+                        <Activity className="w-4 h-4 text-purple-600" />
+                        Medical Conditions
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
+                          (Critical for meal safety)
+                        </span>
+                      </label>
+                      <div className="max-h-60 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {MEDICAL_CONDITIONS.map(condition => (
+                            <button
+                              key={condition.id}
+                              type="button"
+                              onClick={() => handleToggleMedicalCondition(condition.id)}
+                              className={`px-3 py-2 rounded-lg text-left transition-all touch-manipulation border-2 ${
+                                formData.medicalConditions.includes(condition.id)
+                                  ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 border-slate-200 dark:border-slate-700'
+                              }`}
+                              title={condition.description}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">{condition.icon}</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-semibold text-xs sm:text-sm truncate">
+                                    {condition.name}
+                                  </div>
+                                  {formData.medicalConditions.includes(condition.id) && (
+                                    <div className="text-[10px] opacity-90 mt-0.5 line-clamp-1">
+                                      {condition.description}
+                                    </div>
+                                  )}
+                                </div>
+                                {formData.medicalConditions.includes(condition.id) && (
+                                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {formData.medicalConditions.length > 0 && (
+                        <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                          <p className="text-xs text-purple-700 dark:text-purple-300 font-semibold mb-1">
+                            Selected Conditions ({formData.medicalConditions.length}):
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {formData.medicalConditions.map(conditionId => {
+                              const condition = MEDICAL_CONDITIONS.find(c => c.id === conditionId);
+                              return condition ? (
+                                <span
+                                  key={conditionId}
+                                  className="px-2 py-0.5 text-[10px] bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 rounded-full font-medium flex items-center gap-1"
+                                >
+                                  <span>{condition.icon}</span>
+                                  <span>{condition.name}</span>
+                                </span>
+                              ) : null;
+                            })}
+                          </div>
+                          <p className="text-[10px] text-purple-600 dark:text-purple-400 mt-2 italic">
+                            ⚠️ These conditions will be used to filter unsafe recipes in meal
+                            planning
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Portion Size */}

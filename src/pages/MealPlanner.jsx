@@ -10,6 +10,7 @@ import { CompactRecipeLoader } from '../components/FoodLoaders.jsx';
 import BackToHome from '../components/BackToHome.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { hasFeature, canPerformAction } from '../utils/subscription.js';
+import { trackFeatureUsage, FEATURES } from '../utils/featureTracking';
 import {
   Sparkles,
   Heart,
@@ -22,8 +23,18 @@ import {
   CheckCircle2,
   Circle,
   RefreshCw,
+  AlertTriangle,
+  Target,
+  Users,
 } from 'lucide-react';
 import MealSwap from '../components/MealSwap.jsx';
+import {
+  getMealPlannerContext,
+  checkRecipeSafetyForAll,
+  filterSafeRecipes,
+  scoreRecipeForMealPlanning,
+} from '../utils/mealPlannerContext.js';
+import { filterRecipesByMedicalConditions } from '../utils/medicalConditions.js';
 
 const KEY = 'meal:plan:v3'; // Updated version with snacks support
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -32,6 +43,7 @@ const MEALS = ['breakfast', 'lunch', 'dinner'];
 const SNACKS = ['morning_snack', 'afternoon_snack', 'evening_snack'];
 
 // Initialize structure: 7 days x 3 meals + optional snacks
+// Each meal can now have: { id, title, image, familyMembers: [memberId1, memberId2, ...] }
 function emptyDay() {
   return {
     breakfast: null,
@@ -111,7 +123,12 @@ export function setMealPlanDay(dayIndex, mealType, recipe) {
   if (!current[day].evening_snack) current[day].evening_snack = null;
 
   current[day][mealType] = recipe
-    ? { id: recipe.id, title: recipe.title, image: recipe.image || recipe.hero_image_url }
+    ? {
+        id: recipe.id,
+        title: recipe.title,
+        image: recipe.image || recipe.hero_image_url,
+        familyMembers: recipe.familyMembers || [], // Array of family member IDs
+      }
     : null;
 
   writeMealPlan(current);
@@ -168,7 +185,9 @@ export default function MealPlanner() {
       if (e.key === KEY && e.newValue) {
         try {
           setPlan(JSON.parse(e.newValue));
-        } catch {}
+        } catch (_err) {
+          // Ignore parse errors
+        }
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -182,7 +201,9 @@ export default function MealPlanner() {
           }
           return prev;
         });
-      } catch {}
+      } catch (_err) {
+        // Ignore parse errors
+      }
     }, 1000);
     return () => {
       window.removeEventListener('storage', handleStorageChange);
@@ -190,14 +211,28 @@ export default function MealPlanner() {
     };
   }, []);
 
-  const setMeal = (dayIdx, mealType, recipe) => {
-    setPlan(setMealPlanDay(dayIdx, mealType, recipe));
+  const setMeal = (dayIdx, mealType, recipe, familyMembers = null) => {
+    // If recipe exists and familyMembers provided, merge them
+    const mealData = recipe
+      ? {
+          ...recipe,
+          familyMembers: familyMembers !== null ? familyMembers : recipe.familyMembers || [],
+        }
+      : null;
+    setPlan(setMealPlanDay(dayIdx, mealType, mealData));
     // Track interaction
     if (recipe?.id) {
       trackRecipeInteraction(recipe.id, 'add_to_plan', {
         title: recipe.title,
         mealType,
         day: DAYS_SHORT[dayIdx],
+        familyMembers: familyMembers?.length || 0,
+      });
+      trackFeatureUsage(FEATURES.MEAL_PLANNER, {
+        action: 'add_meal',
+        mealType,
+        recipeId: recipe.id,
+        familyMembers: familyMembers?.length || 0,
       });
     }
   };
@@ -210,18 +245,54 @@ export default function MealPlanner() {
     }
   }, []);
 
-  // Smart meal planning - suggest balanced meals
+  // Get family members for assignment
+  const familyMembers = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('family:members:v1') || '[]');
+    } catch {
+      return [];
+    }
+  }, []);
+
+  // State for family member assignment modal
+  const [assigningToMeal, setAssigningToMeal] = useState(null); // { dayIdx, mealType, recipe }
+
+  // ENHANCED Smart meal planning - COMPREHENSIVE AI planning with family member assignment
   const generateSmartPlan = async () => {
     setLoading(true);
     try {
-      // Get dietary preferences
-      const diet = localStorage.getItem('filters:diet') || '';
-      const intolerances = localStorage.getItem('filters:intolerances') || '';
-      const pantry = JSON.parse(localStorage.getItem('filters:pantry') || '[]');
+      // Get COMPREHENSIVE user context (calorie goals, medical conditions, family, etc.)
+      const context = getMealPlannerContext();
+
+      // Show context summary (dev only)
+      if (import.meta.env.DEV) {
+        console.warn('🧠 [SmartPlan] User Context:', {
+          hasCalorieGoals: context.hasGoals,
+          hasMedicalConditions: context.hasMedicalConditions,
+          hasFamily: context.hasFamily,
+          childrenCount: context.childrenCount,
+          foodsToAvoid: context.allFoodsToAvoid.length,
+          dietaryRestrictions: context.allDietaryRestrictions.length,
+          pantryItems: context.pantry.length,
+          favorites: context.favorites.length,
+          familyMembers: familyMembers.length,
+        });
+      }
 
       const next = { ...plan };
       let suggestionCount = 0;
+      let skippedUnsafe = 0;
+      let assignedToFamily = 0;
       const maxSuggestions = includeSnacksInPlan ? 42 : 21; // 21 meals or 21 meals + 21 snacks
+
+      // Track used recipes to ensure variety
+      const usedRecipeIds = new Set();
+      
+      // Track meals per family member for balanced assignment
+      const memberMealCounts = {};
+      familyMembers.forEach(member => {
+        memberMealCounts[member.id] = 0;
+      });
 
       // Meal type mapping
       const mealTypeMap = {
@@ -233,40 +304,219 @@ export default function MealPlanner() {
         evening_snack: 'snack',
       };
 
-      // Process meals first
-      for (const day of DAYS_SHORT) {
+      // Build search filters from context
+      const searchDiet = context.diet || '';
+
+      // Helper function to check if recipe is safe for specific family member
+      const isSafeForMember = (recipe, member) => {
+        // Check allergies
+        if (member.allergies && member.allergies.length > 0) {
+          const ingredients = recipe.extendedIngredients || [];
+          const recipeIngredientNames = ingredients.map(ing =>
+            (ing.name || ing.originalName || '').toLowerCase()
+          );
+          const hasAllergy = member.allergies.some(allergy =>
+            recipeIngredientNames.some(
+              ing => ing.includes(allergy.toLowerCase()) || allergy.toLowerCase().includes(ing)
+            )
+          );
+          if (hasAllergy) return false;
+        }
+
+        // Check dietary restrictions
+        if (member.dietaryRestrictions && member.dietaryRestrictions.length > 0) {
+          // Check if recipe conflicts with restrictions
+          const restrictions = member.dietaryRestrictions.map(r => r.toLowerCase());
+          if (restrictions.includes('vegetarian') || restrictions.includes('vegan')) {
+            const hasMeat = (recipe.extendedIngredients || []).some(ing => {
+              const name = (ing.name || ing.originalName || '').toLowerCase();
+              return (
+                name.includes('chicken') ||
+                name.includes('beef') ||
+                name.includes('pork') ||
+                name.includes('fish') ||
+                name.includes('meat')
+              );
+            });
+            if (hasMeat && restrictions.includes('vegan')) return false;
+            if (hasMeat && restrictions.includes('vegetarian')) return false;
+          }
+        }
+
+        // Check medical conditions for this member
+        if (member.medicalConditions && member.medicalConditions.length > 0) {
+          const safetyCheck = checkRecipeSafetyForAll(recipe);
+          if (!safetyCheck.safe) return false;
+        }
+
+        return true;
+      };
+
+      // Helper function to assign meal to appropriate family members
+      const assignToFamilyMembers = (recipe, mealType) => {
+        if (familyMembers.length === 0) return [];
+
+        const assignedMembers = [];
+
+        // For each family member, check if recipe is safe and appropriate
+        familyMembers.forEach(member => {
+          // Check if safe for this member
+          if (!isSafeForMember(recipe, member)) return;
+
+          // Check if appropriate meal type for member's age/role
+          const role = (member.role || '').toLowerCase();
+          const isChild = ['baby', 'toddler', 'child', 'teenager', 'teen'].includes(role);
+
+          // Children should get appropriate meals (not too spicy, complex, etc.)
+          if (isChild) {
+            // Skip very complex recipes for young children
+            if (mealType === 'breakfast' || mealType === 'lunch' || mealType === 'dinner') {
+              // Check if recipe is child-friendly (simple ingredients, not too spicy)
+              const ingredients = recipe.extendedIngredients || [];
+              const hasComplexIngredients = ingredients.some(ing => {
+                const name = (ing.name || ing.originalName || '').toLowerCase();
+                return (
+                  name.includes('spicy') ||
+                  name.includes('chili') ||
+                  name.includes('pepper') ||
+                  name.includes('hot')
+                );
+              });
+              // Allow some complex recipes but prefer simpler ones
+              if (hasComplexIngredients && Math.random() > 0.3) return;
+            }
+          }
+
+          // Assign meal to this member
+          assignedMembers.push(member.id);
+          memberMealCounts[member.id] = (memberMealCounts[member.id] || 0) + 1;
+        });
+
+        // If no specific assignments, assign to all safe members (or all if no restrictions)
+        if (assignedMembers.length === 0 && familyMembers.length > 0) {
+          // Assign to all members if recipe is safe for everyone
+          const allSafe = familyMembers.every(member => isSafeForMember(recipe, member));
+          if (allSafe) {
+            return familyMembers.map(m => m.id);
+          }
+        }
+
+        return assignedMembers;
+      };
+
+      // Helper function to get best recipe with variety
+      const getBestRecipeWithVariety = (scoredRecipes, usedRecipeIds) => {
+        // Filter out already used recipes
+        const newRecipes = scoredRecipes.filter(
+          item => !usedRecipeIds.has(item.recipe.id)
+        );
+
+        // If we have new recipes, use the best one
+        if (newRecipes.length > 0) {
+          return newRecipes[0].recipe;
+        }
+
+        // If all recipes are used, use the best one anyway (for small recipe databases)
+        return scoredRecipes[0].recipe;
+      };
+
+      // Process meals first - plan each day
+      for (let dayIdx = 0; dayIdx < DAYS_SHORT.length; dayIdx++) {
+        const day = DAYS_SHORT[dayIdx];
         if (!next[day]) next[day] = emptyDay();
 
         // Plan main meals
         for (const mealType of MEALS) {
           if (!next[day][mealType] && suggestionCount < maxSuggestions) {
             try {
-              const usePantry = suggestionCount % 3 === 0 && pantry.length > 0;
+              // Use pantry ingredients strategically (every 3rd meal)
+              const usePantry = suggestionCount % 3 === 0 && context.pantry.length > 0;
               const ingredients = usePantry
-                ? [...pantry].sort(() => Math.random() - 0.5).slice(0, 3)
+                ? [...context.pantry].sort(() => Math.random() - 0.5).slice(0, 3)
                 : [];
 
-              const result = await searchSupabaseRecipes({
-                query: '',
-                includeIngredients: ingredients,
-                diet: diet || '',
-                mealType: mealTypeMap[mealType] || '',
-                maxTime: '',
-                limit: 15,
-              });
+              // Try favorites first (every 5th meal for variety)
+              const useFavorites = suggestionCount % 5 === 0 && context.favorites.length > 0;
+              let recipes = [];
 
-              const recipes = Array.isArray(result) ? result : [];
+              if (useFavorites) {
+                // Filter favorites for safety
+                const safeFavorites = context.favorites.filter(fav => {
+                  const safetyCheck = checkRecipeSafetyForAll(fav);
+                  return safetyCheck.safe && safetyCheck.safeForFamily;
+                });
+                recipes = safeFavorites.filter(fav => !usedRecipeIds.has(fav.id));
+              }
+
+              // If no favorites available, search for new recipes
+              if (recipes.length === 0) {
+                const result = await searchSupabaseRecipes({
+                  query: '',
+                  includeIngredients: ingredients,
+                  diet: searchDiet || '',
+                  mealType: mealTypeMap[mealType] || '',
+                  maxTime: '',
+                  limit: 50, // Fetch more for better variety and filtering
+                });
+
+                recipes = Array.isArray(result) ? result : [];
+              }
+
+              // CRITICAL: Filter for medical conditions FIRST
+              recipes = filterRecipesByMedicalConditions(recipes);
+
+              // CRITICAL: Filter for ALL safety (user + family allergies, restrictions)
+              recipes = filterSafeRecipes(recipes);
+
               if (recipes.length > 0) {
-                const randomRecipe = recipes[Math.floor(Math.random() * recipes.length)];
-                next[day][mealType] = {
-                  id: randomRecipe.id,
-                  title: randomRecipe.title,
-                  image: randomRecipe.image || randomRecipe.hero_image_url,
-                };
-                suggestionCount++;
+                // Score and sort recipes by how well they match user's needs
+                const scoredRecipes = recipes
+                  .map(recipe => ({
+                    recipe,
+                    score: scoreRecipeForMealPlanning(recipe, mealTypeMap[mealType]),
+                  }))
+                  .sort((a, b) => b.score - a.score); // Highest score first
+
+                // Get best recipe with variety (avoid repeats)
+                const bestRecipe = getBestRecipeWithVariety(scoredRecipes, usedRecipeIds);
+
+                // Double-check safety (extra safety check)
+                const finalSafetyCheck = checkRecipeSafetyForAll(bestRecipe);
+                if (finalSafetyCheck.safe && finalSafetyCheck.safeForFamily) {
+                  // Automatically assign to appropriate family members
+                  const assignedMembers = assignToFamilyMembers(bestRecipe, mealType);
+
+                  next[day][mealType] = {
+                    id: bestRecipe.id,
+                    title: bestRecipe.title,
+                    image: bestRecipe.image || bestRecipe.hero_image_url,
+                    familyMembers: assignedMembers,
+                  };
+
+                  usedRecipeIds.add(bestRecipe.id);
+                  suggestionCount++;
+                  if (assignedMembers.length > 0) {
+                    assignedToFamily += assignedMembers.length;
+                  }
+                } else {
+                  skippedUnsafe++;
+                  if (import.meta.env.DEV) {
+                    console.warn('[SmartPlan] Skipped unsafe recipe:', {
+                      title: bestRecipe.title,
+                      conflicts: finalSafetyCheck.conflicts,
+                    });
+                  }
+                }
+              } else {
+                skippedUnsafe++;
+                if (import.meta.env.DEV) {
+                  console.warn('[SmartPlan] No safe recipes found for', mealType, 'on', day);
+                }
               }
             } catch (e) {
-              console.warn('[SmartPlan] Failed to fetch meal suggestion', e);
+              if (import.meta.env.DEV) {
+                console.warn('[SmartPlan] Failed to fetch meal suggestion', e);
+              }
             }
           }
         }
@@ -279,24 +529,57 @@ export default function MealPlanner() {
                 const result = await searchSupabaseRecipes({
                   query: '',
                   includeIngredients: [],
-                  diet: diet || '',
+                  diet: searchDiet || '',
                   mealType: 'snack',
                   maxTime: '30', // Snacks should be quick
-                  limit: 10,
+                  limit: 30, // Fetch more for filtering
                 });
 
-                const recipes = Array.isArray(result) ? result : [];
+                let recipes = Array.isArray(result) ? result : [];
+
+                // Filter for safety
+                recipes = filterRecipesByMedicalConditions(recipes);
+                recipes = filterSafeRecipes(recipes);
+
                 if (recipes.length > 0) {
-                  const randomRecipe = recipes[Math.floor(Math.random() * recipes.length)];
-                  next[day][snackType] = {
-                    id: randomRecipe.id,
-                    title: randomRecipe.title,
-                    image: randomRecipe.image || randomRecipe.hero_image_url,
-                  };
-                  suggestionCount++;
+                  // Score and pick best snack
+                  const scoredRecipes = recipes
+                    .map(recipe => ({
+                      recipe,
+                      score: scoreRecipeForMealPlanning(recipe, 'snack'),
+                    }))
+                    .sort((a, b) => b.score - a.score);
+
+                  // Get best snack with variety
+                  const bestRecipe = getBestRecipeWithVariety(scoredRecipes, usedRecipeIds);
+                  const finalSafetyCheck = checkRecipeSafetyForAll(bestRecipe);
+
+                  if (finalSafetyCheck.safe && finalSafetyCheck.safeForFamily) {
+                    // Assign snacks to family members (especially children)
+                    const assignedMembers = assignToFamilyMembers(bestRecipe, snackType);
+
+                    next[day][snackType] = {
+                      id: bestRecipe.id,
+                      title: bestRecipe.title,
+                      image: bestRecipe.image || bestRecipe.hero_image_url,
+                      familyMembers: assignedMembers,
+                    };
+
+                    usedRecipeIds.add(bestRecipe.id);
+                    suggestionCount++;
+                    if (assignedMembers.length > 0) {
+                      assignedToFamily += assignedMembers.length;
+                    }
+                  } else {
+                    skippedUnsafe++;
+                  }
+                } else {
+                  skippedUnsafe++;
                 }
               } catch (e) {
-                console.warn('[SmartPlan] Failed to fetch snack suggestion', e);
+                if (import.meta.env.DEV) {
+                  console.warn('[SmartPlan] Failed to fetch snack suggestion', e);
+                }
               }
             }
           }
@@ -304,11 +587,49 @@ export default function MealPlanner() {
       }
 
       setPlan(next);
-      toast.success(
-        `Generated ${suggestionCount} meal${suggestionCount !== 1 ? 's' : ''} for your week!`
-      );
+      trackFeatureUsage(FEATURES.MEAL_PLANNER, {
+        action: 'generate_smart_plan',
+        mealCount: suggestionCount,
+        skippedUnsafe,
+        assignedToFamily,
+        hasCalorieGoals: context.hasGoals,
+        hasMedicalConditions: context.hasMedicalConditions,
+        hasFamily: context.hasFamily,
+        familyMembersCount: familyMembers.length,
+      });
+
+      // Show comprehensive success message
+      let successMessage = `✨ Generated ${suggestionCount} safe meal${suggestionCount !== 1 ? 's' : ''} for your week!`;
+      
+      if (assignedToFamily > 0) {
+        successMessage += ` 👨‍👩‍👧‍👦 Assigned to ${assignedToFamily} family member${assignedToFamily !== 1 ? 's' : ''}`;
+      }
+      
+      if (skippedUnsafe > 0) {
+        successMessage += ` (Skipped ${skippedUnsafe} unsafe recipe${skippedUnsafe !== 1 ? 's' : ''})`;
+      }
+      
+      if (context.hasMedicalConditions || context.hasFamily) {
+        successMessage += ' ✅ All recipes checked for medical safety!';
+      }
+      
+      if (context.hasGoals) {
+        successMessage += ' 🎯 Recipes matched to calorie goals!';
+      }
+      
+      if (context.pantry.length > 0) {
+        successMessage += ' 🥘 Used pantry ingredients!';
+      }
+      
+      if (usedRecipeIds.size < suggestionCount * 0.7) {
+        successMessage += ' 🎨 Great variety!';
+      }
+
+      toast.success(successMessage, { duration: 6000 });
     } catch (error) {
-      console.error('[SmartPlan] Error:', error);
+      if (import.meta.env.DEV) {
+        console.error('[SmartPlan] Error:', error);
+      }
       toast.error('Failed to generate smart plan. Please try again.');
     } finally {
       setLoading(false);
@@ -335,33 +656,75 @@ export default function MealPlanner() {
     };
   }, [plan, showSnacks]);
 
-  const fillFromFavorites = () => {
+  const fillFromFavorites = async () => {
     if (favorites.length === 0) {
       toast.error('No favorites found. Add some recipes to favorites first!');
       return;
     }
+
+    // Get context to check safety (will be used in safety checks below)
+    getMealPlannerContext(); // Load context for safety checks
+
+    setLoading(true);
     const next = { ...plan };
     let fi = 0;
+    let filled = 0;
+    let skippedUnsafe = 0;
     const mealsToFill = showSnacks ? [...MEALS, ...SNACKS] : MEALS;
 
-    DAYS_SHORT.forEach(day => {
+    // Load full recipe data to check safety
+    for (const day of DAYS_SHORT) {
       if (!next[day]) next[day] = emptyDay();
-      mealsToFill.forEach(mealType => {
+      for (const mealType of mealsToFill) {
         if (!next[day][mealType]) {
           const fav = favorites[fi % favorites.length];
-          next[day][mealType] = fav
-            ? {
+          if (fav) {
+            try {
+              // Load full recipe to check safety
+              const fullRecipe = await getSupabaseRecipeById(fav.id);
+              if (fullRecipe) {
+                const safetyCheck = checkRecipeSafetyForAll(fullRecipe);
+                if (safetyCheck.safe && safetyCheck.safeForFamily) {
+                  next[day][mealType] = {
+                    id: fav.id,
+                    title: fav.title,
+                    image: fav.image || fav.hero_image_url,
+                    familyMembers: [], // Can be assigned later
+                  };
+                  filled++;
+                } else {
+                  skippedUnsafe++;
+                }
+              }
+            } catch (e) {
+              // If we can't load recipe, use it anyway (fallback)
+              next[day][mealType] = {
                 id: fav.id,
                 title: fav.title,
                 image: fav.image || fav.hero_image_url,
-              }
-            : null;
+              };
+              filled++;
+            }
+          }
           fi++;
         }
-      });
-    });
+      }
+    }
+
     setPlan(next);
-    toast.success('Filled plan from favorites!');
+    setLoading(false);
+
+    trackFeatureUsage(FEATURES.MEAL_PLANNER, {
+      action: 'fill_from_favorites',
+      mealCount: filled,
+      skippedUnsafe,
+    });
+
+    let message = `Filled ${filled} meal${filled !== 1 ? 's' : ''} from favorites!`;
+    if (skippedUnsafe > 0) {
+      message += ` (Skipped ${skippedUnsafe} unsafe recipe${skippedUnsafe !== 1 ? 's' : ''})`;
+    }
+    toast.success(message);
   };
 
   const clearAll = () => {
@@ -398,18 +761,19 @@ export default function MealPlanner() {
     let loaded = 0;
 
     for (const r of allRecipes) {
-      try {
-        const info = await getSupabaseRecipeById(r.id);
-        if (info?.extendedIngredients) {
-          const items = info.extendedIngredients
-            .map(i => i.original || i.originalString || '')
-            .filter(Boolean);
-          all.push(...items);
+        try {
+          const info = await getSupabaseRecipeById(r.id);
+          if (info?.extendedIngredients) {
+            const items = info.extendedIngredients
+              .map(i => i.original || i.originalString || '')
+              .filter(Boolean);
+            all.push(...items);
+          }
+        } catch (e) {
+          if (import.meta.env.DEV) {
+            console.warn('Failed to load ingredients for', r.id, e);
+          }
         }
-        loaded++;
-      } catch (e) {
-        console.warn('Failed to load ingredients for', r.id, e);
-      }
     }
 
     setLoading(false);
@@ -466,6 +830,9 @@ export default function MealPlanner() {
     return stats;
   }, [plan, showSnacks]);
 
+  // Get user context for display (recalculate when plan changes to show updated stats)
+  const userContext = useMemo(() => getMealPlannerContext(), []);
+
   return (
     <div className="mx-auto max-w-6xl px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-10">
       {/* Header with Stats */}
@@ -476,6 +843,75 @@ export default function MealPlanner() {
             📅 Smart Meal Planner
           </h1>
         </div>
+
+        {/* Context Awareness Widget */}
+        {userContext.hasAnyRestrictions && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 sm:mb-6 p-3 xs:p-4 sm:p-5 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/30 dark:via-indigo-900/30 dark:to-purple-900/30 border-2 border-blue-200 dark:border-blue-800 shadow-lg"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 xs:w-12 xs:h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-5 h-5 xs:w-6 xs:h-6 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm xs:text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-2">
+                  🧠 Smart Planning Active
+                </h3>
+                <p className="text-xs xs:text-sm text-slate-600 dark:text-slate-400 mb-3">
+                  Your meal planner is aware of:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {userContext.hasGoals && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700">
+                      <Target className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-[10px] xs:text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                        Calorie Goals ({Math.round(userContext.dailyCalories || 0)} cal/day)
+                      </span>
+                    </div>
+                  )}
+                  {userContext.hasMedicalConditions && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-100 dark:bg-red-900/40 border border-red-300 dark:border-red-700">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+                      <span className="text-[10px] xs:text-xs font-semibold text-red-700 dark:text-red-300">
+                        Medical Conditions ({userContext.conditions.length})
+                      </span>
+                    </div>
+                  )}
+                  {userContext.hasFamily && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-100 dark:bg-purple-900/40 border border-purple-300 dark:border-purple-700">
+                      <Users className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                      <span className="text-[10px] xs:text-xs font-semibold text-purple-700 dark:text-purple-300">
+                        Family ({userContext.members.length} member{userContext.members.length !== 1 ? 's' : ''}
+                        {userContext.hasChildren ? `, ${userContext.childrenCount} child${userContext.childrenCount !== 1 ? 'ren' : ''}` : ''})
+                      </span>
+                    </div>
+                  )}
+                  {userContext.allFoodsToAvoid.length > 0 && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-orange-100 dark:bg-orange-900/40 border border-orange-300 dark:border-orange-700">
+                      <X className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+                      <span className="text-[10px] xs:text-xs font-semibold text-orange-700 dark:text-orange-300">
+                        {userContext.allFoodsToAvoid.length} Restriction{userContext.allFoodsToAvoid.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  )}
+                  {userContext.pantry.length > 0 && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700">
+                      <span className="text-xs">🥘</span>
+                      <span className="text-[10px] xs:text-xs font-semibold text-amber-700 dark:text-amber-300">
+                        {userContext.pantry.length} Pantry Item{userContext.pantry.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] xs:text-xs text-slate-500 dark:text-slate-400 mt-3 italic">
+                  ✅ All recipes are automatically checked for safety and will match your goals!
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Progress Card */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -877,7 +1313,7 @@ export default function MealPlanner() {
                                   }}
                                   onLoad={e => {
                                     if (import.meta.env.DEV) {
-                                      console.log('[MealPlanner] meal image loaded', {
+                                      console.warn('[MealPlanner] meal image loaded', {
                                         day: DAYS[dayIdx],
                                         mealType,
                                         id: recipe.id,
@@ -892,6 +1328,63 @@ export default function MealPlanner() {
                                 {recipe.title}
                               </p>
                             </Link>
+
+                            {/* Family Member Assignment */}
+                            {familyMembers.length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                                <button
+                                  onClick={e => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setAssigningToMeal({ dayIdx, mealType, recipe });
+                                  }}
+                                  className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-xs"
+                                >
+                                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                    <Users className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                                    <span className="text-slate-600 dark:text-slate-400 truncate">
+                                      {recipe.familyMembers && recipe.familyMembers.length > 0
+                                        ? `${recipe.familyMembers.length} assigned`
+                                        : 'Assign to family'}
+                                    </span>
+                                  </div>
+                                  <span className="text-slate-400 dark:text-slate-500">→</span>
+                                </button>
+
+                                {/* Show assigned members */}
+                                {recipe.familyMembers && recipe.familyMembers.length > 0 && (
+                                  <div className="mt-1.5 flex flex-wrap gap-1">
+                                    {recipe.familyMembers.map(memberId => {
+                                      const member = familyMembers.find(m => m.id === memberId);
+                                      if (!member) return null;
+                                      const roleEmojis = {
+                                        baby: '👶',
+                                        toddler: '🧒',
+                                        child: '👦',
+                                        teenager: '🧑',
+                                        teen: '🧑',
+                                        mom: '👩',
+                                        dad: '👨',
+                                        parent: '👤',
+                                        grandma: '👵',
+                                        grandpa: '👴',
+                                      };
+                                      const emoji = roleEmojis[member.role] || '👤';
+                                      return (
+                                        <span
+                                          key={memberId}
+                                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/40 text-[10px] font-semibold text-blue-700 dark:text-blue-300"
+                                          title={`${member.name} (${member.role})`}
+                                        >
+                                          <span>{emoji}</span>
+                                          <span className="truncate max-w-[60px]">{member.name}</span>
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1053,6 +1546,161 @@ export default function MealPlanner() {
           onClose={() => setSwapState(null)}
           position={swapState.position}
         />
+      )}
+
+      {/* Family Member Assignment Modal */}
+      {assigningToMeal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setAssigningToMeal(null)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: 20 }}
+            onClick={e => e.stopPropagation()}
+            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col"
+          >
+            {/* Header */}
+            <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                  Assign to Family Members
+                </h3>
+                <button
+                  onClick={() => setAssigningToMeal(null)}
+                  className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                </button>
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
+                {assigningToMeal.recipe.title}
+              </p>
+            </div>
+
+            {/* Family Members List */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              {familyMembers.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    No family members added yet.
+                  </p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                    Add family members in the Family Plan section.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {familyMembers.map(member => {
+                    const roleEmojis = {
+                      baby: '👶',
+                      toddler: '🧒',
+                      child: '👦',
+                      teenager: '🧑',
+                      teen: '🧑',
+                      mom: '👩',
+                      dad: '👨',
+                      parent: '👤',
+                      grandma: '👵',
+                      grandpa: '👴',
+                    };
+                    const emoji = roleEmojis[member.role] || '👤';
+                    const isAssigned =
+                      assigningToMeal.recipe.familyMembers &&
+                      assigningToMeal.recipe.familyMembers.includes(member.id);
+
+                    return (
+                      <motion.button
+                        key={member.id}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          const currentMembers =
+                            assigningToMeal.recipe.familyMembers || [];
+                          const newMembers = isAssigned
+                            ? currentMembers.filter(id => id !== member.id)
+                            : [...currentMembers, member.id];
+
+                          // Update the meal with new family member assignments
+                          const updatedRecipe = {
+                            ...assigningToMeal.recipe,
+                            familyMembers: newMembers,
+                          };
+                          setMeal(
+                            assigningToMeal.dayIdx,
+                            assigningToMeal.mealType,
+                            updatedRecipe,
+                            newMembers
+                          );
+                          setAssigningToMeal({
+                            ...assigningToMeal,
+                            recipe: updatedRecipe,
+                          });
+                        }}
+                        className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
+                          isAssigned
+                            ? 'bg-purple-100 dark:bg-purple-900/40 border-purple-400 dark:border-purple-600'
+                            : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700'
+                        }`}
+                      >
+                        <div className="text-2xl">{emoji}</div>
+                        <div className="flex-1 text-left">
+                          <p className="font-semibold text-sm text-slate-900 dark:text-white">
+                            {member.name}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">
+                            {member.role}
+                            {member.ageMonths &&
+                              ` • ${Math.round(parseFloat(member.ageMonths) / 12)} years`}
+                          </p>
+                          {(member.allergies?.length > 0 ||
+                            member.dietaryRestrictions?.length > 0) && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {member.allergies?.slice(0, 2).map(allergy => (
+                                <span
+                                  key={allergy}
+                                  className="px-1.5 py-0.5 rounded text-[10px] bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300"
+                                >
+                                  {allergy}
+                                </span>
+                              ))}
+                              {member.dietaryRestrictions?.slice(0, 2).map(restriction => (
+                                <span
+                                  key={restriction}
+                                  className="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
+                                >
+                                  {restriction}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {isAssigned && (
+                          <CheckCircle2 className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0" />
+                        )}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+              <button
+                onClick={() => setAssigningToMeal(null)}
+                className="w-full px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Brain, Sparkles, Send, Loader } from 'lucide-react';
 import { useToast } from './Toast.jsx';
@@ -10,14 +10,19 @@ export default function DieticianAI() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const toast = useToast();
+  const hasShownWarning = useRef(false);
 
-  // Show experimental warning on mount
+  // Show experimental warning on mount (only once)
   useEffect(() => {
-    toast.warning(
-      '⚠️ AI Dietician is currently experimental. Responses may not always be accurate. Please consult a healthcare professional for medical advice.',
-      { duration: 8000 }
-    );
-  }, [toast]);
+    if (!hasShownWarning.current) {
+      hasShownWarning.current = true;
+      toast.warning(
+        '⚠️ AI Dietician is currently experimental. Responses may not always be accurate. Please consult a healthcare professional for medical advice.',
+        { duration: 8000 }
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   const saveHistory = useCallback(() => {
     try {
@@ -29,7 +34,9 @@ export default function DieticianAI() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
     } catch (error) {
       // Handle localStorage errors gracefully (e.g., "operation is insecure")
-      console.warn('[DieticianAI] Could not save history:', error);
+      if (import.meta.env.DEV) {
+        console.warn('[DieticianAI] Could not save history:', error);
+      }
       // Ignore errors - history just won't persist
     }
   }, [messages]);
@@ -65,7 +72,9 @@ export default function DieticianAI() {
       }
     } catch (error) {
       // Handle localStorage errors gracefully (e.g., "operation is insecure")
-      console.warn('[DieticianAI] Could not load history:', error);
+      if (import.meta.env.DEV) {
+        console.warn('[DieticianAI] Could not load history:', error);
+      }
       setMessages([
         {
           role: 'assistant',

@@ -1,100 +1,199 @@
 ﻿// src/components/PantryChips.jsx
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Search,
+  X,
+  Plus,
+  ChefHat,
+  ShoppingCart,
+  Calendar,
+  Sparkles,
+  TrendingUp,
+  CheckCircle2,
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useGroceryList } from '../context/GroceryListContext.jsx';
+import { useToast } from './Toast.jsx';
 
-const SUGGESTIONS = [
-  'chicken',
-  'rice',
-  'eggs',
-  'tomato',
-  'pasta',
-  'broccoli',
-  'bacon',
-  'tofu',
-  'onion',
-  'cheese',
-  'garlic',
-  'potato',
-  'carrot',
-  'bell pepper',
-  'mushroom',
-  'spinach',
-  'lettuce',
-  'avocado',
-  'cucumber',
-  'zucchini',
-  'corn',
-  'peas',
-  'beans',
-  'lentils',
-  'quinoa',
-  'bread',
-  'flour',
-  'sugar',
-  'butter',
-  'milk',
-  'yogurt',
-  'cream',
-  'lemon',
-  'lime',
-  'apple',
-  'banana',
-  'strawberry',
-];
-
-const CATEGORIES = {
-  Protein: ['chicken', 'eggs', 'bacon', 'tofu', 'beans', 'lentils'],
-  Vegetables: [
-    'tomato',
-    'broccoli',
-    'onion',
-    'garlic',
-    'potato',
-    'carrot',
-    'bell pepper',
-    'mushroom',
-    'spinach',
-    'lettuce',
-    'avocado',
-    'cucumber',
-    'zucchini',
-    'corn',
-    'peas',
-  ],
-  Grains: ['rice', 'pasta', 'quinoa', 'bread', 'flour'],
-  Dairy: ['cheese', 'milk', 'yogurt', 'cream', 'butter'],
-  Fruits: ['lemon', 'lime', 'apple', 'banana', 'strawberry'],
-  Other: ['sugar'],
+// Expanded ingredient list with emojis/icons
+const INGREDIENT_DATA = {
+  // Protein
+  chicken: { category: 'Protein', emoji: '🍗', color: 'from-red-500 to-orange-500' },
+  beef: { category: 'Protein', emoji: '🥩', color: 'from-red-600 to-red-700' },
+  pork: { category: 'Protein', emoji: '🥓', color: 'from-pink-500 to-rose-500' },
+  fish: { category: 'Protein', emoji: '🐟', color: 'from-blue-500 to-cyan-500' },
+  salmon: { category: 'Protein', emoji: '🐟', color: 'from-orange-400 to-pink-400' },
+  shrimp: { category: 'Protein', emoji: '🦐', color: 'from-pink-400 to-rose-400' },
+  eggs: { category: 'Protein', emoji: '🥚', color: 'from-yellow-100 to-yellow-200' },
+  bacon: { category: 'Protein', emoji: '🥓', color: 'from-red-500 to-pink-500' },
+  tofu: { category: 'Protein', emoji: '🧈', color: 'from-slate-300 to-slate-400' },
+  beans: { category: 'Protein', emoji: '🫘', color: 'from-amber-600 to-orange-600' },
+  lentils: { category: 'Protein', emoji: '🫘', color: 'from-orange-500 to-red-500' },
+  chickpeas: { category: 'Protein', emoji: '🫘', color: 'from-yellow-500 to-amber-500' },
+  turkey: { category: 'Protein', emoji: '🦃', color: 'from-amber-600 to-orange-600' },
+  lamb: { category: 'Protein', emoji: '🐑', color: 'from-slate-400 to-slate-500' },
+  // Vegetables
+  tomato: { category: 'Vegetables', emoji: '🍅', color: 'from-red-400 to-red-500' },
+  onion: { category: 'Vegetables', emoji: '🧅', color: 'from-purple-300 to-purple-400' },
+  garlic: { category: 'Vegetables', emoji: '🧄', color: 'from-white to-slate-100' },
+  potato: { category: 'Vegetables', emoji: '🥔', color: 'from-amber-200 to-yellow-200' },
+  carrot: { category: 'Vegetables', emoji: '🥕', color: 'from-orange-400 to-orange-500' },
+  broccoli: { category: 'Vegetables', emoji: '🥦', color: 'from-green-500 to-emerald-500' },
+  'bell pepper': { category: 'Vegetables', emoji: '🫑', color: 'from-green-400 to-emerald-400' },
+  mushroom: { category: 'Vegetables', emoji: '🍄', color: 'from-amber-300 to-orange-300' },
+  spinach: { category: 'Vegetables', emoji: ' spinach', color: 'from-green-600 to-emerald-600' },
+  lettuce: { category: 'Vegetables', emoji: '🥬', color: 'from-green-400 to-lime-400' },
+  avocado: { category: 'Vegetables', emoji: '🥑', color: 'from-green-500 to-emerald-500' },
+  cucumber: { category: 'Vegetables', emoji: '🥒', color: 'from-green-400 to-emerald-400' },
+  zucchini: { category: 'Vegetables', emoji: '🥒', color: 'from-green-500 to-lime-500' },
+  corn: { category: 'Vegetables', emoji: '🌽', color: 'from-yellow-400 to-amber-400' },
+  peas: { category: 'Vegetables', emoji: '🫛', color: 'from-green-500 to-emerald-500' },
+  celery: { category: 'Vegetables', emoji: '🥬', color: 'from-green-400 to-lime-400' },
+  cabbage: { category: 'Vegetables', emoji: '🥬', color: 'from-green-300 to-emerald-300' },
+  cauliflower: { category: 'Vegetables', emoji: '🥦', color: 'from-white to-slate-50' },
+  eggplant: { category: 'Vegetables', emoji: '🍆', color: 'from-purple-500 to-indigo-500' },
+  sweet_potato: { category: 'Vegetables', emoji: '🍠', color: 'from-orange-500 to-red-500' },
+  // Grains
+  rice: { category: 'Grains', emoji: '🍚', color: 'from-white to-slate-100' },
+  pasta: { category: 'Grains', emoji: '🍝', color: 'from-amber-200 to-yellow-200' },
+  quinoa: { category: 'Grains', emoji: '🌾', color: 'from-amber-400 to-yellow-400' },
+  bread: { category: 'Grains', emoji: '🍞', color: 'from-amber-300 to-orange-300' },
+  flour: { category: 'Grains', emoji: '🌾', color: 'from-slate-100 to-slate-200' },
+  oats: { category: 'Grains', emoji: '🌾', color: 'from-amber-200 to-yellow-200' },
+  barley: { category: 'Grains', emoji: '🌾', color: 'from-amber-300 to-yellow-300' },
+  couscous: { category: 'Grains', emoji: '🌾', color: 'from-yellow-200 to-amber-200' },
+  // Dairy
+  cheese: { category: 'Dairy', emoji: '🧀', color: 'from-yellow-300 to-amber-300' },
+  milk: { category: 'Dairy', emoji: '🥛', color: 'from-white to-slate-50' },
+  yogurt: { category: 'Dairy', emoji: '🥛', color: 'from-white to-blue-50' },
+  cream: { category: 'Dairy', emoji: '🥛', color: 'from-white to-yellow-50' },
+  butter: { category: 'Dairy', emoji: '🧈', color: 'from-yellow-300 to-yellow-400' },
+  sour_cream: { category: 'Dairy', emoji: '🥛', color: 'from-white to-slate-100' },
+  // Fruits
+  lemon: { category: 'Fruits', emoji: '🍋', color: 'from-yellow-300 to-yellow-400' },
+  lime: { category: 'Fruits', emoji: '🍋', color: 'from-green-300 to-lime-300' },
+  apple: { category: 'Fruits', emoji: '🍎', color: 'from-red-400 to-red-500' },
+  banana: { category: 'Fruits', emoji: '🍌', color: 'from-yellow-400 to-yellow-500' },
+  strawberry: { category: 'Fruits', emoji: '🍓', color: 'from-red-400 to-pink-400' },
+  orange: { category: 'Fruits', emoji: '🍊', color: 'from-orange-400 to-orange-500' },
+  grapes: { category: 'Fruits', emoji: '🍇', color: 'from-purple-400 to-indigo-400' },
+  berries: { category: 'Fruits', emoji: '🫐', color: 'from-blue-500 to-indigo-500' },
+  pineapple: { category: 'Fruits', emoji: '🍍', color: 'from-yellow-400 to-amber-400' },
+  mango: { category: 'Fruits', emoji: '🥭', color: 'from-orange-400 to-yellow-400' },
+  // Herbs & Spices
+  basil: { category: 'Herbs & Spices', emoji: '🌿', color: 'from-green-500 to-emerald-500' },
+  parsley: { category: 'Herbs & Spices', emoji: '🌿', color: 'from-green-400 to-lime-400' },
+  cilantro: { category: 'Herbs & Spices', emoji: '🌿', color: 'from-green-500 to-emerald-500' },
+  rosemary: { category: 'Herbs & Spices', emoji: '🌿', color: 'from-green-600 to-emerald-600' },
+  thyme: { category: 'Herbs & Spices', emoji: '🌿', color: 'from-green-500 to-lime-500' },
+  oregano: { category: 'Herbs & Spices', emoji: '🌿', color: 'from-green-600 to-emerald-600' },
+  // Other
+  sugar: { category: 'Other', emoji: '🍬', color: 'from-white to-slate-100' },
+  salt: { category: 'Other', emoji: '🧂', color: 'from-white to-slate-100' },
+  pepper: { category: 'Other', emoji: '🌶️', color: 'from-red-500 to-orange-500' },
+  olive_oil: { category: 'Other', emoji: '🫒', color: 'from-green-400 to-emerald-400' },
+  vinegar: { category: 'Other', emoji: '🍶', color: 'from-amber-200 to-yellow-200' },
+  soy_sauce: { category: 'Other', emoji: '🍶', color: 'from-amber-700 to-orange-700' },
+  honey: { category: 'Other', emoji: '🍯', color: 'from-yellow-400 to-amber-400' },
 };
 
-export default function PantryChips({ pantry, setPantry, onSearch }) {
+const SUGGESTIONS = Object.keys(INGREDIENT_DATA);
+const CATEGORIES = {
+  All: SUGGESTIONS,
+  Protein: SUGGESTIONS.filter(i => INGREDIENT_DATA[i].category === 'Protein'),
+  Vegetables: SUGGESTIONS.filter(i => INGREDIENT_DATA[i].category === 'Vegetables'),
+  Grains: SUGGESTIONS.filter(i => INGREDIENT_DATA[i].category === 'Grains'),
+  Dairy: SUGGESTIONS.filter(i => INGREDIENT_DATA[i].category === 'Dairy'),
+  Fruits: SUGGESTIONS.filter(i => INGREDIENT_DATA[i].category === 'Fruits'),
+  'Herbs & Spices': SUGGESTIONS.filter(i => INGREDIENT_DATA[i].category === 'Herbs & Spices'),
+  Other: SUGGESTIONS.filter(i => INGREDIENT_DATA[i].category === 'Other'),
+};
+
+export default function PantryChips({ pantry, setPantry, onSearch, showQuickActions = true }) {
   const [custom, setCustom] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
   const inputRef = useRef(null);
+  const navigate = useNavigate();
+  const { addItems } = useGroceryList();
+  const toast = useToast();
 
-  const toggle = item =>
+  const toggle = item => {
     setPantry(cur => (cur.includes(item) ? cur.filter(i => i !== item) : [...cur, item]));
+  };
 
   const addCustom = () => {
-    const val = custom.trim().toLowerCase();
+    const val = custom.trim().toLowerCase().replace(/\s+/g, '_');
     if (!val) return;
-    setPantry(cur => (cur.includes(val) ? cur : [...cur, val]));
+    if (!pantry.includes(val)) {
+      setPantry(cur => [...cur, val]);
+      toast.success(`Added ${custom.trim()} to pantry!`);
+    } else {
+      toast.info(`${custom.trim()} is already in your pantry`);
+    }
     setCustom('');
     inputRef.current?.focus();
   };
 
   const clearAll = () => {
-    if (pantry.length > 0) {
+    if (pantry.length > 0 && window.confirm('Clear all ingredients from pantry?')) {
       setPantry([]);
+      toast.success('Pantry cleared!');
     }
   };
 
-  const getFilteredSuggestions = () => {
-    if (activeCategory === 'All') return SUGGESTIONS;
-    return CATEGORIES[activeCategory] || [];
+  const handleFindRecipes = () => {
+    if (pantry.length === 0) {
+      toast.warning('Please select at least one ingredient first!');
+      return;
+    }
+    if (onSearch) {
+      onSearch(pantry.join(', '));
+    }
   };
 
-  const categories = ['All', ...Object.keys(CATEGORIES)];
+  const handleAddToGroceryList = () => {
+    if (pantry.length === 0) {
+      toast.warning('No ingredients selected!');
+      return;
+    }
+    const items = pantry.map(ing => ({
+      name: ing.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      quantity: '',
+      unit: '',
+      category: 'Pantry',
+    }));
+    addItems(items);
+    toast.success(`Added ${pantry.length} ingredient${pantry.length !== 1 ? 's' : ''} to grocery list!`);
+  };
+
+  const handleUseInMealPlanner = () => {
+    if (pantry.length === 0) {
+      toast.warning('No ingredients selected!');
+      return;
+    }
+    navigate('/meal-planner');
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent('usePantryIngredients', {
+          detail: { ingredients: pantry },
+        })
+      );
+    }, 300);
+    toast.success('Opening meal planner with your pantry ingredients!');
+  };
+
+  const getFilteredSuggestions = useMemo(() => {
+    let filtered = CATEGORIES[activeCategory] || SUGGESTIONS;
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(ing => ing.toLowerCase().includes(query));
+    }
+    return filtered;
+  }, [activeCategory, searchQuery]);
+
+  const categories = Object.keys(CATEGORIES);
 
   return (
     <motion.div
@@ -103,183 +202,278 @@ export default function PantryChips({ pantry, setPantry, onSearch }) {
       transition={{ delay: 0.15 }}
       className="mt-4 sm:mt-6"
     >
-      <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-2xl p-4 sm:p-6 border-2 border-amber-200 dark:border-amber-800 shadow-lg">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-md">
-              <span className="text-xl">🥘</span>
-            </div>
-            <div>
-              <h3 className="font-bold text-lg sm:text-xl text-slate-900 dark:text-white">
-                What's in your pantry?
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                Select ingredients you have on hand
-              </p>
-            </div>
-          </div>
-          <AnimatePresence>
-            {pantry.length > 0 && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-                onClick={clearAll}
-                className="px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-semibold hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors shadow-sm"
-                title="Clear all ingredients"
-              >
-                ✕ Clear All
-              </motion.button>
-            )}
-          </AnimatePresence>
+      {/* Main Pantry Card */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-3xl p-5 sm:p-8 border-2 border-amber-200 dark:border-amber-800 shadow-2xl">
+        {/* Animated Background Pattern */}
+        <div className="absolute inset-0 opacity-5 dark:opacity-10">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-amber-400 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-orange-400 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
         </div>
 
-        {/* Category Filter */}
-        <div className="mb-4">
-          <div className="flex flex-wrap gap-2">
-            {categories.map(cat => (
-              <motion.button
-                key={cat}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm ${
-                  activeCategory === cat
-                    ? 'bg-amber-600 text-white shadow-md'
-                    : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-2 border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600'
-                }`}
+        <div className="relative z-10">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+            <div className="flex items-center gap-4">
+              <motion.div
+                animate={{ rotate: [0, 10, -10, 0] }}
+                transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
+                className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 flex items-center justify-center shadow-lg border-2 border-white/20"
               >
-                {cat}
-              </motion.button>
-            ))}
-          </div>
-        </div>
-
-        {/* Selected Count */}
-        {pantry.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4 px-4 py-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800"
-          >
-            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-              ✓ {pantry.length} ingredient{pantry.length !== 1 ? 's' : ''} selected
-            </p>
-          </motion.div>
-        )}
-
-        {/* Ingredient Chips */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          <AnimatePresence mode="popLayout">
-            {getFilteredSuggestions().map((s, idx) => {
-              const active = pantry.includes(s);
-              return (
+                <ChefHat className="w-7 h-7 text-white" />
+              </motion.div>
+              <div>
+                <h3 className="font-bold text-xl sm:text-2xl text-slate-900 dark:text-white mb-1">
+                  Look inside your pantry Or Fridge and find recipes?
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Select ingredients, choose and cook! 
+                </p>
+              </div>
+            </div>
+            <AnimatePresence>
+              {pantry.length > 0 && (
                 <motion.button
-                  key={s}
-                  layout
                   initial={{ opacity: 0, scale: 0 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0 }}
-                  transition={{ delay: idx * 0.01 }}
-                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   type="button"
-                  onClick={() => toggle(s)}
-                  aria-pressed={active}
-                  className={`px-4 py-2 rounded-full border-2 font-medium transition-all text-sm shadow-sm ${
-                    active
-                      ? 'bg-emerald-500 border-emerald-600 text-white dark:bg-emerald-600 dark:border-emerald-500 shadow-md'
-                      : 'bg-white/90 dark:bg-slate-800/90 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-emerald-400 dark:hover:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
-                  }`}
+                  onClick={clearAll}
+                  className="px-4 py-2 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm font-semibold hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors shadow-md flex items-center gap-2"
+                  title="Clear all ingredients"
                 >
-                  {active && <span className="mr-1.5">✓</span>}
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
-                </motion.button>
-              );
-            })}
-          </AnimatePresence>
-        </div>
-
-        {/* Add Custom Ingredient */}
-        <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-3 sm:p-4 rounded-xl border-2 border-dashed border-amber-300 dark:border-amber-700 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-400 to-orange-400 flex items-center justify-center shadow-sm flex-shrink-0 hidden sm:flex">
-            <span className="text-lg">➕</span>
-          </div>
-          <input
-            ref={inputRef}
-            type="text"
-            value={custom}
-            onChange={e => setCustom(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && addCustom()}
-            placeholder="Type ingredient and press Enter..."
-            className="flex-1 px-3 sm:px-4 py-2.5 bg-white dark:bg-slate-900 rounded-lg border-2 border-slate-200 dark:border-slate-700 focus:border-amber-500 dark:focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition-all text-sm sm:text-base placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm min-h-[44px] sm:min-h-0"
-            aria-label="Add a custom ingredient"
-          />
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            type="button"
-            onClick={addCustom}
-            disabled={!custom.trim()}
-            className="px-4 sm:px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-semibold shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 min-h-[44px] sm:min-h-0 touch-manipulation"
-          >
-            Add
-          </motion.button>
-        </div>
-
-        {/* Selected Ingredients Preview */}
-        {pantry.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mt-4 p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 backdrop-blur-sm border-2 border-emerald-200 dark:border-emerald-800 shadow-md"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-bold text-emerald-800 dark:text-emerald-200">
-                ✓ {pantry.length} ingredient{pantry.length !== 1 ? 's' : ''} selected
-              </p>
-              {onSearch && (
-                <motion.button
-                  whileHover={{ scale: 1.05, boxShadow: '0 10px 20px rgba(5, 150, 105, 0.3)' }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => onSearch(pantry.join(', '))}
-                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2 min-h-[44px] sm:min-h-0 touch-manipulation"
-                  title="Find recipes with these ingredients"
-                >
-                  <span className="text-lg">🔍</span>
-                  <span className="hidden sm:inline">Find Recipes</span>
-                  <span className="sm:hidden">Find</span>
+                  <X className="w-4 h-4" />
+                  Clear All
                 </motion.button>
               )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {pantry.map(item => (
-                <motion.span
-                  key={item}
-                  layout
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0 }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 text-emerald-800 dark:text-emerald-200 rounded-full text-xs font-semibold border-2 border-emerald-300 dark:border-emerald-700 shadow-sm"
+            </AnimatePresence>
+          </div>
+
+          {/* Search Bar */}
+          <div className="mb-6">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search ingredients..."
+                className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-800 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-amber-500 dark:focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition-all text-sm sm:text-base placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                 >
-                  {item.charAt(0).toUpperCase() + item.slice(1)}
-                  <button
-                    onClick={() => toggle(item)}
-                    className="hover:text-red-600 dark:hover:text-red-400 transition-colors font-bold"
-                    title="Remove"
-                  >
-                    ×
-                  </button>
-                </motion.span>
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Category Filter */}
+          <div className="mb-6">
+            <div className="flex flex-wrap gap-2">
+              {categories.map(cat => (
+                <motion.button
+                  key={cat}
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-md ${
+                    activeCategory === cat
+                      ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg scale-105'
+                      : 'bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border-2 border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                  }`}
+                >
+                  {cat}
+                </motion.button>
               ))}
             </div>
-          </motion.div>
-        )}
+          </div>
+
+          {/* Selected Count & Stats */}
+          {pantry.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-100 to-teal-100 dark:from-emerald-900/40 dark:to-teal-900/40 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg"
+            >
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  <p className="text-sm font-bold text-emerald-800 dark:text-emerald-200">
+                    {pantry.length} ingredient{pantry.length !== 1 ? 's' : ''} selected
+                  </p>
+                </div>
+                {showQuickActions && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleFindRecipes}
+                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                    >
+                      <Search className="w-4 h-4" />
+                      Find Recipes
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleUseInMealPlanner}
+                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      Meal Planner
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleAddToGroceryList}
+                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                    >
+                      <ShoppingCart className="w-4 h-4" />
+                      Grocery List
+                    </motion.button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Ingredient Chips */}
+          <div className="flex flex-wrap gap-3 mb-6 max-h-[400px] overflow-y-auto pr-2">
+            <AnimatePresence mode="popLayout">
+              {getFilteredSuggestions.map((ing, idx) => {
+                const active = pantry.includes(ing);
+                const data = INGREDIENT_DATA[ing] || { emoji: '🥘', color: 'from-slate-400 to-slate-500' };
+                return (
+                  <motion.button
+                    key={ing}
+                    layout
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0 }}
+                    transition={{ delay: idx * 0.01 }}
+                    whileHover={{ scale: 1.08, y: -3 }}
+                    whileTap={{ scale: 0.95 }}
+                    type="button"
+                    onClick={() => toggle(ing)}
+                    aria-pressed={active}
+                    className={`group relative px-4 py-2.5 rounded-2xl border-2 font-medium transition-all text-sm shadow-lg flex items-center gap-2 min-w-[120px] ${
+                      active
+                        ? `bg-gradient-to-r ${data.color} border-transparent text-white shadow-xl`
+                        : 'bg-white/90 dark:bg-slate-800/90 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                    }`}
+                  >
+                    <span className="text-lg">{data.emoji}</span>
+                    <span className="flex-1 text-left">
+                      {ing.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </span>
+                    {active && (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="w-5 h-5 rounded-full bg-white/30 flex items-center justify-center"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                      </motion.div>
+                    )}
+                  </motion.button>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+
+          {/* Add Custom Ingredient */}
+          <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 rounded-2xl border-2 border-dashed border-amber-300 dark:border-amber-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-lg">
+            <motion.div
+              whileHover={{ rotate: 90 }}
+              className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-orange-400 flex items-center justify-center shadow-md flex-shrink-0 hidden sm:flex"
+            >
+              <Plus className="w-6 h-6 text-white" />
+            </motion.div>
+            <input
+              ref={inputRef}
+              type="text"
+              value={custom}
+              onChange={e => setCustom(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addCustom()}
+              placeholder="Type ingredient name and press Enter..."
+              className="flex-1 px-4 py-3 bg-white dark:bg-slate-900 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-amber-500 dark:focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition-all text-sm sm:text-base placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm min-h-[48px] sm:min-h-0"
+              aria-label="Add a custom ingredient"
+            />
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              type="button"
+              onClick={addCustom}
+              disabled={!custom.trim()}
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-semibold shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 min-h-[48px] sm:min-h-0 flex items-center justify-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              <span className="hidden sm:inline">Add</span>
+            </motion.button>
+          </div>
+
+          {/* Selected Ingredients Preview */}
+          {pantry.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-6 p-5 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-emerald-900/40 dark:via-teal-900/40 dark:to-cyan-900/40 backdrop-blur-sm border-2 border-emerald-200 dark:border-emerald-800 shadow-xl"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  <p className="text-sm font-bold text-emerald-800 dark:text-emerald-200">
+                    Your Pantry ({pantry.length})
+                  </p>
+                </div>
+                {onSearch && (
+                  <motion.button
+                    whileHover={{ scale: 1.05, boxShadow: '0 10px 25px rgba(5, 150, 105, 0.4)' }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleFindRecipes}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm shadow-xl hover:shadow-2xl transition-all flex items-center gap-2"
+                    title="Find recipes with these ingredients"
+                  >
+                    <Search className="w-4 h-4" />
+                    <span className="hidden sm:inline">Find Recipes</span>
+                    <span className="sm:hidden">Find</span>
+                  </motion.button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {pantry.map(item => {
+                  const data = INGREDIENT_DATA[item] || { emoji: '🥘', color: 'from-slate-400 to-slate-500' };
+                  return (
+                    <motion.span
+                      key={item}
+                      layout
+                      initial={{ opacity: 0, scale: 0 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0 }}
+                      className="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 text-emerald-800 dark:text-emerald-200 rounded-xl text-xs font-semibold border-2 border-emerald-300 dark:border-emerald-700 shadow-md"
+                    >
+                      <span>{data.emoji}</span>
+                      <span>{item.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                      <button
+                        onClick={() => toggle(item)}
+                        className="hover:text-red-600 dark:hover:text-red-400 transition-colors font-bold ml-1"
+                        title="Remove"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </motion.span>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </div>
       </div>
     </motion.div>
   );

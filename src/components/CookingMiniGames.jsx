@@ -310,22 +310,22 @@ function MemoryMatchGame({ onScoreUpdate }) {
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          className="text-center p-4 sm:p-6 md:p-8 bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-xl"
+          className="text-center p-3 xs:p-4 sm:p-6 md:p-8 bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-lg xs:rounded-xl"
         >
-          <Trophy className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 text-yellow-500" />
-          <h4 className="text-lg sm:text-xl font-bold mb-2">Perfect Match! 🎊</h4>
-          <p className="mb-3 sm:mb-4 text-sm sm:text-base">
+          <Trophy className="w-10 h-10 xs:w-12 xs:h-12 sm:w-16 sm:h-16 mx-auto mb-2 xs:mb-3 sm:mb-4 text-yellow-500" />
+          <h4 className="text-base xs:text-lg sm:text-xl font-bold mb-1 xs:mb-2">Perfect Match! 🎊</h4>
+          <p className="mb-2 xs:mb-3 sm:mb-4 text-xs xs:text-sm sm:text-base">
             Score: {score} | Moves: {moves}
           </p>
           <button
             onClick={startNewGame}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 text-sm sm:text-base touch-manipulation"
+            className="px-3 xs:px-4 py-1.5 xs:py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 text-xs xs:text-sm sm:text-base touch-manipulation min-h-[36px] xs:min-h-[40px]"
           >
             Play Again
           </button>
         </motion.div>
       ) : (
-        <div className="grid grid-cols-4 gap-2 sm:gap-3">
+        <div className="grid grid-cols-4 gap-1.5 xs:gap-2 sm:gap-3">
           {cards.map(card => {
             const isFlipped = flipped.includes(card.id) || matched.includes(card.id);
             return (
@@ -335,7 +335,7 @@ function MemoryMatchGame({ onScoreUpdate }) {
                 whileTap={{ scale: 0.95 }}
                 onClick={() => handleCardClick(card.id)}
                 disabled={isFlipped || isChecking || flipped.length === 2}
-                className={`aspect-square rounded-lg sm:rounded-xl font-semibold text-xl sm:text-2xl md:text-3xl transition-all flex items-center justify-center touch-manipulation ${
+                className={`aspect-square rounded-md xs:rounded-lg sm:rounded-xl font-semibold text-lg xs:text-xl sm:text-2xl md:text-3xl transition-all flex items-center justify-center touch-manipulation min-h-[44px] ${
                   isFlipped
                     ? 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-lg scale-105'
                     : 'bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-600 hover:from-slate-300 hover:to-slate-400 dark:hover:from-slate-600 dark:hover:to-slate-500 shadow-md active:scale-95'
@@ -451,22 +451,22 @@ function TimerChallengeGame({ onScoreUpdate }) {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-4"
         >
-          <div className="p-4 sm:p-5 md:p-6 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl text-center border-2 border-blue-200 dark:border-blue-800">
-            <Clock className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 text-blue-500" />
-            <h4 className="text-lg sm:text-xl font-bold mb-2 break-words">{currentItem.item}</h4>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-3 sm:mb-4">
+          <div className="p-3 xs:p-4 sm:p-5 md:p-6 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg xs:rounded-xl text-center border-2 border-blue-200 dark:border-blue-800">
+            <Clock className="w-8 h-8 xs:w-10 xs:h-10 sm:w-12 sm:h-12 mx-auto mb-2 xs:mb-3 sm:mb-4 text-blue-500" />
+            <h4 className="text-sm xs:text-base sm:text-lg md:text-xl font-bold mb-1 xs:mb-2 break-words px-1">{currentItem.item}</h4>
+            <p className="text-[10px] xs:text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-2 xs:mb-3 sm:mb-4">
               How long does it take to cook this?
             </p>
 
             {!feedback ? (
-              <div className="space-y-2 sm:space-y-3">
-                <div className="flex items-center gap-2">
+              <div className="space-y-2 xs:space-y-2.5 sm:space-y-3">
+                <div className="flex items-center gap-1.5 xs:gap-2">
                   <input
                     type="number"
                     value={userGuess}
                     onChange={e => setUserGuess(e.target.value)}
                     placeholder="Enter minutes"
-                    className="flex-1 px-3 sm:px-4 py-2 sm:py-3 rounded-lg border-2 border-blue-300 dark:border-blue-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-center text-base sm:text-lg font-bold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 touch-manipulation placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    className="flex-1 px-2 xs:px-3 sm:px-4 py-2 xs:py-2.5 sm:py-3 rounded-lg border-2 border-blue-300 dark:border-blue-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-center text-sm xs:text-base sm:text-lg font-bold focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 touch-manipulation placeholder:text-slate-400 dark:placeholder:text-slate-500 min-h-[44px]"
                     onKeyDown={e => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -478,18 +478,18 @@ function TimerChallengeGame({ onScoreUpdate }) {
                 </div>
                 <button
                   onClick={checkAnswer}
-                  className="w-full px-4 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md text-sm sm:text-base touch-manipulation"
+                  className="w-full px-3 xs:px-4 py-2 xs:py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md text-xs xs:text-sm sm:text-base touch-manipulation min-h-[44px]"
                 >
                   Check Answer
                 </button>
               </div>
             ) : (
-              <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="space-y-2">
-                <div className="text-lg sm:text-xl md:text-2xl font-bold">{feedback.message}</div>
-                <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+              <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="space-y-1.5 xs:space-y-2">
+                <div className="text-sm xs:text-base sm:text-lg md:text-xl font-bold break-words">{feedback.message}</div>
+                <div className="text-[10px] xs:text-xs sm:text-sm text-slate-600 dark:text-slate-400">
                   Your guess: {feedback.userGuess} min | Correct: {feedback.correct} min
                 </div>
-                <div className="text-base sm:text-lg font-semibold text-emerald-600">
+                <div className="text-sm xs:text-base sm:text-lg font-semibold text-emerald-600">
                   +{feedback.points} points
                 </div>
               </motion.div>
@@ -618,11 +618,11 @@ function RecipeTriviaGame({ onScoreUpdate }) {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-4"
         >
-          <div className="p-4 sm:p-5 md:p-6 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-xl border-2 border-indigo-200 dark:border-indigo-800">
-            <h4 className="text-base sm:text-lg md:text-xl font-bold mb-3 sm:mb-4 text-center text-slate-900 dark:text-white break-words">
+          <div className="p-3 xs:p-4 sm:p-5 md:p-6 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-lg xs:rounded-xl border-2 border-indigo-200 dark:border-indigo-800">
+            <h4 className="text-sm xs:text-base sm:text-lg md:text-xl font-bold mb-2 xs:mb-3 sm:mb-4 text-center text-slate-900 dark:text-white break-words px-1">
               {currentQuestion.question}
             </h4>
-            <div className="space-y-2">
+            <div className="space-y-1.5 xs:space-y-2">
               {currentQuestion.options.map((option, idx) => {
                 const isSelected = selectedAnswer === idx;
                 const isCorrect = idx === currentQuestion.correct;
@@ -640,7 +640,7 @@ function RecipeTriviaGame({ onScoreUpdate }) {
                     whileTap={{ scale: 0.98 }}
                     onClick={() => handleAnswer(idx)}
                     disabled={showResult}
-                    className={`w-full p-3 sm:p-4 rounded-lg font-semibold text-left transition-all text-sm sm:text-base touch-manipulation ${bgColor} ${
+                    className={`w-full p-2.5 xs:p-3 sm:p-4 rounded-lg font-semibold text-left transition-all text-xs xs:text-sm sm:text-base touch-manipulation min-h-[44px] ${bgColor} ${
                       !showResult
                         ? 'hover:bg-blue-100 dark:hover:bg-slate-700 shadow-md active:scale-95'
                         : ''
@@ -737,14 +737,14 @@ function ColorMatchGame({ onScoreUpdate }) {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-3 sm:space-y-4"
         >
-          <div className="p-4 sm:p-5 md:p-6 bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 rounded-xl border-2 border-pink-200 dark:border-pink-800 text-center">
-            <div className="text-5xl sm:text-6xl md:text-8xl mb-3 sm:mb-4">
+          <div className="p-3 xs:p-4 sm:p-5 md:p-6 bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 rounded-lg xs:rounded-xl border-2 border-pink-200 dark:border-pink-800 text-center">
+            <div className="text-4xl xs:text-5xl sm:text-6xl md:text-8xl mb-2 xs:mb-3 sm:mb-4">
               {currentColor.color}
             </div>
-            <h4 className="text-base sm:text-lg md:text-xl font-bold mb-3 sm:mb-4">
+            <h4 className="text-sm xs:text-base sm:text-lg md:text-xl font-bold mb-2 xs:mb-3 sm:mb-4 px-1">
               Which ingredient matches this color?
             </h4>
-            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <div className="grid grid-cols-2 gap-1.5 xs:gap-2 sm:gap-3">
               {options.map((option, idx) => {
                 const isSelected = showResult && option.color === currentColor.color;
                 return (
@@ -754,16 +754,16 @@ function ColorMatchGame({ onScoreUpdate }) {
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleSelect(option)}
                     disabled={showResult}
-                    className={`p-3 sm:p-4 rounded-lg font-semibold transition-all touch-manipulation ${
+                    className={`p-2 xs:p-3 sm:p-4 rounded-lg font-semibold transition-all touch-manipulation min-h-[80px] xs:min-h-[100px] ${
                       isSelected
                         ? 'bg-emerald-500 text-white shadow-lg'
                         : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-pink-100 dark:hover:bg-slate-700 shadow-md active:scale-95'
                     }`}
                   >
-                    <div className="text-2xl sm:text-3xl md:text-4xl mb-1 sm:mb-2">
+                    <div className="text-xl xs:text-2xl sm:text-3xl md:text-4xl mb-1 xs:mb-1.5 sm:mb-2">
                       {option.ingredient}
                     </div>
-                    <div className="text-xs sm:text-sm">{option.name}</div>
+                    <div className="text-[10px] xs:text-xs sm:text-sm">{option.name}</div>
                   </motion.button>
                 );
               })}
@@ -980,7 +980,7 @@ function TapTheFoodGame({ onScoreUpdate }) {
         </div>
       </div>
 
-      <div className="relative h-64 sm:h-80 md:h-96 bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 dark:from-pink-900/30 dark:via-purple-900/30 dark:to-blue-900/30 rounded-xl border-2 border-pink-300 dark:border-pink-700 overflow-hidden touch-none">
+      <div className="relative h-[240px] xs:h-64 sm:h-80 md:h-96 bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 dark:from-pink-900/30 dark:via-purple-900/30 dark:to-blue-900/30 rounded-lg xs:rounded-xl border-2 border-pink-300 dark:border-pink-700 overflow-hidden touch-none">
         {/* Game Overlay */}
         {gameState === 'ready' && (
           <motion.div
@@ -988,15 +988,15 @@ function TapTheFoodGame({ onScoreUpdate }) {
             animate={{ opacity: 1 }}
             className="absolute inset-0 flex items-center justify-center bg-black/20 z-10"
           >
-            <div className="text-center p-4 sm:p-5 md:p-6 bg-white dark:bg-slate-800 rounded-xl shadow-xl mx-2 sm:mx-0">
-              <div className="text-4xl sm:text-5xl md:text-6xl mb-3 sm:mb-4">🍓</div>
-              <h4 className="text-lg sm:text-xl md:text-2xl font-bold mb-2">Tap the Food!</h4>
-              <p className="mb-3 sm:mb-4 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+            <div className="text-center p-3 xs:p-4 sm:p-5 md:p-6 bg-white dark:bg-slate-800 rounded-lg xs:rounded-xl shadow-xl mx-2 xs:mx-2 sm:mx-0 max-w-[90%]">
+              <div className="text-3xl xs:text-4xl sm:text-5xl md:text-6xl mb-2 xs:mb-3 sm:mb-4">🍓</div>
+              <h4 className="text-base xs:text-lg sm:text-xl md:text-2xl font-bold mb-1 xs:mb-2">Tap the Food!</h4>
+              <p className="mb-2 xs:mb-3 sm:mb-4 text-[10px] xs:text-xs sm:text-sm text-slate-600 dark:text-slate-400">
                 Tap food items as they appear! You have 30 seconds!
               </p>
               <button
                 onClick={startGame}
-                className="px-4 sm:px-6 py-2 sm:py-3 bg-pink-500 text-white rounded-lg font-semibold hover:bg-pink-600 shadow-lg transition-colors text-sm sm:text-base touch-manipulation"
+                className="px-3 xs:px-4 sm:px-6 py-1.5 xs:py-2 sm:py-3 bg-pink-500 text-white rounded-lg font-semibold hover:bg-pink-600 shadow-lg transition-colors text-xs xs:text-sm sm:text-base touch-manipulation min-h-[36px] xs:min-h-[40px]"
               >
                 Start Game! 🚀
               </button>
@@ -1010,18 +1010,18 @@ function TapTheFoodGame({ onScoreUpdate }) {
             animate={{ opacity: 1, scale: 1 }}
             className="absolute inset-0 flex items-center justify-center bg-black/40 z-10"
           >
-            <div className="text-center p-4 sm:p-5 md:p-6 bg-white dark:bg-slate-800 rounded-xl shadow-xl mx-2 sm:mx-0">
-              <Trophy className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 text-yellow-500" />
-              <h4 className="text-lg sm:text-xl md:text-2xl font-bold mb-2">Time's Up! ⏰</h4>
-              <p className="mb-2 text-base sm:text-lg md:text-xl">Final Score: {score}</p>
+            <div className="text-center p-3 xs:p-4 sm:p-5 md:p-6 bg-white dark:bg-slate-800 rounded-lg xs:rounded-xl shadow-xl mx-2 xs:mx-2 sm:mx-0 max-w-[90%]">
+              <Trophy className="w-10 h-10 xs:w-12 xs:h-12 sm:w-16 sm:h-16 mx-auto mb-2 xs:mb-3 sm:mb-4 text-yellow-500" />
+              <h4 className="text-base xs:text-lg sm:text-xl md:text-2xl font-bold mb-1 xs:mb-2">Time's Up! ⏰</h4>
+              <p className="mb-1 xs:mb-2 text-sm xs:text-base sm:text-lg md:text-xl">Final Score: {score}</p>
               {score === highScore && score > 0 && (
-                <p className="mb-3 sm:mb-4 text-emerald-600 font-bold text-sm sm:text-base">
+                <p className="mb-2 xs:mb-3 sm:mb-4 text-emerald-600 font-bold text-xs xs:text-sm sm:text-base">
                   🎉 New High Score!
                 </p>
               )}
               <button
                 onClick={startGame}
-                className="px-4 sm:px-6 py-2 sm:py-3 bg-pink-500 text-white rounded-lg font-semibold hover:bg-pink-600 shadow-lg transition-colors text-sm sm:text-base touch-manipulation"
+                className="px-3 xs:px-4 sm:px-6 py-1.5 xs:py-2 sm:py-3 bg-pink-500 text-white rounded-lg font-semibold hover:bg-pink-600 shadow-lg transition-colors text-xs xs:text-sm sm:text-base touch-manipulation min-h-[36px] xs:min-h-[40px]"
               >
                 Play Again! 🔄
               </button>
@@ -1062,14 +1062,14 @@ function TapTheFoodGame({ onScoreUpdate }) {
 
         {/* Instructions */}
         {gameState === 'playing' && (
-          <div className="absolute top-2 sm:top-4 left-2 sm:left-4 text-[10px] sm:text-xs text-slate-700 dark:text-slate-300 bg-white/90 dark:bg-slate-800/90 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg shadow-md">
+          <div className="absolute top-1.5 xs:top-2 sm:top-4 left-1.5 xs:left-2 sm:left-4 text-[9px] xs:text-[10px] sm:text-xs text-slate-700 dark:text-slate-300 bg-white/90 dark:bg-slate-800/90 px-1.5 xs:px-2 sm:px-3 py-1 xs:py-1.5 sm:py-2 rounded-md xs:rounded-lg shadow-md">
             <div className="font-semibold">Score: {score}</div>
             <div className="text-orange-600 dark:text-orange-400">⏱️ {timeLeft}s</div>
           </div>
         )}
       </div>
 
-      <div className="text-[10px] sm:text-xs text-center text-slate-500 px-2">
+      <div className="text-[9px] xs:text-[10px] sm:text-xs text-center text-slate-500 px-1 xs:px-2">
         💡 Tip: Tap the food items quickly before they disappear! The more you tap, the higher your
         score!
       </div>
@@ -1114,70 +1114,67 @@ export default function CookingMiniGames({ isOpen, onClose }) {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center p-1 xs:p-2 sm:p-4"
             onClick={e => e.stopPropagation()}
           >
-            <div className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-white dark:bg-slate-800 rounded-lg xs:rounded-xl sm:rounded-2xl shadow-2xl max-w-2xl w-full max-h-[98vh] xs:max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
               {/* Header */}
-              <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20">
-                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                  <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-500 flex-shrink-0" />
+              <div className="flex items-center justify-between p-2 xs:p-3 sm:p-4 md:p-6 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20">
+                <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3 flex-1 min-w-0">
+                  <Sparkles className="w-4 h-4 xs:w-5 xs:h-5 sm:w-6 sm:h-6 text-emerald-500 flex-shrink-0" />
                   <div className="min-w-0">
-                    <h2 className="text-lg sm:text-xl md:text-2xl font-bold truncate">
+                    <h2 className="text-base xs:text-lg sm:text-xl md:text-2xl font-bold truncate">
                       Cooking Mini-Games
                     </h2>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 hidden sm:block">
+                    <p className="text-[10px] xs:text-xs sm:text-sm text-slate-600 dark:text-slate-400 hidden xs:block">
                       Free entertainment while you cook! 🎮
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-                  <div className="text-right hidden sm:block">
-                    <div className="text-xs text-slate-500">Total Score</div>
-                    <div className="text-lg sm:text-xl font-bold text-emerald-600">
+                <div className="flex items-center gap-1 xs:gap-2 sm:gap-4 flex-shrink-0">
+                  <div className="text-right hidden xs:block">
+                    <div className="text-[10px] xs:text-xs text-slate-500">Total Score</div>
+                    <div className="text-base xs:text-lg sm:text-xl font-bold text-emerald-600">
                       {totalScore}
                     </div>
                   </div>
                   <button
                     onClick={onClose}
-                    className="p-1.5 sm:p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                    className="p-1 xs:p-1.5 sm:p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors touch-manipulation min-w-[32px] min-h-[32px] flex items-center justify-center"
                     aria-label="Close"
                   >
-                    <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <X className="w-4 h-4 xs:w-5 xs:h-5 sm:w-5 sm:h-5" />
                   </button>
                 </div>
               </div>
 
-              {/* Game Tabs - Responsive Grid on Mobile, Flex on Desktop */}
-              <div className="grid grid-cols-3 sm:flex gap-1.5 sm:gap-2 p-2 sm:p-3 md:p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 overflow-x-auto sm:overflow-x-visible">
+              {/* Game Tabs - Responsive: Scrollable on mobile, flex on desktop */}
+              <div className="flex gap-1 xs:gap-1.5 sm:gap-2 p-1.5 xs:p-2 sm:p-3 md:p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 overflow-x-auto overflow-y-hidden scrollbar-hide">
                 {games.map(game => (
                   <button
                     key={game.id}
                     onClick={() => setActiveGame(game.id)}
-                    className={`px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg font-semibold whitespace-nowrap transition-all flex-shrink-0 text-xs sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 ${
+                    className={`px-2 xs:px-2.5 sm:px-3 py-1.5 xs:py-2 sm:py-2 rounded-lg font-semibold whitespace-nowrap transition-all flex-shrink-0 text-[10px] xs:text-xs sm:text-sm flex items-center justify-center gap-1 xs:gap-1.5 touch-manipulation min-h-[36px] xs:min-h-[40px] ${
                       activeGame === game.id
                         ? 'bg-emerald-600 text-white shadow-md'
                         : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
                     }`}
                     title={game.name}
                   >
-                    <span className="text-base sm:text-lg">{game.icon}</span>
-                    <span className="hidden xs:inline sm:hidden text-[10px]">
-                      {game.name.split(' ')[0]}
-                    </span>
-                    <span className="hidden sm:inline">{game.name}</span>
+                    <span className="text-sm xs:text-base sm:text-lg">{game.icon}</span>
+                    <span className="hidden xs:inline">{game.name}</span>
                   </button>
                 ))}
               </div>
 
               {/* Game Content */}
-              <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+              <div className="flex-1 overflow-y-auto p-2 xs:p-3 sm:p-4 md:p-6 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 min-h-0">
                 {ActiveGameComponent && <ActiveGameComponent onScoreUpdate={handleScoreUpdate} />}
               </div>
 
               {/* Footer */}
-              <div className="p-2 sm:p-3 md:p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-                <p className="text-[10px] sm:text-xs text-center text-slate-500">
+              <div className="p-1.5 xs:p-2 sm:p-3 md:p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex-shrink-0">
+                <p className="text-[9px] xs:text-[10px] sm:text-xs text-center text-slate-500 px-1">
                   💡 Tip: Play while waiting for your recipe to cook! All games are completely free.
                 </p>
               </div>

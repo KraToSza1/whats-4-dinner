@@ -40,6 +40,92 @@ import {
 import { BarChart, LineChart, DonutChart, ProgressRing } from './SimpleChart.jsx';
 
 const STORAGE_KEY = 'budget:tracker:v2';
+
+// Recommended Budget Display Component
+function RecommendedBudgetDisplay({ country, currency, autoDetected, onUseRecommended }) {
+  const [recommendedBudget, setRecommendedBudget] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const loadRecommendedBudget = async () => {
+      try {
+        const recommendedUSD = getRecommendedBudget(country, 1);
+        const recommendedLocal = await convertToLocal(recommendedUSD);
+        setRecommendedBudget(Math.round(recommendedLocal * 100) / 100);
+      } catch (error) {
+        console.warn('Failed to load recommended budget:', error);
+        // Fallback: use USD value directly if conversion fails
+        const recommendedUSD = getRecommendedBudget(country, 1);
+        setRecommendedBudget(recommendedUSD);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadRecommendedBudget();
+  }, [country]);
+
+  if (country === 'US') {
+    return (
+      <div className="mb-3 p-3 rounded-lg border bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1">
+            <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <span className="text-slate-600 dark:text-slate-400">📍</span> Your Location: {country}
+            </div>
+            <div className="text-xs text-slate-600 dark:text-slate-400 mb-2">
+              Cost of Living Index: {getCostOfLivingIndex(country)}/100 (US average)
+            </div>
+          </div>
+          {autoDetected && (
+            <span className="text-lg flex-shrink-0" title="Location and currency auto-detected">
+              🌍
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-3 p-3 rounded-lg border bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex-1">
+          <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <span className="text-blue-600 dark:text-blue-400">💡</span> Recommended Budget for{' '}
+            {country}:
+          </div>
+          {loading ? (
+            <div className="text-xs text-blue-700 dark:text-blue-300 mb-2">Calculating...</div>
+          ) : (
+            <div className="text-xs text-blue-700 dark:text-blue-300 mb-2">
+              {recommendedBudget !== null
+                ? `${formatCurrency(recommendedBudget, currency)} per week per person`
+                : 'Unable to calculate'}
+              <br />
+              <span className="text-xs opacity-75">
+                (Based on realistic food costs for {country})
+              </span>
+            </div>
+          )}
+        </div>
+        {autoDetected && (
+          <span className="text-lg flex-shrink-0" title="Location and currency auto-detected">
+            🌍
+          </span>
+        )}
+      </div>
+      {!loading && recommendedBudget !== null && (
+        <button
+          onClick={onUseRecommended}
+          className="w-full px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+        >
+          Use Recommended Budget
+        </button>
+      )}
+    </div>
+  );
+}
+
 const PRICE_LOG_KEY = 'budget:prices:v1';
 const SPENDING_LOG_KEY = 'budget:spending:v1';
 const RECIPE_COST_KEY = 'budget:recipe:costs:v1';
@@ -373,14 +459,27 @@ export default function BudgetTracker() {
 
       if (!settings) {
         // Get recommended budget based on country and cost of living
-        const recommendedBudget = getRecommendedBudget(currency.country || 'US', 1);
-        const defaultSettings = {
-          enabled: false,
-          weeklyBudget: recommendedBudget,
-          currency: currency.currency,
-          country: currency.country || 'US',
-        };
-        setSettings(defaultSettings);
+        // Budget is returned in USD, need to convert to local currency
+        const recommendedBudgetUSD = getRecommendedBudget(currency.country || 'US', 1);
+        // Convert USD to local currency asynchronously
+        convertToLocal(recommendedBudgetUSD).then(recommendedBudgetLocal => {
+          const defaultSettings = {
+            enabled: false,
+            weeklyBudget: Math.round(recommendedBudgetLocal * 100) / 100, // Round to 2 decimals
+            currency: currency.currency,
+            country: currency.country || 'US',
+          };
+          setSettings(defaultSettings);
+        }).catch(() => {
+          // Fallback: use USD value if conversion fails
+          const defaultSettings = {
+            enabled: false,
+            weeklyBudget: recommendedBudgetUSD,
+            currency: currency.currency,
+            country: currency.country || 'US',
+          };
+          setSettings(defaultSettings);
+        });
       } else {
         // Update currency if not set, but preserve existing budget
         if (!settings.currency) {
@@ -762,14 +861,20 @@ export default function BudgetTracker() {
                     )}
                   </div>
                   {currencySettings.country !== 'US' && (
-                    <div className="text-xs text-blue-700 dark:text-blue-300 mb-2">
-                      {formatCurrency(
-                        getRecommendedBudget(currencySettings.country, 1),
-                        currentSettings.currency
-                      )}{' '}
-                      per week (Cost of Living: {getCostOfLivingIndex(currencySettings.country)}
-                      /100)
-                    </div>
+                    <RecommendedBudgetDisplay
+                      country={currencySettings.country}
+                      currency={currentSettings.currency}
+                      autoDetected={currencySettings.autoDetected}
+                      onUseRecommended={async () => {
+                        const recommendedUSD = getRecommendedBudget(currencySettings.country, 1);
+                        const recommendedLocal = await convertToLocal(recommendedUSD);
+                        const roundedBudget = Math.round(recommendedLocal * 100) / 100;
+                        setSettings({ ...currentSettings, weeklyBudget: roundedBudget });
+                        toast.success(
+                          `Budget updated to ${formatCurrency(roundedBudget, currentSettings.currency)} per week!`
+                        );
+                      }}
+                    />
                   )}
                   {currencySettings.country === 'US' && (
                     <div className="text-xs text-slate-600 dark:text-slate-400 mb-2">
@@ -787,20 +892,6 @@ export default function BudgetTracker() {
                   </span>
                 )}
               </div>
-              {currencySettings.country !== 'US' && (
-                <button
-                  onClick={() => {
-                    const recommended = getRecommendedBudget(currencySettings.country, 1);
-                    setSettings({ ...currentSettings, weeklyBudget: recommended });
-                    toast.success(
-                      `Budget updated to ${formatCurrency(recommended, currentSettings.currency)} per week!`
-                    );
-                  }}
-                  className="w-full px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                >
-                  Use Recommended Budget
-                </button>
-              )}
             </div>
           )}
 
