@@ -47,7 +47,11 @@ export default defineConfig({
         short_name: 'W4D',
         theme_color: '#0f172a',
         background_color: '#0f172a',
-        icons: [{ src: '/vite.svg', sizes: '192x192', type: 'image/svg+xml' }],
+        icons: [
+          { src: '/logo.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+          { src: '/logo.svg', sizes: '192x192', type: 'image/svg+xml' },
+          { src: '/logo.svg', sizes: '512x512', type: 'image/svg+xml' },
+        ],
       },
     }),
   ],

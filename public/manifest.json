@@ -9,10 +9,20 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/vite.svg",
+      "src": "/logo.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
     }
   ],
   "categories": ["food", "lifestyle", "health"],
@@ -23,14 +33,14 @@
       "short_name": "Search",
       "description": "Search for recipes",
       "url": "/?shortcut=search",
-      "icons": [{ "src": "/vite.svg", "sizes": "any" }]
+      "icons": [{ "src": "/logo.svg", "sizes": "any" }]
     },
     {
       "name": "Meal Planner",
       "short_name": "Plan",
       "description": "Plan your meals",
       "url": "/meal-planner",
-      "icons": [{ "src": "/vite.svg", "sizes": "any" }]
+      "icons": [{ "src": "/logo.svg", "sizes": "any" }]
     }
   ]
 }
