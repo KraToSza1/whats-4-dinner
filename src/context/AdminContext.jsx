@@ -19,10 +19,13 @@ export function AdminProvider({ children }) {
   }, [user]);
 
   // Check if admin mode is enabled (for UI visibility)
+  // Re-check when user changes to ensure admin access works in production
   useEffect(() => {
     const enabled = isAdminModeEnabled();
-    setAdminModeEnabled(enabled);
-  }, []);
+    // If user is admin, always enable admin mode (even in production)
+    const shouldEnable = enabled || isAdminUser;
+    setAdminModeEnabled(shouldEnable);
+  }, [isAdminUser]);
 
   const value = useMemo(
     () => ({

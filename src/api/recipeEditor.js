@@ -345,9 +345,9 @@ export async function updateRecipeNutrition(recipeId, nutritionData) {
       .select('servings')
       .eq('id', recipeId)
       .single();
-    
+
     const recipeServings = recipeData?.servings || 1;
-    
+
     if (nutritionToSave.calories > 0) {
       const caloriesPerServing = nutritionToSave.calories / recipeServings;
       if (caloriesPerServing > 2000) {
@@ -566,15 +566,15 @@ export async function updateRecipeSteps(recipeId, steps) {
 
     // Delete existing steps FIRST and verify deletion
     console.log('🗑️ [RECIPE EDITOR API] Deleting existing steps for recipe', recipeId);
-    
+
     // First, get count of existing steps
     const { count: existingCount } = await supabase
       .from('recipe_steps')
       .select('*', { count: 'exact', head: true })
       .eq('recipe_id', recipeId);
-    
+
     console.log('🔍 [RECIPE EDITOR API] Found existing steps to delete:', existingCount || 0);
-    
+
     // Delete all existing steps
     const { error: deleteError } = await supabase
       .from('recipe_steps')
@@ -582,7 +582,7 @@ export async function updateRecipeSteps(recipeId, steps) {
       .eq('recipe_id', recipeId);
 
     if (deleteError) throw deleteError;
-    
+
     // Verify deletion completed by checking if any steps remain
     let retries = 0;
     let stepsRemain = true;
@@ -592,19 +592,23 @@ export async function updateRecipeSteps(recipeId, steps) {
         .from('recipe_steps')
         .select('*', { count: 'exact', head: true })
         .eq('recipe_id', recipeId);
-      
+
       stepsRemain = (remainingCount || 0) > 0;
       retries++;
       if (stepsRemain) {
-        console.log(`⏳ [RECIPE EDITOR API] Waiting for deletion... (attempt ${retries}/10, remaining: ${remainingCount})`);
+        console.log(
+          `⏳ [RECIPE EDITOR API] Waiting for deletion... (attempt ${retries}/10, remaining: ${remainingCount})`
+        );
       }
     }
-    
+
     if (stepsRemain) {
       throw new Error('Failed to delete existing steps after 10 retries');
     }
-    
-    console.log('✅ [RECIPE EDITOR API] Existing steps deleted and verified', { deletedCount: existingCount });
+
+    console.log('✅ [RECIPE EDITOR API] Existing steps deleted and verified', {
+      deletedCount: existingCount,
+    });
 
     // Insert new steps with guaranteed unique sequential positions
     const stepsToInsert = validSteps.map((step, index) => ({
@@ -637,52 +641,64 @@ export async function updateRecipeSteps(recipeId, steps) {
     if (error) {
       // If batch insert fails due to duplicate positions, verify deletion and retry
       if (error.code === '23505' || error.message.includes('duplicate key')) {
-        console.warn('⚠️ [RECIPE EDITOR API] Batch insert failed, checking database state:', error.message);
-        
+        console.warn(
+          '⚠️ [RECIPE EDITOR API] Batch insert failed, checking database state:',
+          error.message
+        );
+
         // Check what steps actually exist in the database
         const { data: existingSteps, error: checkError } = await supabase
           .from('recipe_steps')
           .select('position')
           .eq('recipe_id', recipeId)
           .order('position');
-        
+
         if (checkError) {
           console.error('❌ [RECIPE EDITOR API] Error checking existing steps:', checkError);
           throw new Error(`Failed to check existing steps: ${checkError.message}`);
         }
-        
+
         if (existingSteps && existingSteps.length > 0) {
-          console.warn(`⚠️ [RECIPE EDITOR API] Found ${existingSteps.length} existing steps that should have been deleted. Attempting delete again...`);
-          
+          console.warn(
+            `⚠️ [RECIPE EDITOR API] Found ${existingSteps.length} existing steps that should have been deleted. Attempting delete again...`
+          );
+
           // Try deleting again
           const { error: retryDeleteError } = await supabase
             .from('recipe_steps')
             .delete()
             .eq('recipe_id', recipeId);
-          
+
           if (retryDeleteError) {
-            throw new Error(`Failed to delete existing steps on retry: ${retryDeleteError.message}`);
+            throw new Error(
+              `Failed to delete existing steps on retry: ${retryDeleteError.message}`
+            );
           }
-          
+
           // Wait and verify deletion again
           await new Promise(resolve => setTimeout(resolve, 200));
           const { count: stillExisting } = await supabase
             .from('recipe_steps')
             .select('*', { count: 'exact', head: true })
             .eq('recipe_id', recipeId);
-          
+
           if (stillExisting && stillExisting > 0) {
-            throw new Error(`Steps still exist after retry delete. This may be a database constraint or RLS issue.`);
+            throw new Error(
+              `Steps still exist after retry delete. This may be a database constraint or RLS issue.`
+            );
           }
-          
+
           // Now retry the batch insert
           console.log('🔄 [RECIPE EDITOR API] Retrying batch insert after cleanup...');
-          const { data: retryData, error: retryError } = await supabase.from('recipe_steps').insert(stepsToInsert).select();
-          
+          const { data: retryData, error: retryError } = await supabase
+            .from('recipe_steps')
+            .insert(stepsToInsert)
+            .select();
+
           if (retryError) {
             throw new Error(`Failed to insert steps after cleanup: ${retryError.message}`);
           }
-          
+
           // Update recipe
           await supabase
             .from('recipes')
@@ -691,7 +707,7 @@ export async function updateRecipeSteps(recipeId, steps) {
               updated_at: new Date().toISOString(),
             })
             .eq('id', recipeId);
-          
+
           console.log('✅ [RECIPE EDITOR API] Steps inserted successfully after cleanup', {
             recipeId,
             stepsInserted: retryData?.length,
@@ -699,7 +715,9 @@ export async function updateRecipeSteps(recipeId, steps) {
           return { success: true, data: retryData };
         } else {
           // No existing steps, but insert still failed - this is strange
-          throw new Error(`Insert failed but no existing steps found. Database constraint issue: ${error.message}`);
+          throw new Error(
+            `Insert failed but no existing steps found. Database constraint issue: ${error.message}`
+          );
         }
       } else {
         throw error;
@@ -1055,15 +1073,15 @@ export async function updateRecipeIngredients(recipeId, ingredients) {
   try {
     // Delete existing ingredients and verify deletion
     console.log('🗑️ [RECIPE EDITOR API] Deleting existing ingredients for recipe', recipeId);
-    
+
     // First, get count of existing ingredients
     const { count: existingCount } = await supabase
       .from('recipe_ingredients')
       .select('*', { count: 'exact', head: true })
       .eq('recipe_id', recipeId);
-    
+
     console.log('🔍 [RECIPE EDITOR API] Found existing ingredients to delete:', existingCount || 0);
-    
+
     // Delete all existing ingredients
     const { error: deleteError } = await supabase
       .from('recipe_ingredients')
@@ -1071,7 +1089,7 @@ export async function updateRecipeIngredients(recipeId, ingredients) {
       .eq('recipe_id', recipeId);
 
     if (deleteError) throw deleteError;
-    
+
     // Verify deletion completed by checking if any ingredients remain
     let retries = 0;
     let ingredientsRemain = true;
@@ -1081,19 +1099,23 @@ export async function updateRecipeIngredients(recipeId, ingredients) {
         .from('recipe_ingredients')
         .select('*', { count: 'exact', head: true })
         .eq('recipe_id', recipeId);
-      
+
       ingredientsRemain = (remainingCount || 0) > 0;
       retries++;
       if (ingredientsRemain) {
-        console.log(`⏳ [RECIPE EDITOR API] Waiting for ingredient deletion... (attempt ${retries}/10, remaining: ${remainingCount})`);
+        console.log(
+          `⏳ [RECIPE EDITOR API] Waiting for ingredient deletion... (attempt ${retries}/10, remaining: ${remainingCount})`
+        );
       }
     }
-    
+
     if (ingredientsRemain) {
       throw new Error('Failed to delete existing ingredients after 10 retries');
     }
-    
-    console.log('✅ [RECIPE EDITOR API] Existing ingredients deleted and verified', { deletedCount: existingCount });
+
+    console.log('✅ [RECIPE EDITOR API] Existing ingredients deleted and verified', {
+      deletedCount: existingCount,
+    });
 
     // Process each ingredient - find or create ingredient by name
     const ingredientsToInsert = [];
@@ -1222,60 +1244,74 @@ export async function updateRecipeIngredients(recipeId, ingredients) {
       if (error) {
         // If duplicate constraint error, verify deletion and retry
         if (error.code === '23505' || error.message.includes('duplicate key')) {
-          console.warn('⚠️ [RECIPE EDITOR API] Ingredients insert failed, checking database state:', error.message);
-          
+          console.warn(
+            '⚠️ [RECIPE EDITOR API] Ingredients insert failed, checking database state:',
+            error.message
+          );
+
           // Check what ingredients actually exist
           const { data: existingIngredients, error: checkError } = await supabase
             .from('recipe_ingredients')
             .select('*')
             .eq('recipe_id', recipeId);
-          
+
           if (checkError) {
-            console.error('❌ [RECIPE EDITOR API] Error checking existing ingredients:', checkError);
+            console.error(
+              '❌ [RECIPE EDITOR API] Error checking existing ingredients:',
+              checkError
+            );
             throw new Error(`Failed to check existing ingredients: ${checkError.message}`);
           }
-          
+
           if (existingIngredients && existingIngredients.length > 0) {
-            console.warn(`⚠️ [RECIPE EDITOR API] Found ${existingIngredients.length} existing ingredients that should have been deleted. Attempting delete again...`);
-            
+            console.warn(
+              `⚠️ [RECIPE EDITOR API] Found ${existingIngredients.length} existing ingredients that should have been deleted. Attempting delete again...`
+            );
+
             // Try deleting again
             const { error: retryDeleteError } = await supabase
               .from('recipe_ingredients')
               .delete()
               .eq('recipe_id', recipeId);
-            
+
             if (retryDeleteError) {
-              throw new Error(`Failed to delete existing ingredients on retry: ${retryDeleteError.message}`);
+              throw new Error(
+                `Failed to delete existing ingredients on retry: ${retryDeleteError.message}`
+              );
             }
-            
+
             // Wait and verify deletion again
             await new Promise(resolve => setTimeout(resolve, 200));
             const { count: stillExisting } = await supabase
               .from('recipe_ingredients')
               .select('*', { count: 'exact', head: true })
               .eq('recipe_id', recipeId);
-            
+
             if (stillExisting && stillExisting > 0) {
-              throw new Error(`Ingredients still exist after retry delete. This may be a database constraint or RLS issue.`);
+              throw new Error(
+                `Ingredients still exist after retry delete. This may be a database constraint or RLS issue.`
+              );
             }
-            
+
             // Now retry the batch insert
             console.log('🔄 [RECIPE EDITOR API] Retrying ingredients insert after cleanup...');
             const { data: retryData, error: retryError } = await supabase
               .from('recipe_ingredients')
               .insert(ingredientsToInsert)
               .select();
-            
+
             if (retryError) {
               throw new Error(`Failed to insert ingredients after cleanup: ${retryError.message}`);
             }
-            
+
             console.log('✅ [RECIPE EDITOR API] Ingredients inserted successfully after cleanup', {
               count: retryData?.length,
             });
           } else {
             // No existing ingredients, but insert still failed
-            throw new Error(`Insert failed but no existing ingredients found. Database constraint issue: ${error.message}`);
+            throw new Error(
+              `Insert failed but no existing ingredients found. Database constraint issue: ${error.message}`
+            );
           }
         } else {
           throw error;
@@ -1394,10 +1430,36 @@ export async function getRecipesForBulkEditing(limit = 100, needsReviewOnly = fa
 }
 
 /**
- * Compress image to JPEG format and ensure ≤100KB for PWA performance
- * CRITICAL: PNG files kill PWA performance - must convert to JPEG ≤100KB
+ * SUPER SMART Image Compression - Handles ALL images, especially large ones (16-22MB)
+ * CRITICAL: Converts all formats to JPEG and aggressively compresses to ≤100KB for PWA performance
  */
 async function compressImageToJPEG(file, maxSizeKB = 100) {
+  const originalSizeMB = file.size / (1024 * 1024);
+
+  // For VERY large files (16MB+), be extremely aggressive
+  let targetWidth = 1024;
+  let targetHeight = 1024;
+  let initialQuality = 0.85;
+
+  if (originalSizeMB > 15) {
+    // Extremely large files: very aggressive compression
+    targetWidth = 800;
+    targetHeight = 800;
+    initialQuality = 0.65;
+    maxSizeKB = 90; // Target 90KB for huge files
+  } else if (originalSizeMB > 10) {
+    // Very large files: aggressive compression
+    targetWidth = 900;
+    targetHeight = 900;
+    initialQuality = 0.7;
+    maxSizeKB = 95;
+  } else if (originalSizeMB > 5) {
+    // Large files: moderate compression
+    targetWidth = 950;
+    targetHeight = 950;
+    initialQuality = 0.75;
+  }
+
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = e => {
@@ -1406,18 +1468,32 @@ async function compressImageToJPEG(file, maxSizeKB = 100) {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
 
-        // Set canvas to 1024x1024 (required size)
-        canvas.width = 1024;
-        canvas.height = 1024;
+        // Calculate dimensions maintaining aspect ratio
+        let width = img.width;
+        let height = img.height;
 
-        // Draw image to canvas
-        ctx.drawImage(img, 0, 0, 1024, 1024);
+        // Scale down if larger than target
+        if (width > targetWidth || height > targetHeight) {
+          const ratio = Math.min(targetWidth / width, targetHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        // Draw image to canvas with high quality
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
 
         // Compress to JPEG with quality adjustment
-        let quality = 0.85;
-        let compressedBlob = null;
+        let quality = initialQuality;
+        let attempts = 0;
+        const maxAttempts = 10;
 
         const tryCompress = () => {
+          attempts++;
           canvas.toBlob(
             blob => {
               if (!blob) {
@@ -1427,27 +1503,45 @@ async function compressImageToJPEG(file, maxSizeKB = 100) {
 
               const sizeKB = blob.size / 1024;
 
-              // If too large, reduce quality and try again
-              if (sizeKB > maxSizeKB && quality > 0.1) {
-                quality -= 0.1;
+              // If too large and we can reduce quality more
+              if (sizeKB > maxSizeKB && quality > 0.3 && attempts < maxAttempts) {
+                quality = Math.max(0.3, quality - 0.1);
                 tryCompress();
                 return;
               }
 
               // If still too large, resize more aggressively
-              if (sizeKB > maxSizeKB && quality <= 0.1) {
-                // Try smaller dimensions
-                const scale = Math.sqrt(maxSizeKB / sizeKB) * 0.9;
-                canvas.width = Math.floor(1024 * scale);
-                canvas.height = Math.floor(1024 * scale);
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                quality = 0.7;
+              if (sizeKB > maxSizeKB && attempts < maxAttempts) {
+                const scale = Math.sqrt(maxSizeKB / sizeKB) * 0.85;
+                const newWidth = Math.max(400, Math.floor(width * scale));
+                const newHeight = Math.max(400, Math.floor(height * scale));
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0, newWidth, newHeight);
+                quality = 0.6;
                 tryCompress();
                 return;
               }
 
-              compressedBlob = blob;
-              resolve(compressedBlob);
+              // Success or max attempts reached
+              const finalSizeMB = blob.size / (1024 * 1024);
+              const reduction = (((originalSizeMB - finalSizeMB) / originalSizeMB) * 100).toFixed(
+                1
+              );
+
+              if (import.meta.env.DEV) {
+                console.log('📸 [IMAGE COMPRESSION] Success', {
+                  original: `${originalSizeMB.toFixed(2)}MB`,
+                  compressed: `${finalSizeMB.toFixed(2)}MB (${sizeKB.toFixed(0)}KB)`,
+                  reduction: `${reduction}%`,
+                  quality: quality.toFixed(2),
+                  dimensions: `${canvas.width}x${canvas.height}`,
+                });
+              }
+
+              resolve(blob);
             },
             'image/jpeg',
             quality
@@ -1480,6 +1574,7 @@ export async function uploadRecipeImage(recipeId, imageFile) {
   try {
     const fileType = imageFile.type.toLowerCase();
     const originalFileName = imageFile.name.toLowerCase();
+    const originalSizeMB = imageFile.size / (1024 * 1024);
     const isPNG = fileType.includes('png') || originalFileName.endsWith('.png');
     const isJPEG =
       fileType.includes('jpeg') ||
@@ -1487,16 +1582,21 @@ export async function uploadRecipeImage(recipeId, imageFile) {
       originalFileName.endsWith('.jpg') ||
       originalFileName.endsWith('.jpeg');
 
-    // CRITICAL: PNG files kill PWA performance - must convert to JPEG
-    if (isPNG || (!isJPEG && imageFile.size > 100 * 1024)) {
-      console.warn(
-        '⚠️ [RECIPE EDITOR API] Large/PNG file detected - compressing to JPEG ≤100KB...',
-        {
-          originalSize: `${(imageFile.size / 1024).toFixed(2)}KB`,
-          isPNG,
-          isJPEG,
-        }
-      );
+    // CRITICAL: ALWAYS compress images - especially large ones (16-22MB)
+    // Convert all formats to JPEG and compress to ≤100KB for PWA performance
+    const shouldCompress =
+      isPNG ||
+      !isJPEG ||
+      imageFile.size > 100 * 1024 || // Always compress if > 100KB
+      originalSizeMB > 1; // Always compress if > 1MB
+
+    if (shouldCompress) {
+      console.warn('⚠️ [RECIPE EDITOR API] Compressing image to JPEG ≤100KB...', {
+        originalSize: `${originalSizeMB.toFixed(2)}MB (${(imageFile.size / 1024).toFixed(0)}KB)`,
+        isPNG,
+        isJPEG,
+        reason: originalSizeMB > 1 ? 'Large file' : isPNG ? 'PNG format' : 'Size > 100KB',
+      });
 
       const compressedBlob = await compressImageToJPEG(imageFile, 100);
       const finalSizeKB = (compressedBlob.size / 1024).toFixed(2);
@@ -1554,43 +1654,52 @@ export async function uploadRecipeImage(recipeId, imageFile) {
       };
     }
 
-    // If already JPEG and ≤100KB, upload as-is
-    const fileExt = imageFile.name.split('.').pop();
-    const fileName = `${recipeId}.${fileExt}`;
+    // ALWAYS compress images - even if they're already JPEG and small
+    // This ensures consistent quality and size across all uploads
+    console.log('📤 [RECIPE EDITOR API] Compressing all images for optimal performance...');
+    const compressedBlob = await compressImageToJPEG(imageFile, 100);
+    const finalSizeKB = (compressedBlob.size / 1024).toFixed(2);
 
-    console.log('📤 [RECIPE EDITOR API] Uploading JPEG to storage (no compression needed)', {
-      fileName,
+    console.log('✅ [RECIPE EDITOR API] Image compressed', {
+      originalSize: `${originalSizeMB.toFixed(2)}MB (${(imageFile.size / 1024).toFixed(0)}KB)`,
+      compressedSize: `${finalSizeKB}KB`,
+      reduction: `${((1 - compressedBlob.size / imageFile.size) * 100).toFixed(1)}%`,
+      format: 'JPEG',
+    });
+
+    // Create File object from compressed blob
+    const compressedFile = new File([compressedBlob], `${recipeId}.jpg`, {
+      type: 'image/jpeg',
+      lastModified: Date.now(),
+    });
+
+    const fileNameFinal = `${recipeId}.jpg`;
+
+    console.log('📤 [RECIPE EDITOR API] Uploading compressed JPEG to storage', {
+      fileName: fileNameFinal,
     });
     const { error: uploadError } = await supabase.storage
       .from('recipe-images')
-      .upload(fileName, imageFile, {
+      .upload(fileNameFinal, compressedFile, {
         upsert: true,
-        contentType: imageFile.type,
+        contentType: 'image/jpeg',
       });
 
     if (uploadError) throw uploadError;
-    console.log('✅ [RECIPE EDITOR API] File uploaded to storage', { fileName });
+    console.log('✅ [RECIPE EDITOR API] Compressed JPEG uploaded to storage', {
+      fileName: fileNameFinal,
+    });
 
     // Get public URL
-    const { data: urlData } = supabase.storage.from('recipe-images').getPublicUrl(fileName);
-
+    const { data: urlData } = supabase.storage.from('recipe-images').getPublicUrl(fileNameFinal);
     const publicUrl = urlData?.publicUrl;
 
     if (!publicUrl) {
       throw new Error('Failed to get public URL');
     }
-    console.log('✅ [RECIPE EDITOR API] Got public URL', {
-      publicUrl: publicUrl.substring(0, 50) + '...',
-    });
 
     // Update recipe with new image URL
-    console.log('🔄 [RECIPE EDITOR API] Updating recipe with new image URL');
     const updateResult = await updateRecipeImage(recipeId, publicUrl);
-
-    console.log('✅ [RECIPE EDITOR API] uploadRecipeImage success', {
-      recipeId,
-      success: updateResult.success,
-    });
     return {
       success: updateResult.success,
       data: { url: publicUrl },

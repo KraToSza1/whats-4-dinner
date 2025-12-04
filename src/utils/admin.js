@@ -98,13 +98,34 @@ export function getAdminEmails() {
  * In development: Enabled for easier testing (but still requires admin email)
  */
 export function isAdminModeEnabled() {
-  // PRODUCTION: Only allow via environment variable
+  // PRODUCTION: Always allow admin mode if user is admin (email-based check)
+  // The actual access control is handled by isAdmin(user) function
+  // This function just controls UI visibility - if user is admin, show admin UI
   if (import.meta.env.PROD) {
+    // Check environment variable first (for explicit control)
     const envEnabled = import.meta.env.VITE_ENABLE_ADMIN === 'true';
     if (envEnabled) {
       return true;
     }
-    return false;
+
+    // Also check if admin session exists (for production admin access)
+    try {
+      const stored = localStorage.getItem(ADMIN_SESSION_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Check if session is still valid
+        if (parsed.expiresAt && Date.now() < parsed.expiresAt) {
+          return true;
+        }
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+
+    // In production, admin mode is enabled by default if user is admin
+    // The ProtectedAdminRoute will still check isAdmin(user) for actual access
+    // This just controls whether the admin menu button appears
+    return true; // Always show admin UI in production - access is still protected by isAdmin()
   }
 
   // DEVELOPMENT: Allow for testing (but still requires admin email check)
@@ -116,7 +137,7 @@ export function isAdminModeEnabled() {
     return true;
   }
 
-  return false;
+  return true; // Default to enabled - actual access is protected by isAdmin()
 }
 
 /**
