@@ -93,11 +93,14 @@ export default function PantryPage() {
         limit: 24,
       });
 
-      setRecipes(results || []);
+      // Handle both array and object return formats
+      const recipeArray = Array.isArray(results) ? results : results?.data || [];
 
-      if (results && results.length > 0) {
+      setRecipes(recipeArray);
+
+      if (recipeArray && recipeArray.length > 0) {
         toast.success(
-          `Found ${results.length} recipe${results.length !== 1 ? 's' : ''} with your ingredients!`
+          `Found ${recipeArray.length} recipe${recipeArray.length !== 1 ? 's' : ''} with your ingredients!`
         );
       } else {
         toast.info('No recipes found. Try adding more ingredients!');

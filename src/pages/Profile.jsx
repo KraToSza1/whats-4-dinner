@@ -9,7 +9,8 @@ import {
   getCountryName,
   getCountryFlag,
 } from '../utils/measurementSystems.js';
-import { getCurrencySettings } from '../utils/currency.js';
+import { getCurrencySettings, initializeCurrency } from '../utils/currency.js';
+import { getFormattedPrice } from '../utils/pricing.js';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import {
   MEDICAL_CONDITIONS,
@@ -22,7 +23,16 @@ import { getCurrentLevel, getCurrentXP, getTodayXP, getXPHistory } from '../util
 import { getUnlockedBadges } from '../utils/badges.js';
 import { getStreakStats } from '../utils/streaks.js';
 import { getTotalChallengesCompleted } from '../utils/challenges.js';
-import { BarChart3, Trophy, Award, Sparkles, Flame } from 'lucide-react';
+import {
+  BarChart3,
+  Trophy,
+  Award,
+  Sparkles,
+  Flame,
+  Download,
+  CheckCircle,
+  XCircle,
+} from 'lucide-react';
 import BadgeDisplay from '../components/BadgeDisplay.jsx';
 import StreakCounter from '../components/StreakCounter.jsx';
 import XPBar from '../components/XPBar.jsx';
@@ -56,6 +66,220 @@ const INTOLERANCES = [
   'Tree Nut',
   'Wheat',
 ];
+
+// Install App Section Component
+function InstallAppSection() {
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [isInstallable, setIsInstallable] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showInstructions, setShowInstructions] = useState(false);
+
+  // Check if app is installed
+  const checkIfInstalled = () => {
+    if (typeof window === 'undefined') return false;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isIOSStandalone = window.navigator?.standalone === true;
+    return isStandalone || isIOSStandalone;
+  };
+
+  useEffect(() => {
+    // Check installed status - use setTimeout to avoid synchronous setState in effect
+    const installed = checkIfInstalled();
+
+    if (installed) {
+      setTimeout(() => {
+        setIsInstalled(true);
+        setIsInstallable(false);
+      }, 0);
+      return;
+    }
+
+    // Check for existing deferred prompt - use setTimeout to avoid synchronous setState
+    if (window.deferredPrompt) {
+      setTimeout(() => {
+        setDeferredPrompt(window.deferredPrompt);
+        setIsInstallable(true);
+      }, 0);
+    }
+
+    // Listen for beforeinstallprompt event
+    const handleBeforeInstallPrompt = e => {
+      e.preventDefault();
+      // Use setTimeout to avoid synchronous setState in event handler
+      setTimeout(() => {
+        setDeferredPrompt(e);
+        window.deferredPrompt = e;
+        setIsInstallable(true);
+      }, 0);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Listen for app installed event
+    const handleAppInstalled = () => {
+      // Use setTimeout to avoid synchronous setState in event handler
+      setTimeout(() => {
+        setIsInstalled(true);
+        setIsInstallable(false);
+        setDeferredPrompt(null);
+        window.deferredPrompt = null;
+      }, 0);
+    };
+
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    // Check periodically
+    const checkInterval = setInterval(() => {
+      if (checkIfInstalled()) {
+        // Use setTimeout to avoid synchronous setState in interval
+        setTimeout(() => {
+          setIsInstalled(true);
+          setIsInstallable(false);
+        }, 0);
+      } else if (window.deferredPrompt && !isInstallable) {
+        // Use setTimeout to avoid synchronous setState in interval
+        setTimeout(() => {
+          setDeferredPrompt(window.deferredPrompt);
+          setIsInstallable(true);
+        }, 0);
+      }
+    }, 2000);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+      clearInterval(checkInterval);
+    };
+  }, [isInstallable]);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      try {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          setIsInstalled(true);
+        }
+        setDeferredPrompt(null);
+        window.deferredPrompt = null;
+        setIsInstallable(false);
+      } catch (error) {
+        console.error('Error showing install prompt:', error);
+        setShowInstructions(true);
+      }
+    } else {
+      setShowInstructions(true);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+      <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+        <Download className="w-5 h-5 text-emerald-500" />
+        Install App
+      </h2>
+
+      <div className="space-y-4">
+        {/* Status */}
+        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+          <div className="flex items-center gap-3">
+            {isInstalled ? (
+              <>
+                <CheckCircle className="w-6 h-6 text-emerald-500" />
+                <div>
+                  <p className="font-semibold text-slate-900 dark:text-white">App Installed</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    What's 4 Dinner is installed on your device
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <XCircle className="w-6 h-6 text-slate-400" />
+                <div>
+                  <p className="font-semibold text-slate-900 dark:text-white">Not Installed</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Install the app for a better experience
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Install Button - Only show if not installed */}
+        {!isInstalled && (
+          <div className="space-y-3">
+            {isInstallable && deferredPrompt ? (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleInstallClick}
+                className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2"
+              >
+                <Download className="w-5 h-5" />
+                <span>Install What's 4 Dinner</span>
+              </motion.button>
+            ) : (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowInstructions(true)}
+                className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2"
+              >
+                <Download className="w-5 h-5" />
+                <span>Show Install Instructions</span>
+              </motion.button>
+            )}
+
+            <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+              Get quick access, offline support, and faster loading
+            </p>
+          </div>
+        )}
+
+        {/* Instructions Modal */}
+        {showInstructions && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            onClick={() => setShowInstructions(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-white dark:bg-slate-900 rounded-xl shadow-xl p-6 max-w-md w-full"
+            >
+              <h3 className="text-xl font-bold mb-4">Install What's 4 Dinner</h3>
+              <div className="space-y-3 text-sm text-slate-600 dark:text-slate-400 mb-6">
+                <p>
+                  <strong>Chrome/Edge:</strong> Click the install icon (➕) in the address bar
+                </p>
+                <p>
+                  <strong>Firefox:</strong> Menu → Install
+                </p>
+                <p>
+                  <strong>Safari (iOS):</strong> Share → Add to Home Screen
+                </p>
+                <p>
+                  <strong>Chrome (Android):</strong> Menu → Install App
+                </p>
+              </div>
+              <button
+                onClick={() => setShowInstructions(false)}
+                className="w-full px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-semibold"
+              >
+                Got it
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // Progress Stats Component
 function ProgressStatsSection() {
@@ -154,7 +378,9 @@ function ProgressStatsSection() {
             </p>
           </div>
           <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">XP Needed for Next Level</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+              XP Needed for Next Level
+            </p>
             <p className="text-2xl font-bold text-slate-900 dark:text-white">
               {Math.max(0, (level + 1) * 1000 - xp).toLocaleString()}
             </p>
@@ -488,9 +714,7 @@ function ProgressTabContent() {
               </div>
             </div>
           )}
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-4">
-            {t('viewOrCookDaily')}
-          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-4">{t('viewOrCookDaily')}</p>
         </motion.div>
 
         {/* Enhanced XP & Level Card */}
@@ -503,9 +727,7 @@ function ProgressTabContent() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Sparkles className="w-6 h-6 text-emerald-500" />
-              <h3 className="font-bold text-xl text-slate-900 dark:text-white">
-                {t('progress')}
-              </h3>
+              <h3 className="font-bold text-xl text-slate-900 dark:text-white">{t('progress')}</h3>
             </div>
             <div className="text-right">
               <p className="text-xs text-slate-500 dark:text-slate-400">Total XP</p>
@@ -517,9 +739,7 @@ function ProgressTabContent() {
           <XPBar size="default" showLevel={true} showTitle={true} />
           {xpHistory.length > 0 && (
             <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
-                Recent XP Gains
-              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Recent XP Gains</p>
               <div className="space-y-1">
                 {xpHistory.slice(0, 3).map((entry, index) => (
                   <motion.div
@@ -637,7 +857,8 @@ export default function Profile() {
   // Check URL param for tab, default to 'account'
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = searchParams.get('tab');
-    return tabParam && ['account', 'preferences', 'dietary', 'medical', 'progress', 'about'].includes(tabParam)
+    return tabParam &&
+      ['account', 'preferences', 'dietary', 'medical', 'progress', 'about'].includes(tabParam)
       ? tabParam
       : 'account';
   });
@@ -645,7 +866,10 @@ export default function Profile() {
   // Update activeTab when URL param changes
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['account', 'preferences', 'dietary', 'medical', 'progress', 'about'].includes(tabParam)) {
+    if (
+      tabParam &&
+      ['account', 'preferences', 'dietary', 'medical', 'progress', 'about'].includes(tabParam)
+    ) {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -784,28 +1008,39 @@ export default function Profile() {
   // Subscription plan state
   const [currentPlan, setCurrentPlan] = useState('free');
   const [planLoading, setPlanLoading] = useState(true);
+  const [monthlyPrice, setMonthlyPrice] = useState('$0.00');
 
   // Load plan from Supabase
   useEffect(() => {
     const loadPlan = async () => {
-      console.warn('🔍 [PROFILE] ============================================');
-      console.warn('🔍 [PROFILE] Loading plan in Profile component...');
-      console.warn('🔍 [PROFILE] ============================================');
-
       try {
+        // Initialize currency first
+        await initializeCurrency();
+
         const plan = await getCurrentPlan();
-        console.warn('✅ [PROFILE] Plan loaded:', plan);
         setCurrentPlan(plan);
-        console.warn('✅ [PROFILE] Plan state updated to:', plan);
+
+        // Load location-based pricing
+        if (plan !== PLANS.FREE) {
+          try {
+            const formattedPrice = await getFormattedPrice(plan, 'monthly');
+            setMonthlyPrice(formattedPrice);
+          } catch (priceError) {
+            if (import.meta.env.DEV) {
+              console.warn('[PROFILE] Error loading price, using fallback:', priceError);
+            }
+            // Fallback to USD
+            setMonthlyPrice(`$${PLAN_DETAILS[plan]?.priceMonthly || '0.00'}`);
+          }
+        } else {
+          setMonthlyPrice('$0.00');
+        }
       } catch (error) {
-        console.error('❌ [PROFILE] Error loading plan:', error);
-        console.error('❌ [PROFILE] Error details:', {
-          message: error.message,
-          stack: error.stack,
-        });
+        if (import.meta.env.DEV) {
+          console.error('❌ [PROFILE] Error loading plan:', error);
+        }
       } finally {
         setPlanLoading(false);
-        console.warn('✅ [PROFILE] Plan loading complete');
       }
     };
     loadPlan();
@@ -813,9 +1048,7 @@ export default function Profile() {
     // Listen for plan changes
     const handlePlanChange = event => {
       const { plan } = event.detail || {};
-      console.warn('🔔 [PROFILE] Plan change event received:', plan);
       if (plan) {
-        console.warn('✅ [PROFILE] Updating plan state from event:', plan);
         setCurrentPlan(plan);
       }
     };
@@ -1045,15 +1278,45 @@ export default function Profile() {
     }
   };
 
-  const handleSignOut = async () => {
+  const handleSignOut = async e => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    if (loading) {
+      if (import.meta.env.DEV) {
+        console.warn('[PROFILE] Sign out already in progress');
+      }
+      return;
+    }
+
     try {
       setLoading(true);
+
       await signOut();
-      navigate('/');
-      window.location.reload();
-    } catch (_error) {
-      showMessage('error', 'Failed to sign out');
-    } finally {
+
+      // Clear any cached data
+      try {
+        localStorage.removeItem('subscription:plan:v1');
+        // Don't clear favorites - user might want them when they sign back in
+      } catch (clearError) {
+        if (import.meta.env.DEV) {
+          console.warn('[PROFILE] Error clearing cache:', clearError);
+        }
+      }
+
+      // Show success message briefly
+      showMessage('success', 'Signed out successfully');
+
+      // Wait a moment for the message to show, then redirect
+      setTimeout(() => {
+        // Force navigation to home page
+        window.location.href = '/';
+      }, 500);
+    } catch (error) {
+      console.error('❌ [PROFILE] Sign out error:', error);
+      showMessage('error', `Failed to sign out: ${error?.message || 'Unknown error'}`);
       setLoading(false);
     }
   };
@@ -1093,7 +1356,8 @@ export default function Profile() {
 
   // Show loading or sign-in prompt if user is not available
   // Use safeUser to prevent null access errors during render
-  if (!safeUser) {
+  // Add additional safety check for user object
+  if (!safeUser || !user) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
         <div className="text-center">
@@ -1259,11 +1523,7 @@ export default function Profile() {
                       Monthly Cost:
                     </span>
                     <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                      {planLoading
-                        ? 'Loading...'
-                        : currentPlan === PLANS.FREE
-                          ? '$0.00'
-                          : `$${PLAN_DETAILS[currentPlan]?.priceMonthly || '0.00'}`}
+                      {planLoading ? 'Loading...' : monthlyPrice}
                     </span>
                   </div>
                   <div className="pt-3 border-t border-emerald-200 dark:border-emerald-800">
@@ -1336,9 +1596,10 @@ export default function Profile() {
                   <button
                     onClick={handleSignOut}
                     disabled={loading}
-                    className="px-4 py-2 rounded-md border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                    type="button"
+                    className="px-4 py-2 rounded-md border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    Sign Out
+                    {loading ? 'Signing out...' : 'Sign Out'}
                   </button>
                   <button
                     onClick={handleDeleteAccount}
@@ -2179,9 +2440,7 @@ export default function Profile() {
             </motion.div>
           )}
 
-          {activeTab === 'progress' && (
-            <ProgressTabContent />
-          )}
+          {activeTab === 'progress' && <ProgressTabContent />}
 
           {activeTab === 'about' && (
             <motion.div
@@ -2213,19 +2472,31 @@ export default function Profile() {
                 </div>
               </div>
 
+              {/* Install App Section */}
+              <InstallAppSection />
+
               {/* Links */}
               <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
                 <h2 className="text-xl font-bold mb-4">Help & Support</h2>
                 <div className="space-y-2">
-                  <a href="/help" className="block text-emerald-600 hover:underline">
+                  <button
+                    onClick={() => navigate('/help')}
+                    className="block w-full text-left text-emerald-600 hover:text-emerald-700 dark:hover:text-emerald-400 hover:underline transition-colors py-2"
+                  >
                     Help & FAQ
-                  </a>
-                  <a href="/terms" className="block text-emerald-600 hover:underline">
+                  </button>
+                  <button
+                    onClick={() => navigate('/terms')}
+                    className="block w-full text-left text-emerald-600 hover:text-emerald-700 dark:hover:text-emerald-400 hover:underline transition-colors py-2"
+                  >
                     Terms of Service
-                  </a>
-                  <a href="/privacy" className="block text-emerald-600 hover:underline">
+                  </button>
+                  <button
+                    onClick={() => navigate('/privacy')}
+                    className="block w-full text-left text-emerald-600 hover:text-emerald-700 dark:hover:text-emerald-400 hover:underline transition-colors py-2"
+                  >
                     Privacy Policy
-                  </a>
+                  </button>
                 </div>
               </div>
             </motion.div>

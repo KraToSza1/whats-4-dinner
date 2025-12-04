@@ -7,6 +7,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Disable service worker in development to avoid Chrome issues
+      devOptions: {
+        enabled: false,
+        type: 'module',
+      },
       workbox: {
         // Increase file size limit for precaching (default is 2MB)
         // Main bundle is ~2.13MB, so we set it to 3MB to allow precaching
@@ -15,10 +20,26 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.(?:png|jpg|jpeg|svg|gif|webp)$/,
+            // Only cache images from same origin to avoid OpaqueResponseBlocking in Chrome
+            // EXCLUDE Supabase images - they cause OpaqueResponseBlocking errors
+            urlPattern: ({ sameOrigin, url }) => {
+              const isSupabaseImage = url.origin.includes('supabase.co');
+              return (
+                sameOrigin &&
+                !isSupabaseImage &&
+                /\.(?:png|jpg|jpeg|svg|gif|webp)$/i.test(url.pathname)
+              );
+            },
             handler: 'CacheFirst',
-            options: { cacheName: 'images' },
+            options: {
+              cacheName: 'images',
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
           },
+          // REMOVED: Supabase image caching - causes OpaqueResponseBlocking errors
+          // Supabase images will load directly without service worker interference
         ],
       },
       manifest: {

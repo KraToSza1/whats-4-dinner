@@ -8,21 +8,53 @@ import {
 } from '../utils/subscription.js';
 import { redirectToCheckout } from '../utils/paymentProviders.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { getAllLocalPrices } from '../utils/pricing.js';
+import { initializeCurrency } from '../utils/currency.js';
 
 export default function ProModal({ open, onClose }) {
   const { user } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState(() => getCurrentPlanSync() || PLANS.FREE);
   const [billingPeriod, setBillingPeriod] = useState('monthly'); // "monthly" or "yearly"
   const [isProcessing, setIsProcessing] = useState(false);
+  const [localPrices, setLocalPrices] = useState(null);
+  const [pricesLoading, setPricesLoading] = useState(true);
 
-  // Refresh plan when modal opens or plan changes
+  // Initialize currency and load prices when modal opens
   useEffect(() => {
-    if (open) {
-      // Refresh plan from Supabase when modal opens
-      getCurrentPlan().then(plan => {
+    if (!open) return;
+
+    let mounted = true;
+
+    // Initialize currency detection and load prices
+    (async () => {
+      setPricesLoading(true);
+      try {
+        await initializeCurrency();
+        const prices = await getAllLocalPrices();
+        if (mounted) {
+          setLocalPrices(prices);
+          setPricesLoading(false);
+        }
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[ProModal] Error loading prices, using USD fallback:', err);
+        }
+        if (mounted) {
+          setPricesLoading(false);
+        }
+      }
+    })();
+
+    // Refresh plan from Supabase when modal opens
+    getCurrentPlan().then(plan => {
+      if (mounted) {
         setSelectedPlan(plan || PLANS.FREE);
-      });
-    }
+      }
+    });
+
+    return () => {
+      mounted = false;
+    };
   }, [open]);
 
   // Listen for plan changes
@@ -197,10 +229,27 @@ export default function ProModal({ open, onClose }) {
     },
   };
 
-  const currentPlan = plans[selectedPlan] || plans.free; // Fallback to free plan if invalid
-  const currentPrice =
-    billingPeriod === 'yearly' ? currentPlan?.priceYearly || 0 : currentPlan?.priceMonthly || 0;
-  const pricePerMonth = billingPeriod === 'yearly' ? (currentPrice / 12).toFixed(2) : currentPrice;
+  // Get local prices if available, otherwise use USD fallback
+  const getLocalPrice = (planKey, period) => {
+    if (localPrices && localPrices[planKey]) {
+      return period === 'yearly' ? localPrices[planKey].yearly : localPrices[planKey].monthly;
+    }
+    // Fallback to USD
+    const plan = plans[planKey];
+    return period === 'yearly' ? plan?.priceYearly || 0 : plan?.priceMonthly || 0;
+  };
+
+  const getFormattedLocalPrice = (planKey, period) => {
+    if (localPrices && localPrices[planKey]) {
+      return period === 'yearly'
+        ? localPrices[planKey].formattedYearly
+        : localPrices[planKey].formattedMonthly;
+    }
+    // Fallback to USD
+    const plan = plans[planKey];
+    const price = period === 'yearly' ? plan?.priceYearly || 0 : plan?.priceMonthly || 0;
+    return `$${price.toFixed(2)}`;
+  };
 
   const handleSubscribe = async () => {
     if (selectedPlan === 'free') {
@@ -245,7 +294,7 @@ export default function ProModal({ open, onClose }) {
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-1 xs:p-2 sm:p-3 md:p-4 overflow-y-auto safe-px">
+        <div className="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-1 xs:p-2 sm:p-3 md:p-4 overflow-y-auto safe-px">
           <div
             className="w-full max-w-[calc(100vw-0.5rem)] xs:max-w-[calc(100vw-1rem)] sm:max-w-3xl flex flex-col rounded-lg xs:rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-900 text-slate-100 shadow-2xl my-auto max-h-[calc(100vh-0.5rem)] xs:max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden"
             onClick={e => e.stopPropagation()}
@@ -363,9 +412,24 @@ export default function ProModal({ open, onClose }) {
                               </div>
                               {/* Show what paid plans cost for comparison */}
                               <div className="text-[9px] sm:text-[10px] text-slate-500 mt-2 pt-2 border-t border-slate-700">
-                                <div>Supporter: ${plans.supporter.priceMonthly}/mo</div>
-                                <div>Unlimited: ${plans.unlimited.priceMonthly}/mo</div>
-                                <div>Family: ${plans.family.priceMonthly}/mo</div>
+                                <div>
+                                  Supporter:{' '}
+                                  {pricesLoading
+                                    ? '...'
+                                    : getFormattedLocalPrice('supporter', 'monthly') + '/mo'}
+                                </div>
+                                <div>
+                                  Unlimited:{' '}
+                                  {pricesLoading
+                                    ? '...'
+                                    : getFormattedLocalPrice('unlimited', 'monthly') + '/mo'}
+                                </div>
+                                <div>
+                                  Family:{' '}
+                                  {pricesLoading
+                                    ? '...'
+                                    : getFormattedLocalPrice('family', 'monthly') + '/mo'}
+                                </div>
                               </div>
                             </>
                           ) : (
@@ -373,26 +437,44 @@ export default function ProModal({ open, onClose }) {
                               {billingPeriod === 'yearly' && key !== 'free' ? (
                                 <>
                                   <span className="text-sm sm:text-base md:text-lg text-slate-400 line-through mr-1">
-                                    ${plan.priceMonthly}/mo
+                                    {pricesLoading
+                                      ? '...'
+                                      : getFormattedLocalPrice(key, 'monthly') + '/mo'}
                                   </span>
                                   <br />
                                   <span className="text-emerald-400">
-                                    ${(plan.priceYearly / 12).toFixed(2)}/mo
+                                    {pricesLoading
+                                      ? '...'
+                                      : (() => {
+                                          const yearlyPrice = getLocalPrice(key, 'yearly');
+                                          const monthlyFromYearly = yearlyPrice / 12;
+                                          const formatted = getFormattedLocalPrice(key, 'monthly');
+                                          // Replace the number part with the calculated monthly from yearly
+                                          return formatted.replace(
+                                            /[\d.,]+/,
+                                            monthlyFromYearly.toFixed(2)
+                                          );
+                                        })() + '/mo'}
                                   </span>
                                   <span className="text-sm sm:text-base md:text-lg text-slate-400">
                                     {' '}
-                                    (${plan.priceYearly}/yr)
+                                    ({pricesLoading ? '...' : getFormattedLocalPrice(key, 'yearly')}
+                                    /yr)
                                   </span>
                                 </>
                               ) : (
                                 <>
-                                  ${plan.priceMonthly}
+                                  {pricesLoading ? '...' : getFormattedLocalPrice(key, 'monthly')}
                                   <span className="text-sm sm:text-base md:text-lg text-slate-400">
                                     /mo
                                   </span>
                                   {billingPeriod === 'yearly' && (
                                     <div className="text-[10px] sm:text-xs text-slate-400 mt-1">
-                                      or ${plan.priceYearly}/yr
+                                      or{' '}
+                                      {pricesLoading
+                                        ? '...'
+                                        : getFormattedLocalPrice(key, 'yearly')}
+                                      /yr
                                     </div>
                                   )}
                                 </>
@@ -500,14 +582,36 @@ export default function ProModal({ open, onClose }) {
                             <>
                               {billingPeriod === 'yearly' ? (
                                 <>
-                                  Upgrade to {plan.name} - ${(currentPrice / 12).toFixed(2)}/mo
+                                  Upgrade to {plan.name} -{' '}
+                                  {pricesLoading
+                                    ? '...'
+                                    : (() => {
+                                        const yearlyPrice = getLocalPrice(selectedPlan, 'yearly');
+                                        const monthlyFromYearly = yearlyPrice / 12;
+                                        const formatted = getFormattedLocalPrice(
+                                          selectedPlan,
+                                          'monthly'
+                                        );
+                                        return formatted.replace(
+                                          /[\d.,]+/,
+                                          monthlyFromYearly.toFixed(2)
+                                        );
+                                      })() + '/mo'}
                                   <br />
                                   <span className="text-xs opacity-90">
-                                    (Billed ${currentPrice}/year)
+                                    (Billed{' '}
+                                    {pricesLoading
+                                      ? '...'
+                                      : getFormattedLocalPrice(selectedPlan, 'yearly')}
+                                    /year)
                                   </span>
                                 </>
                               ) : (
-                                `Upgrade to ${plan.name} - $${pricePerMonth}/mo`
+                                `Upgrade to ${plan.name} - ${
+                                  pricesLoading
+                                    ? '...'
+                                    : getFormattedLocalPrice(selectedPlan, 'monthly')
+                                }/mo`
                               )}
                             </>
                           )}

@@ -122,12 +122,28 @@ export default function AdminDashboard() {
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log('🔍 [ADMIN DASHBOARD] Auth check effect', {
+        authLoading,
+        hasUser: !!user,
+        userEmail: user?.email,
+        userIsAdmin,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     // Wait for auth to load
     if (authLoading) {
+      if (import.meta.env.DEV) {
+        console.log('⏳ [ADMIN DASHBOARD] Waiting for auth to load...');
+      }
       return;
     }
 
     if (!user) {
+      if (import.meta.env.DEV) {
+        console.warn('❌ [ADMIN DASHBOARD] No user, redirecting...');
+      }
       toast.error('Please sign in to access admin dashboard');
       navigate('/', { replace: true });
       return;
@@ -135,9 +151,18 @@ export default function AdminDashboard() {
 
     // STRICT CHECK: Only allow if user email is in admin allowlist
     if (!userIsAdmin) {
+      if (import.meta.env.DEV) {
+        console.warn('❌ [ADMIN DASHBOARD] User is not admin, redirecting...', {
+          userEmail: user?.email,
+        });
+      }
       toast.error('Access denied. Admin privileges required.');
       navigate('/', { replace: true });
       return;
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('✅ [ADMIN DASHBOARD] Auth check passed, user is admin');
     }
   }, [user, userIsAdmin, authLoading, navigate, toast]);
 
@@ -188,7 +213,42 @@ export default function AdminDashboard() {
     { id: 'settings', name: 'Settings', shortcut: '7' },
   ];
 
+  // Show loading state while auth is loading
+  if (authLoading) {
+    if (import.meta.env.DEV) {
+      console.log('⏳ [ADMIN DASHBOARD] Rendering loading state - authLoading:', authLoading);
+    }
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+            className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"
+          />
+          <p className="text-slate-600 dark:text-slate-400">Loading admin dashboard...</p>
+          {import.meta.env.DEV && (
+            <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
+              Waiting for authentication to complete...
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // Login check already handled above - this is just for rendering
+  if (import.meta.env.DEV) {
+    console.log(
+      '✅ [ADMIN DASHBOARD] Rendering dashboard - authLoading:',
+      authLoading,
+      'user:',
+      !!user,
+      'isAdmin:',
+      userIsAdmin
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">

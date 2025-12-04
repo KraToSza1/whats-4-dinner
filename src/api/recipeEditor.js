@@ -1430,34 +1430,48 @@ export async function getRecipesForBulkEditing(limit = 100, needsReviewOnly = fa
 }
 
 /**
- * SUPER SMART Image Compression - Handles ALL images, especially large ones (16-22MB)
+ * ULTRA-OPTIMIZED Image Compression - Handles ALL images, especially large ones (16-22MB)
  * CRITICAL: Converts all formats to JPEG and aggressively compresses to ≤100KB for PWA performance
+ * IMPROVED: Better quality preservation with smarter compression algorithm
  */
 async function compressImageToJPEG(file, maxSizeKB = 100) {
   const originalSizeMB = file.size / (1024 * 1024);
+  const originalSizeKB = file.size / 1024;
 
-  // For VERY large files (16MB+), be extremely aggressive
+  if (import.meta.env.DEV) {
+    console.log('🔄 [IMAGE COMPRESSION] Starting compression', {
+      originalSize: `${originalSizeMB.toFixed(2)}MB (${originalSizeKB.toFixed(0)}KB)`,
+      targetSize: `${maxSizeKB}KB`,
+    });
+  }
+
+  // Smart initial settings based on file size
   let targetWidth = 1024;
   let targetHeight = 1024;
-  let initialQuality = 0.85;
+  let initialQuality = 0.82; // Slightly lower for better compression
 
   if (originalSizeMB > 15) {
-    // Extremely large files: very aggressive compression
+    // Extremely large files (16MB+): very aggressive
     targetWidth = 800;
     targetHeight = 800;
-    initialQuality = 0.65;
-    maxSizeKB = 90; // Target 90KB for huge files
+    initialQuality = 0.6;
+    maxSizeKB = 90;
   } else if (originalSizeMB > 10) {
-    // Very large files: aggressive compression
+    // Very large files (10-15MB): aggressive
     targetWidth = 900;
     targetHeight = 900;
-    initialQuality = 0.7;
+    initialQuality = 0.65;
     maxSizeKB = 95;
   } else if (originalSizeMB > 5) {
-    // Large files: moderate compression
+    // Large files (5-10MB): moderate
     targetWidth = 950;
     targetHeight = 950;
-    initialQuality = 0.75;
+    initialQuality = 0.72;
+  } else if (originalSizeMB > 2) {
+    // Medium files (2-5MB): light compression
+    targetWidth = 1000;
+    targetHeight = 1000;
+    initialQuality = 0.78;
   }
 
   return new Promise((resolve, reject) => {
@@ -1466,34 +1480,50 @@ async function compressImageToJPEG(file, maxSizeKB = 100) {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: false });
 
         // Calculate dimensions maintaining aspect ratio
         let width = img.width;
         let height = img.height;
+        const aspectRatio = width / height;
 
-        // Scale down if larger than target
+        // Scale down if larger than target (maintain aspect ratio)
         if (width > targetWidth || height > targetHeight) {
-          const ratio = Math.min(targetWidth / width, targetHeight / height);
-          width = Math.round(width * ratio);
-          height = Math.round(height * ratio);
+          if (width > height) {
+            width = targetWidth;
+            height = Math.round(targetWidth / aspectRatio);
+          } else {
+            height = targetHeight;
+            width = Math.round(targetHeight * aspectRatio);
+          }
         }
+
+        // Ensure minimum dimensions for quality
+        width = Math.max(400, width);
+        height = Math.max(400, height);
 
         canvas.width = width;
         canvas.height = height;
 
-        // Draw image to canvas with high quality
+        // Optimize canvas rendering
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
+
+        // Draw image with high quality
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Compress to JPEG with quality adjustment
+        // Binary search for optimal quality to hit target size
         let quality = initialQuality;
         let attempts = 0;
-        const maxAttempts = 10;
+        const maxAttempts = 15;
+        let minQuality = 0.3;
+        let maxQuality = 0.95;
+        let bestBlob = null;
+        let bestQuality = quality;
 
         const tryCompress = () => {
           attempts++;
+
           canvas.toBlob(
             blob => {
               if (!blob) {
@@ -1503,16 +1533,44 @@ async function compressImageToJPEG(file, maxSizeKB = 100) {
 
               const sizeKB = blob.size / 1024;
 
-              // If too large and we can reduce quality more
-              if (sizeKB > maxSizeKB && quality > 0.3 && attempts < maxAttempts) {
-                quality = Math.max(0.3, quality - 0.1);
-                tryCompress();
+              // If we're within 5% of target, accept it
+              if (sizeKB <= maxSizeKB * 1.05) {
+                const finalSizeMB = blob.size / (1024 * 1024);
+                const reduction = (((originalSizeMB - finalSizeMB) / originalSizeMB) * 100).toFixed(
+                  1
+                );
+
+                if (import.meta.env.DEV) {
+                  console.log('✅ [IMAGE COMPRESSION] Success', {
+                    original: `${originalSizeMB.toFixed(2)}MB (${originalSizeKB.toFixed(0)}KB)`,
+                    compressed: `${finalSizeMB.toFixed(2)}MB (${sizeKB.toFixed(0)}KB)`,
+                    reduction: `${reduction}%`,
+                    quality: quality.toFixed(2),
+                    dimensions: `${canvas.width}x${canvas.height}`,
+                    attempts,
+                  });
+                }
+
+                resolve(blob);
                 return;
               }
 
-              // If still too large, resize more aggressively
-              if (sizeKB > maxSizeKB && attempts < maxAttempts) {
-                const scale = Math.sqrt(maxSizeKB / sizeKB) * 0.85;
+              // Binary search: adjust quality based on current size
+              if (sizeKB > maxSizeKB) {
+                // Too large: reduce quality
+                maxQuality = quality;
+                quality = (quality + minQuality) / 2;
+              } else {
+                // Too small: increase quality (but we want to stay under limit)
+                bestBlob = blob;
+                bestQuality = quality;
+                minQuality = quality;
+                quality = (quality + maxQuality) / 2;
+              }
+
+              // If still too large after many attempts, resize more aggressively
+              if (sizeKB > maxSizeKB * 1.5 && attempts >= 8) {
+                const scale = Math.sqrt((maxSizeKB * 0.9) / sizeKB);
                 const newWidth = Math.max(400, Math.floor(width * scale));
                 const newHeight = Math.max(400, Math.floor(height * scale));
                 canvas.width = newWidth;
@@ -1520,28 +1578,40 @@ async function compressImageToJPEG(file, maxSizeKB = 100) {
                 ctx.imageSmoothingEnabled = true;
                 ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, newWidth, newHeight);
-                quality = 0.6;
-                tryCompress();
+                width = newWidth;
+                height = newHeight;
+                quality = 0.65; // Reset quality after resize
+                minQuality = 0.3;
+                maxQuality = 0.85;
+              }
+
+              // If we've tried enough times, use best result or current
+              if (attempts >= maxAttempts) {
+                const finalBlob = bestBlob || blob;
+                const finalSizeMB = finalBlob.size / (1024 * 1024);
+                const finalSizeKB = finalBlob.size / 1024;
+                const reduction = (((originalSizeMB - finalSizeMB) / originalSizeMB) * 100).toFixed(
+                  1
+                );
+
+                if (import.meta.env.DEV) {
+                  console.warn('⚠️ [IMAGE COMPRESSION] Max attempts reached', {
+                    original: `${originalSizeMB.toFixed(2)}MB (${originalSizeKB.toFixed(0)}KB)`,
+                    compressed: `${finalSizeMB.toFixed(2)}MB (${finalSizeKB.toFixed(0)}KB)`,
+                    reduction: `${reduction}%`,
+                    quality: bestQuality.toFixed(2),
+                    dimensions: `${canvas.width}x${canvas.height}`,
+                    attempts,
+                    targetMet: finalSizeKB <= maxSizeKB,
+                  });
+                }
+
+                resolve(finalBlob);
                 return;
               }
 
-              // Success or max attempts reached
-              const finalSizeMB = blob.size / (1024 * 1024);
-              const reduction = (((originalSizeMB - finalSizeMB) / originalSizeMB) * 100).toFixed(
-                1
-              );
-
-              if (import.meta.env.DEV) {
-                console.log('📸 [IMAGE COMPRESSION] Success', {
-                  original: `${originalSizeMB.toFixed(2)}MB`,
-                  compressed: `${finalSizeMB.toFixed(2)}MB (${sizeKB.toFixed(0)}KB)`,
-                  reduction: `${reduction}%`,
-                  quality: quality.toFixed(2),
-                  dimensions: `${canvas.width}x${canvas.height}`,
-                });
-              }
-
-              resolve(blob);
+              // Try again with adjusted quality
+              tryCompress();
             },
             'image/jpeg',
             quality
@@ -1582,13 +1652,9 @@ export async function uploadRecipeImage(recipeId, imageFile) {
       originalFileName.endsWith('.jpg') ||
       originalFileName.endsWith('.jpeg');
 
-    // CRITICAL: ALWAYS compress images - especially large ones (16-22MB)
-    // Convert all formats to JPEG and compress to ≤100KB for PWA performance
-    const shouldCompress =
-      isPNG ||
-      !isJPEG ||
-      imageFile.size > 100 * 1024 || // Always compress if > 100KB
-      originalSizeMB > 1; // Always compress if > 1MB
+    // CRITICAL: ALWAYS compress ALL images to ≤100KB for optimal PWA performance
+    // This ensures consistent file sizes and faster loading across the entire app
+    const shouldCompress = true; // Always compress, no exceptions
 
     if (shouldCompress) {
       console.warn('⚠️ [RECIPE EDITOR API] Compressing image to JPEG ≤100KB...', {
@@ -1608,34 +1674,60 @@ export async function uploadRecipeImage(recipeId, imageFile) {
         format: 'JPEG',
       });
 
-      if (compressedBlob.size > 100 * 1024) {
-        console.warn('⚠️ [RECIPE EDITOR API] Image still exceeds 100KB after compression', {
-          size: `${finalSizeKB}KB`,
-        });
-      }
-
       // Create File object from compressed blob
-      const compressedFile = new File([compressedBlob], `${recipeId}.jpg`, {
+      let finalCompressedBlob = compressedBlob;
+      let finalCompressedFile = new File([compressedBlob], `${recipeId}.jpg`, {
         type: 'image/jpeg',
         lastModified: Date.now(),
       });
 
+      // If still over 100KB, try one more aggressive compression pass
+      if (compressedBlob.size > 100 * 1024) {
+        if (import.meta.env.DEV) {
+          console.warn('⚠️ [RECIPE EDITOR API] Image still exceeds 100KB after compression', {
+            size: `${finalSizeKB}KB`,
+            target: '100KB',
+            exceededBy: `${(compressedBlob.size - 100 * 1024).toFixed(0)} bytes`,
+          });
+        }
+        // Try one more aggressive compression pass
+        const recompressed = await compressImageToJPEG(finalCompressedFile, 95);
+        if (recompressed.size <= 100 * 1024 && recompressed.size < compressedBlob.size) {
+          if (import.meta.env.DEV) {
+            console.log('✅ [RECIPE EDITOR API] Recompression successful, now under 100KB');
+          }
+          finalCompressedBlob = recompressed;
+          finalCompressedFile = new File([recompressed], `${recipeId}.jpg`, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+        }
+      }
+
       const fileNameFinal = `${recipeId}.jpg`;
 
-      console.log('📤 [RECIPE EDITOR API] Uploading compressed JPEG to storage', {
-        fileName: fileNameFinal,
-      });
+      if (import.meta.env.DEV) {
+        console.log('📤 [RECIPE EDITOR API] Uploading compressed JPEG to storage', {
+          fileName: fileNameFinal,
+          finalSize: `${(finalCompressedBlob.size / 1024).toFixed(2)}KB`,
+          targetMet: finalCompressedBlob.size <= 100 * 1024,
+        });
+      }
       const { error: uploadError } = await supabase.storage
         .from('recipe-images')
-        .upload(fileNameFinal, compressedFile, {
+        .upload(fileNameFinal, finalCompressedFile, {
           upsert: true,
           contentType: 'image/jpeg',
         });
 
       if (uploadError) throw uploadError;
-      console.log('✅ [RECIPE EDITOR API] Compressed JPEG uploaded to storage', {
-        fileName: fileNameFinal,
-      });
+      if (import.meta.env.DEV) {
+        console.log('✅ [RECIPE EDITOR API] Compressed JPEG uploaded to storage', {
+          fileName: fileNameFinal,
+          finalSize: `${(finalCompressedBlob.size / 1024).toFixed(2)}KB`,
+          targetMet: finalCompressedBlob.size <= 100 * 1024,
+        });
+      }
 
       // Get public URL
       const { data: urlData } = supabase.storage.from('recipe-images').getPublicUrl(fileNameFinal);
@@ -1656,16 +1748,35 @@ export async function uploadRecipeImage(recipeId, imageFile) {
 
     // ALWAYS compress images - even if they're already JPEG and small
     // This ensures consistent quality and size across all uploads
-    console.log('📤 [RECIPE EDITOR API] Compressing all images for optimal performance...');
-    const compressedBlob = await compressImageToJPEG(imageFile, 100);
-    const finalSizeKB = (compressedBlob.size / 1024).toFixed(2);
+    if (import.meta.env.DEV) {
+      console.log('📤 [RECIPE EDITOR API] Compressing all images for optimal performance...');
+    }
+    let compressedBlob = await compressImageToJPEG(imageFile, 100);
+    let finalSizeKB = (compressedBlob.size / 1024).toFixed(2);
 
-    console.log('✅ [RECIPE EDITOR API] Image compressed', {
-      originalSize: `${originalSizeMB.toFixed(2)}MB (${(imageFile.size / 1024).toFixed(0)}KB)`,
-      compressedSize: `${finalSizeKB}KB`,
-      reduction: `${((1 - compressedBlob.size / imageFile.size) * 100).toFixed(1)}%`,
-      format: 'JPEG',
-    });
+    // If still over 100KB, try more aggressive compression
+    if (compressedBlob.size > 100 * 1024) {
+      if (import.meta.env.DEV) {
+        console.warn(
+          '⚠️ [RECIPE EDITOR API] First compression exceeded 100KB, trying more aggressive...'
+        );
+      }
+      const recompressed = await compressImageToJPEG(imageFile, 95);
+      if (recompressed.size < compressedBlob.size) {
+        compressedBlob = recompressed;
+        finalSizeKB = (compressedBlob.size / 1024).toFixed(2);
+      }
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('✅ [RECIPE EDITOR API] Image compressed', {
+        originalSize: `${originalSizeMB.toFixed(2)}MB (${(imageFile.size / 1024).toFixed(0)}KB)`,
+        compressedSize: `${finalSizeKB}KB`,
+        reduction: `${((1 - compressedBlob.size / imageFile.size) * 100).toFixed(1)}%`,
+        format: 'JPEG',
+        targetMet: compressedBlob.size <= 100 * 1024,
+      });
+    }
 
     // Create File object from compressed blob
     const compressedFile = new File([compressedBlob], `${recipeId}.jpg`, {
@@ -1675,9 +1786,13 @@ export async function uploadRecipeImage(recipeId, imageFile) {
 
     const fileNameFinal = `${recipeId}.jpg`;
 
-    console.log('📤 [RECIPE EDITOR API] Uploading compressed JPEG to storage', {
-      fileName: fileNameFinal,
-    });
+    if (import.meta.env.DEV) {
+      console.log('📤 [RECIPE EDITOR API] Uploading compressed JPEG to storage', {
+        fileName: fileNameFinal,
+        finalSize: `${finalSizeKB}KB`,
+        targetMet: compressedBlob.size <= 100 * 1024,
+      });
+    }
     const { error: uploadError } = await supabase.storage
       .from('recipe-images')
       .upload(fileNameFinal, compressedFile, {
@@ -1686,9 +1801,13 @@ export async function uploadRecipeImage(recipeId, imageFile) {
       });
 
     if (uploadError) throw uploadError;
-    console.log('✅ [RECIPE EDITOR API] Compressed JPEG uploaded to storage', {
-      fileName: fileNameFinal,
-    });
+    if (import.meta.env.DEV) {
+      console.log('✅ [RECIPE EDITOR API] Compressed JPEG uploaded to storage', {
+        fileName: fileNameFinal,
+        finalSize: `${finalSizeKB}KB`,
+        targetMet: compressedBlob.size <= 100 * 1024,
+      });
+    }
 
     // Get public URL
     const { data: urlData } = supabase.storage.from('recipe-images').getPublicUrl(fileNameFinal);

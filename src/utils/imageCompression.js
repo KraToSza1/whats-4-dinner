@@ -56,30 +56,66 @@ export async function compressImage(file, options = {}) {
               return;
             }
 
-            // If still too large, reduce quality further
+            // Binary search for optimal quality to hit target size
             const blobSizeMB = blob.size / (1024 * 1024);
+            const blobSizeKB = blob.size / 1024;
+
             if (blobSizeMB > maxSizeMB) {
-              // Recursively compress with lower quality
-              const newQuality = Math.max(0.5, quality - 0.1);
-              canvas.toBlob(
-                smallerBlob => {
-                  if (!smallerBlob) {
-                    reject(new Error('Failed to compress image further'));
-                    return;
-                  }
+              // Too large: use binary search to find optimal quality
+              let minQ = 0.3;
+              let maxQ = quality;
+              let bestBlob = blob;
+              let attempts = 0;
+              const maxAttempts = 8;
 
-                  const compressedFile = new File(
-                    [smallerBlob],
-                    file.name.replace(/\.(png|webp|gif)$/i, '.jpg'),
-                    { type: 'image/jpeg', lastModified: Date.now() }
-                  );
+              const tryLowerQuality = () => {
+                attempts++;
+                const testQuality = (minQ + maxQ) / 2;
 
-                  resolve(compressedFile);
-                },
-                'image/jpeg',
-                newQuality
-              );
+                canvas.toBlob(
+                  testBlob => {
+                    if (!testBlob) {
+                      // Fallback to best blob we have
+                      const compressedFile = new File(
+                        [bestBlob],
+                        file.name.replace(/\.(png|webp|gif)$/i, '.jpg'),
+                        { type: 'image/jpeg', lastModified: Date.now() }
+                      );
+                      resolve(compressedFile);
+                      return;
+                    }
+
+                    const testSizeKB = testBlob.size / 1024;
+
+                    if (testSizeKB <= maxSizeMB * 1024 || attempts >= maxAttempts) {
+                      // Good enough or max attempts
+                      const finalBlob = testSizeKB <= maxSizeMB * 1024 ? testBlob : bestBlob;
+                      const compressedFile = new File(
+                        [finalBlob],
+                        file.name.replace(/\.(png|webp|gif)$/i, '.jpg'),
+                        { type: 'image/jpeg', lastModified: Date.now() }
+                      );
+                      resolve(compressedFile);
+                    } else if (testSizeKB > maxSizeMB * 1024) {
+                      // Still too large
+                      maxQ = testQuality;
+                      bestBlob = testBlob.size < bestBlob.size ? testBlob : bestBlob;
+                      tryLowerQuality();
+                    } else {
+                      // Too small, but we want to stay under limit
+                      minQ = testQuality;
+                      bestBlob = testBlob;
+                      tryLowerQuality();
+                    }
+                  },
+                  'image/jpeg',
+                  testQuality
+                );
+              };
+
+              tryLowerQuality();
             } else {
+              // Size is good
               const compressedFile = new File(
                 [blob],
                 file.name.replace(/\.(png|webp|gif)$/i, '.jpg'),
@@ -110,31 +146,44 @@ export async function compressImage(file, options = {}) {
 }
 
 /**
- * Smart compression that aggressively reduces file size
+ * Smart compression that aggressively reduces file size to ≤100KB
+ * IMPROVED: Better algorithm with binary search for optimal quality
  * @param {File} file - The image file to compress
- * @returns {Promise<File>} - Compressed image file (target: ~100KB)
+ * @returns {Promise<File>} - Compressed image file (target: ≤100KB)
  */
 export async function compressImageSmart(file) {
   const originalSizeMB = file.size / (1024 * 1024);
+  const originalSizeKB = file.size / 1024;
 
-  // For very large files (16MB+), be more aggressive
-  let maxSizeMB = 0.1; // 100KB default
-  let quality = 0.85;
+  // Smart initial settings based on file size
+  let maxSizeMB = 0.1; // 100KB target
+  let quality = 0.82;
   let maxWidth = 1024;
   let maxHeight = 1024;
 
-  if (originalSizeMB > 10) {
-    // Very large files: more aggressive compression
-    maxSizeMB = 0.08; // 80KB
-    quality = 0.75;
+  if (originalSizeMB > 15) {
+    // Extremely large files (16MB+): very aggressive
+    maxSizeMB = 0.09; // 90KB
+    quality = 0.6;
     maxWidth = 800;
     maxHeight = 800;
-  } else if (originalSizeMB > 5) {
-    // Large files: moderate compression
-    maxSizeMB = 0.09; // 90KB
-    quality = 0.8;
+  } else if (originalSizeMB > 10) {
+    // Very large files (10-15MB): aggressive
+    maxSizeMB = 0.095; // 95KB
+    quality = 0.65;
     maxWidth = 900;
     maxHeight = 900;
+  } else if (originalSizeMB > 5) {
+    // Large files (5-10MB): moderate
+    maxSizeMB = 0.098; // 98KB
+    quality = 0.72;
+    maxWidth = 950;
+    maxHeight = 950;
+  } else if (originalSizeMB > 2) {
+    // Medium files (2-5MB): light compression
+    quality = 0.78;
+    maxWidth = 1000;
+    maxHeight = 1000;
   }
 
   try {
@@ -146,16 +195,37 @@ export async function compressImageSmart(file) {
     });
 
     const compressedSizeMB = compressed.size / (1024 * 1024);
+    const compressedSizeKB = compressed.size / 1024;
     const reduction = (((originalSizeMB - compressedSizeMB) / originalSizeMB) * 100).toFixed(1);
 
     if (import.meta.env.DEV) {
-      console.log('📸 [IMAGE COMPRESSION]', {
-        original: `${originalSizeMB.toFixed(2)}MB`,
-        compressed: `${compressedSizeMB.toFixed(2)}MB`,
+      console.log('📸 [IMAGE COMPRESSION] Smart compression complete', {
+        original: `${originalSizeMB.toFixed(2)}MB (${originalSizeKB.toFixed(0)}KB)`,
+        compressed: `${compressedSizeMB.toFixed(2)}MB (${compressedSizeKB.toFixed(0)}KB)`,
         reduction: `${reduction}%`,
-        quality,
+        quality: quality.toFixed(2),
         dimensions: `${maxWidth}x${maxHeight}`,
+        targetMet: compressedSizeKB <= 100,
       });
+    }
+
+    // If still over 100KB, try one more aggressive pass
+    if (compressed.size > 100 * 1024) {
+      if (import.meta.env.DEV) {
+        console.warn(
+          '⚠️ [IMAGE COMPRESSION] Still over 100KB, trying more aggressive compression...'
+        );
+      }
+      const recompressed = await compressImage(file, {
+        maxSizeMB: 0.095, // 95KB
+        maxWidth: Math.max(600, maxWidth - 100),
+        maxHeight: Math.max(600, maxHeight - 100),
+        quality: Math.max(0.5, quality - 0.1),
+      });
+
+      if (recompressed.size <= compressed.size) {
+        return recompressed;
+      }
     }
 
     return compressed;

@@ -33,10 +33,12 @@ export default function DieticianAIPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <div className="page-shell py-6 sm:py-8">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-purple-50/20 to-indigo-50/20 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="page-shell py-3 xs:py-4 sm:py-6 md:py-8 px-3 xs:px-4 sm:px-6">
         <BackToHome toHome={false} label="Back" />
-        <DieticianAI />
+        <div className="mt-4 xs:mt-5 sm:mt-6">
+          <DieticianAI />
+        </div>
       </div>
     </div>
   );

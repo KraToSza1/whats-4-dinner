@@ -83,52 +83,55 @@ export default function XPBar({ size = 'default', showLevel = true, showTitle = 
 
   return (
     <>
-      <div className="w-full bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-6 border-2 border-slate-200 dark:border-slate-700 shadow-lg">
+      <div className="w-full bg-white dark:bg-slate-800 rounded-lg xs:rounded-xl p-3 xs:p-4 sm:p-6 border-2 border-slate-200 dark:border-slate-700 shadow-lg">
         {showLevel && (
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between mb-3 xs:mb-4 gap-2">
+            <div className="flex items-center gap-2 xs:gap-3 min-w-0 flex-1">
               <motion.div
-                animate={showLevelUp ? { scale: [1, 1.5, 1], rotate: [0, 360] } : {}}
+                animate={showLevelUp ? { scale: [1, 1.3, 1], rotate: [0, 360] } : {}}
                 transition={{ duration: 0.6 }}
-                className="relative"
+                className="relative shrink-0"
               >
-                <span className={`text-3xl sm:text-4xl ${getLevelColor(level)}`}>
+                <span className={`text-2xl xs:text-3xl sm:text-4xl ${getLevelColor(level)}`}>
                   {getLevelBadge(level)}
                 </span>
                 {level >= 30 && (
                   <motion.div
                     animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
                     transition={{ duration: 2, repeat: Infinity }}
-                    className="absolute -inset-2 bg-yellow-400/30 rounded-full blur-xl"
+                    className="absolute -inset-1.5 xs:-inset-2 bg-yellow-400/30 rounded-full blur-xl"
                   />
                 )}
               </motion.div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-black text-xl sm:text-2xl text-slate-900 dark:text-white">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 xs:gap-2 flex-wrap">
+                  <h3 className="font-black text-lg xs:text-xl sm:text-2xl text-slate-900 dark:text-white">
                     Level {level}
                   </h3>
-                  {level >= 50 && <Crown className="w-5 h-5 text-yellow-500 animate-bounce" />}
+                  {level >= 50 && (
+                    <Crown className="w-4 h-4 xs:w-5 xs:h-5 text-yellow-500 animate-bounce shrink-0" />
+                  )}
                   {level >= 30 && level < 50 && (
-                    <Trophy className="w-5 h-5 text-purple-500 animate-pulse" />
+                    <Trophy className="w-4 h-4 xs:w-5 xs:h-5 text-purple-500 animate-pulse shrink-0" />
                   )}
                 </div>
                 {showTitle && (
-                  <div className="text-sm sm:text-base font-bold text-emerald-600 dark:text-emerald-400">
+                  <div className="text-xs xs:text-sm sm:text-base font-bold text-emerald-600 dark:text-emerald-400 truncate">
                     {getLevelTitle(level)}
                   </div>
                 )}
               </div>
             </div>
-            <div className="flex flex-col items-end">
-              <div className="flex items-center gap-1 text-sm sm:text-base font-bold text-slate-700 dark:text-slate-300">
-                <Sparkles className="w-4 h-4 text-emerald-500" />
-                <span>{xp.toLocaleString()}</span>
+            <div className="flex flex-col items-end shrink-0">
+              <div className="flex items-center gap-1 text-xs xs:text-sm sm:text-base font-bold text-slate-700 dark:text-slate-300">
+                <Sparkles className="w-3 h-3 xs:w-4 xs:h-4 text-emerald-500 shrink-0" />
+                <span className="whitespace-nowrap">{xp.toLocaleString()}</span>
                 <span className="text-xs text-slate-500">XP</span>
               </div>
               {todayXP > 0 && (
                 <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                  <Zap className="w-3 h-3" />+{todayXP} today
+                  <Zap className="w-2.5 h-2.5 xs:w-3 xs:h-3 shrink-0" />
+                  <span className="whitespace-nowrap">+{todayXP} today</span>
                 </div>
               )}
             </div>
@@ -166,26 +169,26 @@ export default function XPBar({ size = 'default', showLevel = true, showTitle = 
         </div>
 
         {/* XP Needed & Milestones */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           {xpNeeded > 0 ? (
-            <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">
+            <div className="text-xs xs:text-sm text-slate-600 dark:text-slate-400 font-medium">
               <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                 {xpNeeded.toLocaleString()} XP
               </span>{' '}
-              to Level {level + 1}
+              <span className="whitespace-nowrap">to Level {level + 1}</span>
             </div>
           ) : (
-            <div className="text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400">
+            <div className="text-xs xs:text-sm font-bold text-emerald-600 dark:text-emerald-400">
               🎉 Max Level Reached!
             </div>
           )}
 
           {/* Level milestones indicator */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 xs:gap-1 shrink-0">
             {[5, 10, 20, 30, 50].map(milestone => (
               <div
                 key={milestone}
-                className={`w-1.5 h-1.5 rounded-full ${
+                className={`w-1 h-1 xs:w-1.5 xs:h-1.5 rounded-full ${
                   level >= milestone
                     ? level >= 50
                       ? 'bg-yellow-400 shadow-lg shadow-yellow-400/50'

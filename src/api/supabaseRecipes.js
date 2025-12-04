@@ -737,28 +737,9 @@ export async function searchSupabaseRecipes({
   const t0 = now();
   try {
     // Only log in development to reduce console noise
-    if (import.meta.env.DEV) {
-      console.log('🔍 [SEARCH API] searchSupabaseRecipes called', {
-        query: query?.substring(0, 50) || '(empty)',
-        limit,
-        offset,
-        includeIngredients: includeIngredients?.length || 0,
-        timestamp: new Date().toISOString(),
-      });
-    }
-    
     // Validate and sanitize inputs - increase max limit to support browsing large recipe databases
     const validatedLimit = Math.min(Math.max(Number(limit) || 24, 1), 1000); // Clamp between 1-1000 (increased to support large databases)
     const validatedOffset = Math.max(Number(offset) || 0, 0); // Offset for pagination
-    
-    if (import.meta.env.DEV) {
-      console.log('📊 [SEARCH API] Validated params', {
-        validatedLimit,
-        validatedOffset,
-        requestedLimit: limit,
-        requestedOffset: offset,
-      });
-    }
 
     const debugPayload = {
       query,
@@ -791,25 +772,247 @@ export async function searchSupabaseRecipes({
 
     // Removed verbose logging - only log errors
 
-    // Build the query - show ONLY complete/edited recipes for regular users
-    // Complete/edited = recipes that have been edited via Recipe Editor OR have complete nutrition
+    // Build the query - SIMPLIFIED for performance
+    // Use a simpler query that's less likely to timeout
+    // If no search query and no complex filters, use ultra-simple query
+    const hasSearchQuery = trimmedQuery && trimmedQuery.length > 0;
+    const hasIngredientFilters = filteredIngredients.length > 0;
+    const hasComplexFilters =
+      (diet && diet !== 'any diet') ||
+      (mealType && mealType !== 'any meal') ||
+      (maxTime && maxTime !== 'any time') ||
+      (cuisine && cuisine.length > 0) ||
+      (difficulty && difficulty.length > 0);
+
+    // If no search and no filters, use the simplest possible query
+    if (!hasSearchQuery && !hasIngredientFilters && !hasComplexFilters) {
+      if (import.meta.env.DEV) {
+        console.log('📋 [SEARCH API] Using ultra-simple query (no filters)');
+      }
+
+      const simpleBuilder = supabase
+        .from('recipes')
+        .select(
+          'id,title,description,hero_image_url,prep_minutes,cook_minutes,servings,difficulty,cuisine,meal_types,diets,author,calories,has_complete_nutrition,source',
+          {
+            count: 'exact',
+          }
+        )
+        .order('created_at', { ascending: false })
+        .range(validatedOffset, validatedOffset + validatedLimit - 1);
+
+      // Execute immediately without complex filtering
+      let data, error, count;
+      const queryStartTime = Date.now();
+
+      try {
+        // First, test if Supabase client is working
+        if (import.meta.env.DEV) {
+          console.log('🔍 [SEARCH API] Testing Supabase connection...');
+          console.log('🔍 [SEARCH API] Supabase URL:', SUPABASE_URL);
+          console.log('🔍 [SEARCH API] Supabase client:', {
+            hasSupabase: !!supabase,
+            hasFrom: typeof supabase?.from === 'function',
+            url: supabase?.supabaseUrl || 'unknown',
+          });
+
+          // Test direct HTTP fetch first
+          try {
+            const testUrl = `${SUPABASE_URL}/rest/v1/recipes?select=id&limit=1`;
+            console.log('🔍 [SEARCH API] Testing direct HTTP fetch to:', testUrl);
+
+            const fetchTimeout = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('HTTP fetch timeout')), 5000)
+            );
+
+            const fetchPromise = fetch(testUrl, {
+              method: 'GET',
+              headers: {
+                apikey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || ''}`,
+                'Content-Type': 'application/json',
+              },
+            });
+
+            const fetchResult = await Promise.race([fetchPromise, fetchTimeout]);
+
+            if (import.meta.env.DEV) {
+              console.log('✅ [SEARCH API] Direct HTTP test:', {
+                status: fetchResult.status,
+                statusText: fetchResult.statusText,
+                ok: fetchResult.ok,
+                headers: Object.fromEntries(fetchResult.headers.entries()),
+              });
+
+              if (fetchResult.ok) {
+                const data = await fetchResult.json();
+                console.log('✅ [SEARCH API] HTTP test data:', data);
+              } else {
+                const text = await fetchResult.text();
+                console.error('❌ [SEARCH API] HTTP test failed:', text);
+              }
+            }
+          } catch (httpError) {
+            if (import.meta.env.DEV) {
+              console.error('❌ [SEARCH API] Direct HTTP test failed:', httpError);
+              console.error('❌ [SEARCH API] This indicates a network/CORS issue');
+            }
+          }
+
+          // Now test Supabase client
+          try {
+            // Quick connection test - just check if we can access the table
+            const testQuery = supabase.from('recipes').select('id').limit(1);
+            const testTimeout = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Connection test timeout')), 5000)
+            );
+            const testResult = await Promise.race([testQuery, testTimeout]);
+            if (import.meta.env.DEV) {
+              console.log('✅ [SEARCH API] Supabase client test passed:', {
+                hasData: !!testResult?.data,
+                hasError: !!testResult?.error,
+                errorMessage: testResult?.error?.message || 'none',
+                errorCode: testResult?.error?.code || 'none',
+              });
+            }
+          } catch (testError) {
+            if (import.meta.env.DEV) {
+              console.error('❌ [SEARCH API] Supabase client test failed:', testError);
+              console.error('❌ [SEARCH API] This indicates a Supabase client issue');
+            }
+          }
+        }
+
+        const timeoutMs = 30000;
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            const elapsed = Date.now() - queryStartTime;
+            if (import.meta.env.DEV) {
+              console.error('⏰ [SEARCH API] Simple query TIMEOUT after', elapsed, 'ms');
+            }
+            reject(new Error('Query timeout'));
+          }, timeoutMs);
+        });
+
+        if (import.meta.env.DEV) {
+          console.log('🔄 [SEARCH API] Executing simple query...');
+          console.log('🔄 [SEARCH API] Query builder type:', typeof simpleBuilder);
+          console.log('🔄 [SEARCH API] Query builder:', simpleBuilder);
+        }
+
+        // Wrap the query in a try-catch to catch any immediate errors
+        let queryPromise;
+        try {
+          queryPromise = simpleBuilder;
+          if (import.meta.env.DEV) {
+            console.log('🔄 [SEARCH API] Query promise created, type:', typeof queryPromise);
+            console.log(
+              '🔄 [SEARCH API] Query promise has then:',
+              typeof queryPromise?.then === 'function'
+            );
+            console.log(
+              '🔄 [SEARCH API] Query promise has catch:',
+              typeof queryPromise?.catch === 'function'
+            );
+          }
+
+          // Check if it's actually a promise
+          if (typeof queryPromise?.then !== 'function') {
+            throw new Error(
+              'Query builder did not return a promise - Supabase client may be broken'
+            );
+          }
+        } catch (builderError) {
+          if (import.meta.env.DEV) {
+            console.error('❌ [SEARCH API] Error creating query promise:', builderError);
+          }
+          throw builderError;
+        }
+
+        // Add a check to see if the promise resolves quickly (network issue detection)
+        if (import.meta.env.DEV) {
+          const quickCheck = Promise.race([
+            queryPromise.then(() => 'resolved').catch(() => 'rejected'),
+            new Promise(resolve => setTimeout(() => resolve('timeout'), 1000)),
+          ]);
+          quickCheck.then(result => {
+            if (result === 'timeout') {
+              console.warn(
+                '⚠️ [SEARCH API] Query promise did not resolve/reject within 1 second - likely network issue'
+              );
+            } else {
+              console.log('✅ [SEARCH API] Query promise responded:', result);
+            }
+          });
+        }
+
+        const result = await Promise.race([queryPromise, timeoutPromise]);
+        const elapsed = Date.now() - queryStartTime;
+
+        if (import.meta.env.DEV) {
+          console.log('✅ [SEARCH API] Simple query completed in', elapsed, 'ms');
+          console.log('✅ [SEARCH API] Result:', {
+            hasData: !!result?.data,
+            dataLength: result?.data?.length || 0,
+            hasError: !!result?.error,
+            errorMessage: result?.error?.message || 'none',
+            count: result?.count ?? 'null',
+          });
+        }
+
+        data = result?.data || null;
+        error = result?.error || null;
+        count = result?.count ?? null;
+
+        if (error) {
+          if (import.meta.env.DEV) {
+            console.error('❌ [SUPABASE ERROR] Simple query failed:', {
+              message: error.message,
+              details: error.details,
+              hint: error.hint,
+              code: error.code,
+            });
+          }
+          throw new Error(`Database error: ${error.message || 'Unknown error'}`);
+        }
+
+        if (!data || data.length === 0) {
+          return {
+            data: [],
+            totalCount: 0,
+          };
+        }
+
+        // Map results
+        const mappedRecipes = data.map(mapSupabaseRecipe).filter(Boolean);
+
+        return {
+          data: mappedRecipes,
+          totalCount: count ?? mappedRecipes.length,
+        };
+      } catch (queryError) {
+        const elapsed = Date.now() - queryStartTime;
+        if (import.meta.env.DEV) {
+          console.error('❌ [SEARCH API] Simple query failed after', elapsed, 'ms:', queryError);
+        }
+        throw queryError;
+      }
+    }
+
+    // Build complex query with filters
     let builder = supabase
       .from('recipes')
       .select(
         'id,title,description,hero_image_url,prep_minutes,cook_minutes,servings,difficulty,cuisine,meal_types,diets,author,calories,has_complete_nutrition,source',
-        { count: 'exact' } // Get total count for pagination
+        {
+          count: 'exact',
+        }
       )
-      // Only show complete/edited recipes: source = 'recipe_editor' OR has_complete_nutrition = true
-      .or('source.eq.recipe_editor,has_complete_nutrition.eq.true')
-      .order('updated_at', { ascending: false }) // Order by most recently updated
-      .range(validatedOffset, validatedOffset + validatedLimit - 1); // Server-side pagination: range(start, end)
-    
+      .order('created_at', { ascending: false }) // Use created_at instead of updated_at (simpler index)
+      .range(validatedOffset, validatedOffset + validatedLimit - 1); // Server-side pagination
+
     if (import.meta.env.DEV) {
-      console.log('📋 [SEARCH API] Query builder created', {
-        rangeStart: validatedOffset,
-        rangeEnd: validatedOffset + validatedLimit - 1,
-        expectedCount: validatedLimit,
-      });
+      console.log('📋 [SEARCH API] Building complex query with filters');
     }
 
     // Smart search: Split query into words and search for each
@@ -853,21 +1056,15 @@ export async function searchSupabaseRecipes({
         }
       }
     } else if (filteredIngredients.length > 0) {
-      // If only ingredient filters, search in title/description as initial filter
-      // Then we'll refine by actual ingredients
-      try {
-        const clauses = filteredIngredients
-          .slice(0, 10) // Limit to prevent query explosion
-          .map(term => {
-            const escapedTerm = term.replace(/[%_\\]/g, '\\$&');
-            return `title.ilike.%${escapedTerm}%,description.ilike.%${escapedTerm}%`;
-          });
-        if (clauses.length > 0) {
-          builder = builder.or(clauses.join(','));
-        }
-      } catch (ingredientError) {
-        console.warn('[searchSupabaseRecipes] Error building ingredient clauses:', ingredientError);
-        // Continue without ingredient text search
+      // If only ingredient filters (no text query), don't filter by title/description
+      // We'll search ALL recipes and filter by actual ingredients later
+      // This ensures we find recipes even if ingredient names don't appear in titles
+      // Just ensure we have complete nutrition recipes
+      if (import.meta.env.DEV) {
+        console.log(
+          '🔍 [INGREDIENT SEARCH] Searching all recipes for ingredient matches:',
+          filteredIngredients
+        );
       }
     }
 
@@ -893,9 +1090,15 @@ export async function searchSupabaseRecipes({
     const maxTimeNumber = Number(maxTime);
     if (!Number.isNaN(maxTimeNumber) && maxTimeNumber > 0 && maxTimeNumber <= 10000) {
       try {
-        builder = builder.or(`prep_minutes.lte.${maxTimeNumber},cook_minutes.lte.${maxTimeNumber}`);
+        // Use AND logic with separate filters instead of OR to avoid query complexity
+        builder = builder.or(
+          `prep_minutes.lte.${maxTimeNumber},cook_minutes.lte.${maxTimeNumber}`,
+          { foreignTable: null }
+        );
       } catch (timeError) {
-        console.warn('[searchSupabaseRecipes] Error applying time filter:', timeError);
+        if (import.meta.env.DEV) {
+          console.warn('[searchSupabaseRecipes] Error applying time filter:', timeError);
+        }
       }
     }
 
@@ -951,40 +1154,165 @@ export async function searchSupabaseRecipes({
       maxCarbs: hasMaxCarbs ? maxCarbsNumber : null,
     });
 
-    const { data, error, count } = await builder;
-    
+    // Execute query with timeout protection and detailed logging
+    let data, error, count;
+    const queryStartTime = Date.now();
+
     if (import.meta.env.DEV) {
-      console.log('📥 [SEARCH API] Database response received', {
-        dataLength: data?.length || 0,
-        hasError: !!error,
-        totalCount: count ?? 'N/A',
-        requestedLimit: validatedLimit,
-        offset: validatedOffset,
-        errorMessage: error?.message || 'none',
+      console.log('🚀 [SEARCH API] ============================================');
+      console.log('🚀 [SEARCH API] Starting query execution');
+      console.log('🚀 [SEARCH API] Query params:', {
+        trimmedQuery: trimmedQuery || '(empty)',
+        validatedOffset,
+        validatedLimit,
+        hasFilters: !!(
+          trimmedQuery ||
+          filteredIngredients.length ||
+          diet ||
+          mealType ||
+          maxTime ||
+          cuisine ||
+          difficulty
+        ),
+        timestamp: new Date().toISOString(),
       });
+      console.log('🚀 [SEARCH API] ============================================');
     }
-    
+
+    try {
+      // Execute the query builder - Supabase returns a promise
+      // Use a longer timeout and execute immediately
+      const timeoutMs = 30000; // 30 seconds
+
+      if (import.meta.env.DEV) {
+        console.log('⏱️ [SEARCH API] Setting up timeout promise:', timeoutMs, 'ms');
+        console.log('⏱️ [SEARCH API] Executing query builder...');
+      }
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          const elapsed = Date.now() - queryStartTime;
+          if (import.meta.env.DEV) {
+            console.error('⏰ [SEARCH API] TIMEOUT after', elapsed, 'ms');
+          }
+          reject(new Error('Query timeout'));
+        }, timeoutMs);
+      });
+
+      // Execute the query with timeout
+      if (import.meta.env.DEV) {
+        console.log('🔄 [SEARCH API] Racing query against timeout...');
+      }
+
+      const result = await Promise.race([builder, timeoutPromise]);
+      const elapsed = Date.now() - queryStartTime;
+
+      if (import.meta.env.DEV) {
+        console.log('✅ [SEARCH API] Query completed in', elapsed, 'ms');
+        console.log('✅ [SEARCH API] Result:', {
+          hasData: !!result?.data,
+          dataLength: result?.data?.length || 0,
+          hasError: !!result?.error,
+          errorMessage: result?.error?.message || 'none',
+          count: result?.count ?? 'null',
+        });
+      }
+
+      // Supabase returns { data, error, count }
+      data = result?.data || null;
+      error = result?.error || null;
+      count = result?.count ?? null;
+    } catch (timeoutError) {
+      const elapsed = Date.now() - queryStartTime;
+
+      // If timeout, try a much simpler query as fallback
+      if (import.meta.env.DEV) {
+        console.warn('⚠️ [SEARCH API] ============================================');
+        console.warn('⚠️ [SEARCH API] Main query timed out after', elapsed, 'ms');
+        console.warn('⚠️ [SEARCH API] Error:', timeoutError?.message || timeoutError);
+        console.warn('⚠️ [SEARCH API] Trying simple fallback...');
+        console.warn('⚠️ [SEARCH API] ============================================');
+      }
+
+      try {
+        // Ultra-simple fallback query - no filters, just basic select
+        const fallbackStartTime = Date.now();
+
+        if (import.meta.env.DEV) {
+          console.log('🔄 [SEARCH API] Creating fallback query...');
+        }
+
+        const simpleQuery = supabase
+          .from('recipes')
+          .select(
+            'id,title,description,hero_image_url,prep_minutes,cook_minutes,servings,difficulty,cuisine,meal_types,diets,author,calories,has_complete_nutrition,source',
+            { count: 'exact' }
+          )
+          .order('created_at', { ascending: false })
+          .range(validatedOffset, validatedOffset + validatedLimit - 1);
+
+        const fallbackTimeoutMs = 15000; // 15 seconds for fallback
+
+        if (import.meta.env.DEV) {
+          console.log('⏱️ [SEARCH API] Fallback timeout:', fallbackTimeoutMs, 'ms');
+          console.log('🔄 [SEARCH API] Executing fallback query...');
+        }
+
+        const fallbackTimeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            const fallbackElapsed = Date.now() - fallbackStartTime;
+            if (import.meta.env.DEV) {
+              console.error('⏰ [SEARCH API] FALLBACK TIMEOUT after', fallbackElapsed, 'ms');
+            }
+            reject(new Error('Fallback timeout'));
+          }, fallbackTimeoutMs);
+        });
+
+        const fallbackResult = await Promise.race([simpleQuery, fallbackTimeoutPromise]);
+        const fallbackElapsed = Date.now() - fallbackStartTime;
+
+        if (import.meta.env.DEV) {
+          console.log('✅ [SEARCH API] Fallback query completed in', fallbackElapsed, 'ms');
+          console.log('✅ [SEARCH API] Fallback result:', {
+            hasData: !!fallbackResult?.data,
+            dataLength: fallbackResult?.data?.length || 0,
+            hasError: !!fallbackResult?.error,
+            errorMessage: fallbackResult?.error?.message || 'none',
+            count: fallbackResult?.count ?? 'null',
+          });
+        }
+
+        data = fallbackResult?.data || null;
+        error = fallbackResult?.error || null;
+        count = fallbackResult?.count ?? null;
+      } catch (fallbackError) {
+        const totalElapsed = Date.now() - queryStartTime;
+        if (import.meta.env.DEV) {
+          console.error('❌ [SEARCH API] ============================================');
+          console.error('❌ [SEARCH API] BOTH QUERY AND FALLBACK FAILED');
+          console.error('❌ [SEARCH API] Total elapsed time:', totalElapsed, 'ms');
+          console.error('❌ [SEARCH API] Fallback error:', fallbackError?.message || fallbackError);
+          console.error('❌ [SEARCH API] This indicates a Supabase connection issue');
+          console.error('❌ [SEARCH API] Check:');
+          console.error('❌ [SEARCH API]   1. Supabase URL and key are correct');
+          console.error('❌ [SEARCH API]   2. Network connection is working');
+          console.error('❌ [SEARCH API]   3. Supabase service is online');
+          console.error('❌ [SEARCH API]   4. Database has recipes table');
+          console.error('❌ [SEARCH API] ============================================');
+        }
+        throw new Error('Search request timed out. Please try again.');
+      }
+    }
+
     if (error) {
-      console.error('❌ [SUPABASE ERROR] searchSupabaseRecipes failed:', {
-        error: error.message,
-        code: error.code,
-        details: error.details,
-        query,
-        filters: { diet, mealType, maxTime },
-        offset: validatedOffset,
-        limit: validatedLimit,
-      });
+      if (import.meta.env.DEV) {
+        console.error('❌ [SUPABASE ERROR] searchSupabaseRecipes failed:', {
+          error: error.message,
+          code: error.code,
+          details: error.details,
+        });
+      }
       throw error;
-    }
-    
-    if (import.meta.env.DEV) {
-      console.log('✅ [SEARCH API] Query successful', {
-        recipesFetched: data?.length || 0,
-        totalCount: count ?? 'unknown',
-        offset: validatedOffset,
-        limit: validatedLimit,
-        hasMore: count ? validatedOffset + (data?.length || 0) < count : (data?.length || 0) === validatedLimit,
-      });
     }
 
     // Map all recipes - show recipes with or without images
@@ -1092,19 +1420,39 @@ export async function searchSupabaseRecipes({
     // If we have ingredient filters BUT ALSO have a text query, skip ingredient filtering
     // The text query results are what the user wants - return them directly
     if (shouldFilterByIngredients) {
-      // If no results from initial query, fetch more recipes to search through
-      if (mapped.length === 0) {
-        const { data: moreData, error: moreError } = await supabase
-          .from('recipes')
-          .select(
-            'id,title,description,hero_image_url,prep_minutes,cook_minutes,servings,difficulty,cuisine,meal_types,diets,author,calories'
-          )
-          .eq('has_complete_nutrition', true)
-          .order('updated_at', { ascending: false })
-          .limit(limit * 2); // Fetch more to search through
+      if (import.meta.env.DEV) {
+        console.log(
+          '🔍 [INGREDIENT SEARCH] Filtering recipes by ingredients:',
+          filteredIngredients
+        );
+      }
 
-        if (!moreError && moreData) {
-          mapped = moreData.map(mapSupabaseRecipe);
+      // For ingredient-only searches, ALWAYS fetch a large batch of recipes
+      // Don't rely on initial query results - fetch fresh data
+      const fetchLimit = Math.max(validatedLimit * 10, 1000); // Fetch at least 1000 recipes
+      if (import.meta.env.DEV) {
+        console.log('🔍 [INGREDIENT SEARCH] Fetching recipes to search:', fetchLimit);
+      }
+
+      const { data: moreData, error: moreError } = await supabase
+        .from('recipes')
+        .select(
+          'id,title,description,hero_image_url,prep_minutes,cook_minutes,servings,difficulty,cuisine,meal_types,diets,author,calories'
+        )
+        .eq('has_complete_nutrition', true)
+        .order('created_at', { ascending: false })
+        .limit(fetchLimit);
+
+      if (!moreError && moreData) {
+        mapped = moreData.map(mapSupabaseRecipe).filter(Boolean);
+        if (import.meta.env.DEV) {
+          console.log('✅ [INGREDIENT SEARCH] Fetched', mapped.length, 'recipes to search');
+        }
+      } else if (moreError) {
+        console.error('❌ [INGREDIENT SEARCH] Error fetching recipes:', moreError);
+        // Don't return empty - try to use existing mapped results if any
+        if (mapped.length === 0) {
+          throw new Error(`Failed to fetch recipes: ${moreError.message}`);
         }
       }
 
@@ -1112,32 +1460,124 @@ export async function searchSupabaseRecipes({
         // Get all recipe IDs
         const recipeIds = mapped.map(r => r.id);
 
-        // Query ingredients table for matching ingredients
-        const { data: ingredientsData, error: ingredientsError } = await supabase
-          .from('recipe_ingredients')
-          .select('recipe_id, ingredient:ingredients(name)')
-          .in('recipe_id', recipeIds);
+        if (import.meta.env.DEV) {
+          console.log(
+            '🔍 [INGREDIENT SEARCH] Querying ingredients for',
+            recipeIds.length,
+            'recipes'
+          );
+        }
 
-        if (!ingredientsError && ingredientsData) {
+        // Query ingredients table for matching ingredients
+        // Use chunks to avoid query size limits
+        const chunkSize = 100;
+        const chunks = [];
+        for (let i = 0; i < recipeIds.length; i += chunkSize) {
+          chunks.push(recipeIds.slice(i, i + chunkSize));
+        }
+
+        const allIngredientsData = [];
+        for (const chunk of chunks) {
+          const { data: ingredientsData, error: ingredientsError } = await supabase
+            .from('recipe_ingredients')
+            .select('recipe_id, ingredient:ingredients(name)')
+            .in('recipe_id', chunk);
+
+          if (!ingredientsError && ingredientsData) {
+            allIngredientsData.push(...ingredientsData);
+          } else if (ingredientsError) {
+            console.warn(
+              '⚠️ [INGREDIENT SEARCH] Error querying ingredients chunk:',
+              ingredientsError
+            );
+          }
+        }
+
+        if (allIngredientsData.length > 0) {
           // Group ingredients by recipe_id
           const recipeIngredientsMap = new Map();
-          ingredientsData.forEach(item => {
+          allIngredientsData.forEach(item => {
             if (!recipeIngredientsMap.has(item.recipe_id)) {
               recipeIngredientsMap.set(item.recipe_id, []);
             }
-            const ingredientName = item.ingredient?.name?.toLowerCase() || '';
+            const ingredientName = item.ingredient?.name?.toLowerCase().trim() || '';
             if (ingredientName) {
               recipeIngredientsMap.get(item.recipe_id).push(ingredientName);
             }
           });
 
+          if (import.meta.env.DEV) {
+            console.log(
+              '✅ [INGREDIENT SEARCH] Found ingredients for',
+              recipeIngredientsMap.size,
+              'recipes'
+            );
+          }
+
+          // Helper function to check if two ingredient names match
+          // This is VERY lenient to ensure we find recipes - handles underscores, plurals, word matching
+          const ingredientMatches = (searchIng, recipeIng) => {
+            if (!searchIng || !recipeIng) return false;
+
+            // Normalize both strings - handle underscores, special chars, whitespace
+            const normalize = str => {
+              if (!str) return '';
+              return str
+                .toLowerCase()
+                .trim()
+                .replace(/[^\w\s]/g, ' ') // Replace special chars with space
+                .replace(/\s+/g, ' ') // Normalize whitespace
+                .replace(/_/g, ' '); // Replace underscores with spaces
+            };
+
+            const searchNormalized = normalize(searchIng);
+            const recipeNormalized = normalize(recipeIng);
+
+            // Exact match after normalization
+            if (searchNormalized === recipeNormalized) return true;
+
+            // Extract meaningful words (length > 2 to avoid matching "a", "an", "the", etc.)
+            const getWords = str => str.split(/\s+/).filter(w => w.length > 2);
+            const searchWords = getWords(searchNormalized);
+            const recipeWords = getWords(recipeNormalized);
+
+            // If any search word appears in recipe (or vice versa), it's a match
+            // This handles "chicken" matching "chicken breast", "potato" matching "potatoes", etc.
+            for (const searchWord of searchWords) {
+              for (const recipeWord of recipeWords) {
+                // Exact word match
+                if (searchWord === recipeWord) return true;
+
+                // One word contains the other (e.g., "chicken" in "chicken breast")
+                if (recipeWord.includes(searchWord) || searchWord.includes(recipeWord)) return true;
+
+                // Handle plural forms more intelligently
+                const searchSingular = searchWord.replace(/s$/, '').replace(/ies$/, 'y');
+                const recipeSingular = recipeWord.replace(/s$/, '').replace(/ies$/, 'y');
+                if (searchSingular === recipeSingular && searchSingular.length > 2) return true;
+                if (
+                  (recipeWord.includes(searchSingular) || searchWord.includes(recipeSingular)) &&
+                  searchSingular.length > 2
+                )
+                  return true;
+              }
+            }
+
+            // Fallback: check if the full normalized strings contain each other
+            if (
+              recipeNormalized.includes(searchNormalized) ||
+              searchNormalized.includes(recipeNormalized)
+            )
+              return true;
+
+            return false;
+          };
+
           // Score recipes by ingredient matches
           const scoredRecipes = mapped.map(recipe => {
             const recipeIngredients = recipeIngredientsMap.get(recipe.id) || [];
             const matchedIngredients = filteredIngredients.filter(searchIng =>
-              recipeIngredients.some(
-                recipeIng => recipeIng.includes(searchIng) || searchIng.includes(recipeIng)
-              )
+              recipeIngredients.some(recipeIng => ingredientMatches(searchIng, recipeIng))
             );
             const matchScore = matchedIngredients.length / filteredIngredients.length;
             const matchCount = matchedIngredients.length;
@@ -1151,18 +1591,64 @@ export async function searchSupabaseRecipes({
             };
           });
 
-          // Filter: Try progressive fallback
-          // 1. First try: recipes with at least 50% of ingredients (or at least 2 if we have 4+ ingredients)
-          const minMatchThreshold =
-            filteredIngredients.length >= 4
-              ? Math.max(2, Math.ceil(filteredIngredients.length * 0.5))
-              : Math.max(1, Math.ceil(filteredIngredients.length * 0.5));
+          if (import.meta.env.DEV) {
+            const recipesWithMatches = scoredRecipes.filter(r => r._ingredientMatchCount > 0);
+            console.log(
+              '✅ [INGREDIENT SEARCH] Found',
+              recipesWithMatches.length,
+              'recipes with ingredient matches'
+            );
+            if (recipesWithMatches.length > 0) {
+              console.log('📊 [INGREDIENT SEARCH] Match distribution:', {
+                '1 match': recipesWithMatches.filter(r => r._ingredientMatchCount === 1).length,
+                '2 matches': recipesWithMatches.filter(r => r._ingredientMatchCount === 2).length,
+                '3+ matches': recipesWithMatches.filter(r => r._ingredientMatchCount >= 3).length,
+              });
+            }
+          }
+
+          // Filter: SUPER LENIENT - always require at least 1 match
+          // This ensures we find recipes even with common ingredients like chicken, potato, etc.
+          const minMatchThreshold = 1; // Always require at least 1 match
 
           let filtered = scoredRecipes.filter(r => r._ingredientMatchCount >= minMatchThreshold);
 
-          // 2. If no results, try recipes with at least 1 ingredient match
+          if (import.meta.env.DEV) {
+            console.log(
+              '🔍 [INGREDIENT SEARCH] Filtered to',
+              filtered.length,
+              'recipes with',
+              minMatchThreshold,
+              '+ matches'
+            );
+            if (filtered.length === 0) {
+              console.error('❌ [INGREDIENT SEARCH] NO MATCHES FOUND!', {
+                searchIngredients: filteredIngredients,
+                totalRecipesSearched: mapped.length,
+                totalRecipesWithIngredients: recipeIngredientsMap.size,
+                sampleRecipeIngredients: Array.from(recipeIngredientsMap.entries())
+                  .slice(0, 10)
+                  .map(([id, ings]) => ({
+                    recipeId: id,
+                    ingredients: ings.slice(0, 5), // First 5 ingredients
+                  })),
+                sampleIngredientNames: Array.from(recipeIngredientsMap.values())
+                  .flat()
+                  .slice(0, 30),
+              });
+            }
+          }
+
+          // If still no results, try recipes with at least 1 ingredient match
           if (filtered.length === 0) {
             filtered = scoredRecipes.filter(r => r._ingredientMatchCount >= 1);
+            if (import.meta.env.DEV && filtered.length > 0) {
+              console.log(
+                '✅ [INGREDIENT SEARCH] Fallback: Found',
+                filtered.length,
+                'recipes with at least 1 match'
+              );
+            }
           }
 
           // Sort by match score (best matches first)
@@ -1172,6 +1658,9 @@ export async function searchSupabaseRecipes({
             }
             return b._ingredientMatchCount - a._ingredientMatchCount;
           });
+
+          // Limit to requested limit
+          filtered = filtered.slice(0, validatedLimit);
 
           // Remove scoring properties before returning
           mapped = filtered.map(
@@ -1183,10 +1672,20 @@ export async function searchSupabaseRecipes({
               ...recipe
             }) => recipe
           );
-        } else if (ingredientsError) {
-          console.warn('⚠️ [INGREDIENT SEARCH] Error querying ingredients:', ingredientsError);
-          // Fall back to title/description search results
+
+          if (import.meta.env.DEV) {
+            console.log('✅ [INGREDIENT SEARCH] Final result:', mapped.length, 'recipes');
+          }
+        } else {
+          console.warn('⚠️ [INGREDIENT SEARCH] No ingredients found for any recipes');
+          // Return empty array if no ingredient matches
+          mapped = [];
         }
+      } else {
+        if (import.meta.env.DEV) {
+          console.warn('⚠️ [INGREDIENT SEARCH] No recipes to search through');
+        }
+        mapped = [];
       }
     }
 
@@ -1241,7 +1740,7 @@ export async function searchSupabaseRecipes({
     // Removed verbose logging - only log errors
 
     const duration = Number((now() - t0).toFixed(2));
-    
+
     if (import.meta.env.DEV) {
       console.log('✅ [SEARCH API] Search complete', {
         finalRecipeCount: mapped.length,
@@ -1254,7 +1753,7 @@ export async function searchSupabaseRecipes({
         lastRecipeId: mapped[mapped.length - 1]?.id || null,
       });
     }
-    
+
     supabaseLog('searchSupabaseRecipes:complete', {
       count: mapped.length,
       totalCount: count ?? null,

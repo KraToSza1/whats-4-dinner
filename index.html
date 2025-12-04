@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="frame-src 'self' https://*.paddle.com https://buy.paddle.com https://sandbox-checkout.paddle.com https://checkout.paddle.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.paddle.com https://core.spreedly.com https://global.localizecdn.com https://js.stripe.com https://va.vercel-scripts.com https://public.profitwell.com https://buy.paddle.com; script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.paddle.com https://core.spreedly.com https://global.localizecdn.com https://js.stripe.com https://va.vercel-scripts.com https://public.profitwell.com https://buy.paddle.com; connect-src 'self' https://*.paddle.com https://checkout-service.paddle.com https://sandbox-api.paddle.com https://api.paddle.com https://*.supabase.co https://va.vercel-scripts.com https://public.profitwell.com https://api.exchangerate-api.com https://api.exchangerate.host;"
+      content="frame-src 'self' https://*.paddle.com https://buy.paddle.com https://sandbox-checkout.paddle.com https://checkout.paddle.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.paddle.com https://core.spreedly.com https://global.localizecdn.com https://js.stripe.com https://va.vercel-scripts.com https://public.profitwell.com https://buy.paddle.com; script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.paddle.com https://core.spreedly.com https://global.localizecdn.com https://js.stripe.com https://va.vercel-scripts.com https://public.profitwell.com https://buy.paddle.com; connect-src 'self' https://*.paddle.com https://checkout-service.paddle.com https://sandbox-api.paddle.com https://api.paddle.com https://*.supabase.co https://va.vercel-scripts.com https://public.profitwell.com https://api.exchangerate-api.com https://api.exchangerate.host; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in;"
     />
 
     <title>What's 4 Dinner?</title>
@@ -43,18 +43,89 @@
   <body class="bg-slate-50 dark:bg-slate-950">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <!-- Service Worker is handled by VitePWA plugin - no manual registration needed -->
     <script>
-      // Register Service Worker for PWA
+      // Suppress console warnings/errors for known non-critical issues
+      const originalWarn = console.warn;
+      const originalError = console.error;
+
+      console.warn = function (...args) {
+        const message = args.join(' ');
+        // Suppress CSP warnings for Vercel Live (harmless)
+        if (
+          message.includes('Content-Security-Policy') &&
+          (message.includes('vercel.live') || message.includes('vercel-scripts'))
+        ) {
+          return;
+        }
+        // Suppress cookie warnings (Cloudflare issue, harmless)
+        if (message.includes('Cookie') && message.includes('__cf_bm')) {
+          return;
+        }
+        // Suppress OpaqueResponseBlocking warnings (we handle this by excluding Supabase images from SW)
+        if (message.includes('OpaqueResponseBlocking')) {
+          return;
+        }
+        // Suppress service worker registration messages in production
+        if (
+          !window.location.hostname.includes('localhost') &&
+          !window.location.hostname.includes('127.0.0.1') &&
+          message.includes('SW registered')
+        ) {
+          return;
+        }
+        originalWarn.apply(console, args);
+      };
+
+      console.error = function (...args) {
+        const message = args.join(' ');
+        // Suppress image loading errors that are handled by fallback mechanism
+        if (
+          message.includes('Failed to load resource') &&
+          (message.includes('hero.webp') || message.includes('recipe-images'))
+        ) {
+          return;
+        }
+        // Suppress NS_BINDING_ABORTED errors (network cancellation, harmless)
+        if (message.includes('NS_BINDING_ABORTED')) {
+          return;
+        }
+        originalError.apply(console, args);
+      };
+
+      // Cleanup: Unregister old manual service worker if it exists
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker
-            .register('/sw.js')
-            .then(registration => {
-              console.log('SW registered:', registration);
-            })
-            .catch(error => {
-              console.log('SW registration failed:', error);
-            });
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          registrations.forEach(registration => {
+            // Unregister the old /sw.js service worker
+            if (registration.scope.includes(window.location.origin)) {
+              const scriptURL =
+                registration.active?.scriptURL ||
+                registration.installing?.scriptURL ||
+                registration.waiting?.scriptURL ||
+                '';
+              if (scriptURL.includes('/sw.js')) {
+                if (import.meta.env.DEV) {
+                  console.log('🔄 Unregistering old service worker:', registration.scope);
+                }
+                registration.unregister().then(() => {
+                  if (import.meta.env.DEV) {
+                    console.log('✅ Old service worker unregistered');
+                  }
+                  // Only reload in development to avoid disrupting production users
+                  if (
+                    window.location.hostname === 'localhost' ||
+                    window.location.hostname === '127.0.0.1'
+                  ) {
+                    if (import.meta.env.DEV) {
+                      console.log('🔄 Reloading to activate new service worker...');
+                    }
+                    setTimeout(() => window.location.reload(), 1000);
+                  }
+                });
+              }
+            }
+          });
         });
       }
     </script>

@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { getSupabaseRandomRecipe } from '../api/supabaseRecipes.js';
-import { supabase } from '../lib/supabaseClient.js';
 import { triggerHaptic } from '../utils/haptics.js';
 import CookingAnimation from './CookingAnimation.jsx';
 import { recipeImg, fallbackOnce } from '../utils/img.ts';
@@ -16,17 +15,9 @@ export default function DailyRecipe({ onRecipeSelect }) {
   const [dailyRecipe, setDailyRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [failedRecipeIds, setFailedRecipeIds] = useState(() => {
-    // Load previously failed recipe IDs from localStorage to prevent infinite loops
-    try {
-      const stored = localStorage.getItem('dailyRecipeFailedIds');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [refreshAttempts, setRefreshAttempts] = useState(0);
+  const isFetchingRef = useRef(false);
+  const hasLoadedTodayRef = useRef(false);
+  // Removed: failedRecipeIds and refreshAttempts - no longer needed since we disabled image error refresh logic
   const [streak, setStreak] = useState(() => {
     try {
       return parseInt(localStorage.getItem('dailyStreak') || '0', 10);
@@ -36,16 +27,99 @@ export default function DailyRecipe({ onRecipeSelect }) {
   });
 
   useEffect(() => {
+    // Prevent multiple simultaneous fetches
+    if (isFetchingRef.current) {
+      return;
+    }
+
+    // CRITICAL: Check localStorage SYNCHRONOUSLY before any async operations
+    const today = new Date().toDateString();
+    let cached = null;
+    let cachedDate = null;
+
+    try {
+      cached = localStorage.getItem('dailyRecipe');
+      cachedDate = localStorage.getItem('dailyRecipeDate');
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn('⚠️ [DAILY RECIPE] Error reading localStorage:', err);
+      }
+    }
+
+    // If we have a cached recipe for today, use it IMMEDIATELY and return
+    if (cached && cachedDate === today) {
+      try {
+        const parsed = JSON.parse(cached);
+
+        // Validate that parsed recipe has required fields
+        if (!parsed || !parsed.id || !parsed.title) {
+          throw new Error('Invalid cached recipe structure');
+        }
+
+        // Normalize field names for consistency
+        if (!parsed.prepMinutes && parsed.prep_minutes !== undefined) {
+          parsed.prepMinutes = Number(parsed.prep_minutes) || 0;
+        }
+        if (!parsed.cookMinutes && parsed.cook_minutes !== undefined) {
+          parsed.cookMinutes = Number(parsed.cook_minutes) || 0;
+        }
+
+        // Ensure numeric values
+        parsed.prepMinutes = Number(parsed.prepMinutes) || 0;
+        parsed.cookMinutes = Number(parsed.cookMinutes) || 0;
+
+        // Recalculate readyInMinutes to ensure consistency
+        const prep = parsed.prepMinutes;
+        const cook = parsed.cookMinutes;
+        const calculatedReady = prep + cook;
+        parsed.readyInMinutes = calculatedReady || null;
+
+        // Ensure image URLs are correct
+        if (!parsed.heroImageUrl && parsed.image) {
+          parsed.heroImageUrl = parsed.image;
+        }
+        if (!parsed.image && parsed.heroImageUrl) {
+          parsed.image = parsed.heroImageUrl;
+        }
+        if (!parsed.heroImageUrl && !parsed.image && parsed.hero_image_url) {
+          parsed.heroImageUrl = parsed.hero_image_url;
+          parsed.image = parsed.hero_image_url;
+        }
+
+        // Set the recipe immediately and mark as loaded - NO FETCHING
+        setDailyRecipe(parsed);
+        setLoading(false);
+        hasLoadedTodayRef.current = true;
+        isFetchingRef.current = false;
+        return; // CRITICAL: Exit early - don't fetch a new recipe
+      } catch (err) {
+        // If parsing fails, clear bad cache and continue to fetch
+        if (import.meta.env.DEV) {
+          console.warn('⚠️ [DAILY RECIPE] Error parsing cached recipe, clearing cache:', err);
+        }
+        try {
+          localStorage.removeItem('dailyRecipe');
+          localStorage.removeItem('dailyRecipeDate');
+        } catch (_clearErr) {
+          // Ignore clear errors
+        }
+      }
+    }
+
+    // Only fetch if we don't have a valid cached recipe for today
     let ignore = false;
+    let mounted = true;
+    isFetchingRef.current = true;
+
     const fetchDailyRecipe = async () => {
       try {
-        // Check if we already have a daily recipe cached
-        const cached = localStorage.getItem('dailyRecipe');
-        const cachedDate = localStorage.getItem('dailyRecipeDate');
-        const today = new Date().toDateString();
+        // Triple-check cache wasn't set while we were waiting (shouldn't happen, but safety check)
+        const recheckCached = localStorage.getItem('dailyRecipe');
+        const recheckCachedDate = localStorage.getItem('dailyRecipeDate');
+        const recheckToday = new Date().toDateString();
 
-        if (cached && cachedDate === today) {
-          const parsed = JSON.parse(cached);
+        if (recheckCached && recheckCachedDate === recheckToday && mounted && !ignore) {
+          const parsed = JSON.parse(recheckCached);
 
           // Normalize field names for consistency
           if (!parsed.prepMinutes && parsed.prep_minutes !== undefined) {
@@ -56,8 +130,6 @@ export default function DailyRecipe({ onRecipeSelect }) {
           }
 
           // Ensure numeric values
-          const originalPrep = parsed.prepMinutes;
-          const originalCook = parsed.cookMinutes;
           parsed.prepMinutes = Number(parsed.prepMinutes) || 0;
           parsed.cookMinutes = Number(parsed.cookMinutes) || 0;
 
@@ -79,40 +151,20 @@ export default function DailyRecipe({ onRecipeSelect }) {
             parsed.image = parsed.hero_image_url;
           }
 
-          // Check if cached recipe has no image but database might have one
-          // This helps when images are uploaded via admin dashboard
-          const cachedHasNoImage = !parsed.image && !parsed.heroImageUrl && !parsed.hero_image_url;
-          if (cachedHasNoImage && parsed.id && !ignore) {
-            // Check database to see if recipe now has an image
-            supabase
-              .from('recipes')
-              .select('hero_image_url, updated_at')
-              .eq('id', parsed.id)
-              .single()
-              .then(({ data: dbRecipe, error: dbError }) => {
-                if (!dbError && dbRecipe) {
-                  const dbHasImage = !!(dbRecipe.hero_image_url && dbRecipe.hero_image_url.trim());
-                  if (dbHasImage) {
-                    // Clear cache and refresh
-                    localStorage.removeItem('dailyRecipe');
-                    localStorage.removeItem('dailyRecipeDate');
-                    setRefreshTrigger(prev => prev + 1);
-                  }
-                }
-              })
-              .catch(error => {
-                if (import.meta.env.DEV) {
-                  console.warn('⚠️ [DAILY RECIPE] Error checking database for image:', error);
-                }
-              });
-          }
-
-          if (!ignore) {
+          if (!ignore && mounted) {
             setDailyRecipe(parsed);
             setLoading(false);
+            hasLoadedTodayRef.current = true;
+            isFetchingRef.current = false;
           }
           return;
         }
+
+        // If we reach here, we need to fetch a new recipe
+        // This should only happen if:
+        // 1. No cache exists
+        // 2. Cache is for a different day
+        // 3. Cache parsing failed
 
         // Try Supabase first
         let randomRecipe = null;
@@ -158,15 +210,18 @@ export default function DailyRecipe({ onRecipeSelect }) {
         localStorage.setItem('dailyRecipe', JSON.stringify(recipeToCache));
         localStorage.setItem('dailyRecipeDate', today);
 
-        if (!ignore) {
+        if (!ignore && mounted) {
           setDailyRecipe(recipeToCache);
           setLoading(false);
+          hasLoadedTodayRef.current = true;
+          isFetchingRef.current = false;
         }
       } catch (err) {
         console.error('❌ [DAILY RECIPE] Error fetching daily recipe:', err);
-        if (!ignore) {
+        if (!ignore && mounted) {
           setError(err.message);
           setLoading(false);
+          isFetchingRef.current = false;
         }
       }
     };
@@ -175,21 +230,28 @@ export default function DailyRecipe({ onRecipeSelect }) {
 
     return () => {
       ignore = true;
+      mounted = false;
+      isFetchingRef.current = false;
     };
-  }, [refreshTrigger]);
+  }, []); // Empty dependency array - only fetch once on mount
 
-  // Reset failed recipe IDs and refresh attempts at the start of each new day
+  // Reset loaded flag at the start of each new day
   useEffect(() => {
-    const today = new Date().toDateString();
-    const lastResetDate = localStorage.getItem('dailyRecipeFailedIdsResetDate');
+    const checkNewDay = () => {
+      const today = new Date().toDateString();
+      const cachedDate = localStorage.getItem('dailyRecipeDate');
 
-    if (lastResetDate !== today) {
-      // New day - reset failed IDs and attempts
-      setFailedRecipeIds([]);
-      setRefreshAttempts(0);
-      localStorage.removeItem('dailyRecipeFailedIds');
-      localStorage.setItem('dailyRecipeFailedIdsResetDate', today);
-    }
+      // Reset the loaded flag if it's a new day
+      if (cachedDate !== today) {
+        hasLoadedTodayRef.current = false;
+        isFetchingRef.current = false;
+      }
+    };
+
+    checkNewDay();
+    // Check every minute to catch day changes
+    const interval = setInterval(checkNewDay, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleClick = () => {
@@ -233,7 +295,7 @@ export default function DailyRecipe({ onRecipeSelect }) {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-6 shadow-xl"
+        className="relative overflow-hidden rounded-2xl bg-linear-to-br from-emerald-500 to-teal-600 p-6 shadow-xl"
       >
         <div className="flex flex-col items-center justify-center h-32 gap-3">
           <RotatingFoodLoader size={80} speed={1500} />
@@ -249,15 +311,24 @@ export default function DailyRecipe({ onRecipeSelect }) {
 
   const badgeEmoji = streak >= 7 ? '🔥' : streak >= 3 ? '⭐' : '✨';
 
+  // Memoize recipe data to prevent unnecessary re-renders
+  const prep = Number(dailyRecipe.prepMinutes) || 0;
+  const cook = Number(dailyRecipe.cookMinutes) || 0;
+  const ready = prep + cook || Number(dailyRecipe.readyInMinutes) || null;
+  const imageUrl = dailyRecipe.heroImageUrl || dailyRecipe.image || dailyRecipe.hero_image_url;
+  const finalImageSrc = recipeImg(imageUrl, dailyRecipe.id);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ scale: 1.02 }}
-      className="relative overflow-hidden rounded-xl xs:rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 p-3 xs:p-4 sm:p-5 md:p-6 shadow-xl cursor-pointer"
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.98 }}
+      className="relative overflow-hidden rounded-2xl bg-linear-to-br from-emerald-500 via-teal-500 to-cyan-600 p-4 xs:p-5 sm:p-6 shadow-xl shadow-emerald-500/20 cursor-pointer transition-all duration-300 active:scale-[0.98] touch-manipulation"
       onClick={handleClick}
       role="button"
       tabIndex={0}
+      aria-label={`Daily Recipe: ${dailyRecipe.title}`}
       onKeyDown={e => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -265,243 +336,125 @@ export default function DailyRecipe({ onRecipeSelect }) {
         }
       }}
     >
-      {/* Pattern overlay */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full translate-y-1/2 -translate-x-1/2" />
+      {/* Enhanced pattern overlay - more visible on mobile */}
+      <div className="absolute inset-0 opacity-10 sm:opacity-5">
+        <div className="absolute top-0 right-0 w-48 h-48 xs:w-64 xs:h-64 bg-white rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-32 h-32 xs:w-48 xs:h-48 bg-white rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl" />
       </div>
 
-      {/* Cooking Animation */}
-      <div className="absolute top-4 right-4 opacity-30">
-        <CookingAnimation type="chef" className="w-16 h-16 sm:w-20 sm:h-20" />
+      {/* Decorative icon - better positioning for mobile */}
+      <div className="absolute top-3 right-3 xs:top-4 xs:right-4 opacity-15 sm:opacity-20 pointer-events-none">
+        <CookingAnimation
+          type="chef"
+          className="w-10 h-10 xs:w-14 xs:h-14 sm:w-18 sm:h-18 md:w-20 md:h-20"
+        />
       </div>
 
-      <div className="relative flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-        {/* Content */}
-        <div className="flex-1">
-          <div className="flex items-center gap-1.5 xs:gap-2 mb-2 flex-wrap">
-            <span className="text-xl xs:text-2xl">🎲</span>
-            <h2 className="text-base xs:text-lg sm:text-xl md:text-2xl font-bold text-white">
-              {t('dailyRecipeSurprise')}
-            </h2>
-            {streak > 0 && (
-              <span className="text-sm px-2 py-0.5 rounded-full bg-white/20 text-white">
-                {badgeEmoji} {streak} day{streak !== 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
-          <p className="text-white/90 font-semibold text-sm xs:text-base sm:text-lg md:text-xl line-clamp-2">
-            {dailyRecipe.title}
-          </p>
-          <div className="flex items-center gap-2 xs:gap-3 mt-2 flex-wrap">
-            {(() => {
-              // Calculate readyInMinutes consistently: prep + cook (same as RecipeCard)
-              const prep = Number(dailyRecipe.prepMinutes) || 0;
-              const cook = Number(dailyRecipe.cookMinutes) || 0;
-              const ready = prep + cook || Number(dailyRecipe.readyInMinutes) || null;
-
-              return ready && ready > 0 ? (
-                <span className="text-white/80 text-sm">⏱️ {ready} min</span>
-              ) : null;
-            })()}
-            {dailyRecipe.servings && (
-              <span className="text-white/80 text-sm">🍽️ {dailyRecipe.servings} servings</span>
-            )}
+      {/* Mobile-optimized layout */}
+      <div className="relative flex flex-col sm:flex-row gap-4 xs:gap-5 sm:gap-6">
+        {/* Content Section - Full width on mobile */}
+        <div className="flex-1 min-w-0 w-full sm:w-auto">
+          {/* Header with dice and title */}
+          <div className="flex items-start gap-2 xs:gap-2.5 mb-3 xs:mb-4">
+            <span className="text-2xl xs:text-3xl sm:text-4xl shrink-0 leading-none">🎲</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 xs:gap-2.5 flex-wrap mb-1.5 xs:mb-2">
+                <h2 className="text-lg xs:text-xl sm:text-2xl md:text-3xl font-black text-white leading-tight shrink-0">
+                  {t('dailyRecipeSurprise')}
+                </h2>
+                {streak > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="text-xs xs:text-sm px-2.5 xs:px-3 py-1 xs:py-1.5 rounded-full bg-white/25 backdrop-blur-md text-white font-bold shrink-0 shadow-lg shadow-white/10"
+                  >
+                    {badgeEmoji} {streak} day{streak !== 1 ? 's' : ''}
+                  </motion.span>
+                )}
+              </div>
+              {/* Recipe title - larger and more prominent on mobile */}
+              <p className="text-white font-bold text-base xs:text-lg sm:text-xl md:text-2xl line-clamp-2 mb-3 xs:mb-4 leading-snug sm:leading-tight">
+                {dailyRecipe.title}
+              </p>
+              {/* Recipe details - better spacing on mobile */}
+              <div className="flex items-center gap-3 xs:gap-4 flex-wrap">
+                {ready && ready > 0 && (
+                  <span className="text-white/95 text-sm xs:text-base font-semibold flex items-center gap-1.5 xs:gap-2 bg-white/10 backdrop-blur-sm px-2.5 xs:px-3 py-1 xs:py-1.5 rounded-lg xs:rounded-xl">
+                    <span className="text-base xs:text-lg">⏱️</span>
+                    <span>{ready} min</span>
+                  </span>
+                )}
+                {dailyRecipe.servings && (
+                  <span className="text-white/95 text-sm xs:text-base font-semibold flex items-center gap-1.5 xs:gap-2 bg-white/10 backdrop-blur-sm px-2.5 xs:px-3 py-1 xs:py-1.5 rounded-lg xs:rounded-xl">
+                    <span className="text-base xs:text-lg">🍽️</span>
+                    <span>{dailyRecipe.servings} servings</span>
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Image */}
-        {(() => {
-          const imageUrl =
-            dailyRecipe.heroImageUrl || dailyRecipe.image || dailyRecipe.hero_image_url;
-          const finalImageSrc = recipeImg(imageUrl, dailyRecipe.id);
-
-          // Check if image URL is valid Supabase storage URL
-          const isSupabaseStorage =
-            imageUrl && imageUrl.includes('/storage/v1/object/public/recipe-images/');
-          const supabaseBase = import.meta.env.VITE_SUPABASE_URL || '';
-          const urlMatchesSupabase =
-            imageUrl &&
-            supabaseBase &&
-            imageUrl.includes(supabaseBase.split('//')[1]?.split('/')[0] || '');
-
-          // Test if image URL is accessible (only in dev)
-          if (imageUrl && isSupabaseStorage && import.meta.env.DEV) {
-            // Use Image object to test loading
-            const testImg = new Image();
-            testImg.onload = () => {
-              // Image loads successfully
-            };
-            testImg.onerror = err => {
-              // Only log warnings in development to reduce console noise
-              if (import.meta.env.DEV) {
-                console.warn(
-                  '⚠️ [DAILY RECIPE] Image URL test: Image file does NOT exist in Supabase storage',
-                  {
-                    recipeId: dailyRecipe.id,
-                    recipeTitle: dailyRecipe.title,
-                    url: imageUrl,
-                    issue:
-                      'The image URL is stored in the database, but the file was not uploaded to Supabase storage.',
-                    solution:
-                      'Upload the image file to Supabase storage at the path specified in the URL, or remove the image URL from the database.',
-                  }
-                );
-              }
-            };
-            testImg.src = imageUrl;
-          }
-
-          return imageUrl ? (
+        {/* Image Section - Better mobile layout */}
+        {imageUrl && (
+          <div className="flex items-center justify-center sm:justify-end shrink-0 sm:ml-2">
             <motion.img
               src={finalImageSrc}
               data-original-src={imageUrl}
               alt={dailyRecipe.title}
-              className="w-20 h-20 xs:w-24 xs:h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-lg xs:rounded-xl object-cover shadow-lg ring-2 ring-white/20 flex-shrink-0"
+              className="w-24 h-24 xs:w-28 xs:h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 rounded-xl xs:rounded-2xl object-cover shadow-2xl ring-3 ring-white/40 shrink-0"
               referrerPolicy="no-referrer"
               loading="lazy"
               onError={e => {
-                // Only log errors in development to reduce console noise
                 if (import.meta.env.DEV) {
-                  console.error(
-                    '❌ [DAILY RECIPE] Image failed to load:',
-                    JSON.stringify(
-                      {
-                        id: dailyRecipe.id,
-                        title: dailyRecipe.title,
-                        attemptedSrc: e.currentTarget.src,
-                        originalSrc: e.currentTarget.getAttribute('data-original-src'),
-                        heroImageUrl: dailyRecipe.heroImageUrl,
-                        image: dailyRecipe.image,
-                        hero_image_url: dailyRecipe.hero_image_url,
-                      },
-                      null,
-                      2
-                    )
+                  console.warn(
+                    '⚠️ [DAILY RECIPE] Image failed to load (using fallback):',
+                    dailyRecipe.title
                   );
                 }
-
-                // If image fails and we have a Supabase storage URL, try refreshing the recipe from database
-                // This helps when recipes are edited and images are uploaded
-                // BUT: Prevent infinite loops by tracking failed recipes and limiting refresh attempts
-                const originalSrc = e.currentTarget.getAttribute('data-original-src');
-                if (
-                  originalSrc &&
-                  originalSrc.includes('/storage/v1/object/public/recipe-images/')
-                ) {
-                  const cachedDate = localStorage.getItem('dailyRecipeDate');
-                  const today = new Date().toDateString();
-
-                  // Only refresh if this is today's cached recipe (don't refresh placeholder)
-                  if (cachedDate === today && dailyRecipe.id) {
-                    // Check if we've already failed for this recipe ID (prevent infinite loop)
-                    const alreadyFailed = failedRecipeIds.includes(dailyRecipe.id);
-                    // Limit refresh attempts to prevent infinite loops (max 3 attempts)
-                    const maxRefreshAttempts = 3;
-
-                    if (!alreadyFailed && refreshAttempts < maxRefreshAttempts) {
-                      // Clear the cache for this specific recipe
-                      const cached = localStorage.getItem('dailyRecipe');
-                      if (cached) {
-                        try {
-                          const parsed = JSON.parse(cached);
-                          // Only clear if it's the same recipe ID
-                          if (parsed.id === dailyRecipe.id) {
-                            // Mark this recipe as failed
-                            const updatedFailedIds = [...failedRecipeIds, dailyRecipe.id];
-                            setFailedRecipeIds(updatedFailedIds);
-                            localStorage.setItem(
-                              'dailyRecipeFailedIds',
-                              JSON.stringify(updatedFailedIds)
-                            );
-
-                            // Increment refresh attempts
-                            setRefreshAttempts(prev => prev + 1);
-
-                            localStorage.removeItem('dailyRecipe');
-                            localStorage.removeItem('dailyRecipeDate');
-                            // Trigger refresh by incrementing refreshTrigger
-                            // This will cause useEffect to run again and fetch fresh data from Supabase
-                            setRefreshTrigger(prev => prev + 1);
-                          }
-                        } catch (err) {
-                          console.error('❌ [DAILY RECIPE] Error parsing cached recipe:', err);
-                          // Only refresh if we haven't exceeded attempts
-                          if (refreshAttempts < maxRefreshAttempts) {
-                            const updatedFailedIds = [...failedRecipeIds, dailyRecipe.id];
-                            setFailedRecipeIds(updatedFailedIds);
-                            localStorage.setItem(
-                              'dailyRecipeFailedIds',
-                              JSON.stringify(updatedFailedIds)
-                            );
-                            setRefreshAttempts(prev => prev + 1);
-                            localStorage.removeItem('dailyRecipe');
-                            localStorage.removeItem('dailyRecipeDate');
-                            setRefreshTrigger(prev => prev + 1);
-                          }
-                        }
-                      }
-                    } else {
-                      // Recipe already failed or too many attempts - just show placeholder
-                      if (import.meta.env.DEV) {
-                        console.warn(
-                          '⚠️ [DAILY RECIPE] Image failed but not refreshing (already failed or max attempts reached):',
-                          {
-                            recipeId: dailyRecipe.id,
-                            alreadyFailed,
-                            refreshAttempts,
-                            maxAttempts: maxRefreshAttempts,
-                          }
-                        );
-                      }
-                    }
-                  }
-                }
-
                 fallbackOnce(e);
               }}
               onLoad={() => {
                 // Image loaded successfully
               }}
-              whileHover={{ scale: 1.1, rotate: 2 }}
+              whileHover={{ scale: 1.05 }}
               transition={{ duration: 0.2 }}
             />
-          ) : (
-            (() => {
-              if (import.meta.env.DEV) {
-                console.warn('⚠️ [DAILY RECIPE] No image URL available:', {
-                  id: dailyRecipe.id,
-                  title: dailyRecipe.title,
-                  heroImageUrl: dailyRecipe.heroImageUrl,
-                  image: dailyRecipe.image,
-                  hero_image_url: dailyRecipe.hero_image_url,
-                });
-              }
-              return null;
-            })()
-          );
-        })()}
+          </div>
+        )}
 
-        {/* Arrow */}
+        {/* Arrow indicator - hidden on mobile, shown on desktop */}
         <motion.div
-          animate={{ x: [0, 8, 0] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="hidden sm:block text-white text-2xl"
+          animate={{ x: [0, 6, 0] }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+          className="hidden sm:flex items-center text-white/80 text-2xl xs:text-3xl ml-2 shrink-0"
         >
           →
         </motion.div>
       </div>
 
-      {/* Streak notification */}
+      {/* Streak milestone badge - better mobile positioning */}
       {streak > 0 && streak % 5 === 0 && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="absolute top-2 right-2 px-3 py-1 rounded-full bg-yellow-400 text-yellow-900 font-bold text-xs shadow-lg"
+          initial={{ opacity: 0, scale: 0.8, y: -10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="absolute top-3 xs:top-4 right-3 xs:right-4 px-2.5 xs:px-3 py-1 xs:py-1.5 rounded-full bg-yellow-400/95 backdrop-blur-md text-yellow-900 font-black text-xs xs:text-sm shadow-xl shadow-yellow-400/50 z-10 border-2 border-yellow-300/50"
         >
           🔥 Milestone!
         </motion.div>
       )}
+
+      {/* Mobile tap indicator - subtle hint on mobile */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 sm:hidden">
+        <motion.div
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="text-white/60 text-xs font-medium flex items-center gap-1"
+        >
+          <span>Tap to view</span>
+          <span>👆</span>
+        </motion.div>
+      </div>
     </motion.div>
   );
 }

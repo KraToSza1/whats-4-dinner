@@ -23,7 +23,7 @@ export default function BadgeUnlockModal({ badgeId, open, onClose }) {
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 pointer-events-none">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

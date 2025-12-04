@@ -9,6 +9,7 @@ import { setMealPlanDay } from './MealPlanner.jsx';
 import ServingsCalculator from '../components/ServingsCalculator.jsx';
 import ShareButton from '../components/ShareButton.jsx';
 import SmartSwaps from '../components/SmartSwaps.jsx';
+import { getRecipeSwaps, applySwapToIngredient } from '../utils/ingredientSwaps.js';
 import {
   convertIngredient,
   formatIngredientQuantity,
@@ -113,7 +114,12 @@ export default function RecipePage() {
       setUnitSystem(allowed);
       try {
         localStorage.setItem('unitSystem', allowed);
-      } catch {}
+      } catch (err) {
+        // Silently handle localStorage errors (e.g., quota exceeded, private browsing)
+        if (import.meta.env.DEV) {
+          console.warn('[RecipePage] Failed to save unit system preference:', err);
+        }
+      }
     },
     [unitSystem]
   );
@@ -234,13 +240,18 @@ export default function RecipePage() {
                 setTargetServings(full.servings);
               }
             }
-          } catch {}
+          } catch (err) {
+            // Silently handle localStorage errors (e.g., quota exceeded, private browsing)
+            if (import.meta.env.DEV) {
+              console.warn('[RecipePage] Failed to load/save servings preference:', err);
+            }
+          }
 
           // Load suggestions
           loadSuggestions(full);
         }
       } catch (e) {
-        console.error('[RecipePage]', e);
+        console.error('[RecipePage] Failed to load recipe:', e);
         if (!ignore) setError(e.message || 'Failed to load recipe.');
       } finally {
         if (!ignore) setLoading(false);
@@ -256,7 +267,12 @@ export default function RecipePage() {
     if (recipe?.id && targetServings !== recipe.servings) {
       try {
         localStorage.setItem(`servings:${recipe.id}`, String(targetServings));
-      } catch {}
+      } catch (err) {
+        // Silently handle localStorage errors (e.g., quota exceeded, private browsing)
+        if (import.meta.env.DEV) {
+          console.warn('[RecipePage] Failed to save servings preference:', err);
+        }
+      }
     }
   }, [targetServings, recipe?.id, recipe?.servings]);
 
@@ -391,7 +407,12 @@ export default function RecipePage() {
           }
           return prev;
         });
-      } catch {}
+      } catch (err) {
+        // Silently handle localStorage errors (e.g., quota exceeded, private browsing)
+        if (import.meta.env.DEV) {
+          console.warn('[RecipePage] Failed to sync recipe state from storage:', err);
+        }
+      }
     }, 2000); // Reduced frequency from 500ms to 2000ms
     return () => {
       window.removeEventListener('storage', handleStorageChange);
@@ -661,6 +682,35 @@ export default function RecipePage() {
     return scaledText;
   };
 
+  // State for ingredient swaps
+  const [ingredientSwaps, setIngredientSwaps] = useState({});
+
+  // Load swaps when recipe changes
+  useEffect(() => {
+    if (id) {
+      const swaps = getRecipeSwaps(id);
+      setIngredientSwaps(swaps);
+    }
+  }, [id]);
+
+  // Handle swap application
+  const handleSwapApplied = useCallback((ingredientIndex, swapName, originalText) => {
+    setIngredientSwaps(prev => {
+      if (swapName === null) {
+        const newSwaps = { ...prev };
+        delete newSwaps[ingredientIndex];
+        return newSwaps;
+      }
+      return { ...prev, [ingredientIndex]: swapName };
+    });
+
+    // Force re-render of ingredients
+    if (swapName) {
+      // Update the display text immediately
+      setIngredientSwaps(prev => ({ ...prev, [ingredientIndex]: swapName }));
+    }
+  }, []);
+
   // Scaled ingredients with ratio
   const scaledIngredients = useMemo(() => {
     if (!recipe?.extendedIngredients) {
@@ -892,10 +942,17 @@ export default function RecipePage() {
         });
       }
 
+      // Apply swap if exists
+      const swapName = ingredientSwaps[index];
+      const finalDisplayWithSwap = swapName
+        ? applySwapToIngredient(finalDisplayText, swapName)
+        : finalDisplayText;
+
       return {
         ...ing,
-        displayText: finalDisplayText,
+        displayText: finalDisplayWithSwap,
         originalText: baseOriginal,
+        originalDisplayText: finalDisplayText, // Store original for swap reversion
       };
     });
   }, [
@@ -903,6 +960,7 @@ export default function RecipePage() {
     scaleRatio,
     unitSystem,
     recipe?.id,
+    ingredientSwaps,
     recipe?.title,
     recipe?.servings,
     targetServings,
@@ -1159,23 +1217,25 @@ export default function RecipePage() {
               const name = i.name || i.original || '';
               return name.toLowerCase().trim().replace(/\s+/g, '_');
             });
-      
+
       const filtered = ingredientNames.filter(Boolean);
       const newIngredients = filtered.filter(ing => !currentPantry.includes(ing));
-      
+
       if (newIngredients.length > 0) {
         const updatedPantry = [...currentPantry, ...newIngredients];
         localStorage.setItem('filters:pantry', JSON.stringify(updatedPantry));
-        
+
         // Dispatch event for other components
         window.dispatchEvent(
           new CustomEvent('pantryUpdated', {
             detail: { pantry: updatedPantry },
           })
         );
-        
-        toast.success(`Added ${newIngredients.length} ingredient${newIngredients.length !== 1 ? 's' : ''} to your pantry! 🥘`);
-        
+
+        toast.success(
+          `Added ${newIngredients.length} ingredient${newIngredients.length !== 1 ? 's' : ''} to your pantry! 🥘`
+        );
+
         // Track interaction
         if (recipe?.id) {
           trackRecipeInteraction(recipe.id, 'add_to_pantry', {
@@ -1294,6 +1354,7 @@ export default function RecipePage() {
               url={
                 recipe?.id ? `${window.location.origin}/recipe/${recipe.id}` : window.location.href
               }
+              recipeId={recipe?.id}
             />
           </div>
         </div>
@@ -1824,7 +1885,13 @@ export default function RecipePage() {
                           {ing.displayText}
                         </motion.span>
                         <div className="flex-shrink-0">
-                          <SmartSwaps ingredientName={ing.displayText} />
+                          <SmartSwaps
+                            ingredientName={ing.originalDisplayText || ing.displayText}
+                            recipeId={id}
+                            ingredientIndex={idx}
+                            onSwapApplied={handleSwapApplied}
+                            originalDisplayText={ing.originalDisplayText || ing.displayText}
+                          />
                         </div>
                       </div>
                     </motion.li>
@@ -2007,7 +2074,7 @@ export default function RecipePage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4"
           onClick={e => e.target === e.currentTarget && closeCookMode()}
         >
           <motion.div

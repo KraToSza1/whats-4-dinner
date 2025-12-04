@@ -88,7 +88,7 @@ export default function PullToRefresh({ children, onRefresh, threshold = 80 }) {
             initial={{ opacity: 0, y: -50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
-            className="fixed top-0 left-0 right-0 z-[9999] flex items-center justify-center bg-gradient-to-b from-emerald-500 to-teal-600 text-white py-4 shadow-lg"
+            className="fixed top-0 left-0 right-0 z-40 flex items-center justify-center bg-gradient-to-b from-emerald-500 to-teal-600 text-white py-4 shadow-lg"
             style={{
               height: isRefreshing ? '80px' : `${Math.min(pullDistance, threshold)}px`,
             }}

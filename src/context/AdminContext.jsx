@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { isAdmin, isAdminModeEnabled } from '../utils/admin';
 
@@ -6,7 +6,6 @@ const AdminCtx = createContext(null);
 
 export function AdminProvider({ children }) {
   const { user } = useAuth();
-  const [adminModeEnabled, setAdminModeEnabled] = useState(false);
 
   // Check if user is an admin based on their email
   const isAdminUser = useMemo(() => {
@@ -18,19 +17,18 @@ export function AdminProvider({ children }) {
     return userIsAdmin;
   }, [user]);
 
-  // Check if admin mode is enabled (for UI visibility)
-  // Re-check when user changes to ensure admin access works in production
-  useEffect(() => {
+  // Compute admin mode enabled state directly (no setState in effect)
+  // If user is admin, always enable admin mode (even in production)
+  const adminModeEnabled = useMemo(() => {
     const enabled = isAdminModeEnabled();
     // If user is admin, always enable admin mode (even in production)
-    const shouldEnable = enabled || isAdminUser;
-    setAdminModeEnabled(shouldEnable);
+    return (enabled || isAdminUser) && isAdminUser; // Only enabled if user is actually an admin
   }, [isAdminUser]);
 
   const value = useMemo(
     () => ({
       isAdmin: isAdminUser,
-      adminModeEnabled: adminModeEnabled && isAdminUser, // Only enabled if user is actually an admin
+      adminModeEnabled,
     }),
     [isAdminUser, adminModeEnabled]
   );

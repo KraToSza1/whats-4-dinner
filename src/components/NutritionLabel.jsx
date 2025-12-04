@@ -103,7 +103,7 @@ export default function NutritionLabel({ recipe, servings, onClose }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 xs:p-3 sm:p-4"
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 xs:p-3 sm:p-4 overflow-y-auto"
       onClick={onClose}
     >
       <motion.div
@@ -111,7 +111,7 @@ export default function NutritionLabel({ recipe, servings, onClose }) {
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.9, y: 20 }}
         onClick={e => e.stopPropagation()}
-        className="bg-white dark:bg-slate-900 rounded-xl sm:rounded-2xl shadow-2xl max-w-md w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-white dark:bg-slate-900 rounded-xl sm:rounded-2xl shadow-2xl max-w-lg w-full max-h-[98vh] sm:max-h-[95vh] overflow-hidden flex flex-col m-2 sm:m-4"
       >
         {/* Header */}
         <div className="relative bg-gradient-to-r from-blue-500 via-purple-600 to-pink-500 p-3 xs:p-4 sm:p-6 text-white overflow-hidden">
@@ -210,12 +210,12 @@ export default function NutritionLabel({ recipe, servings, onClose }) {
         </div>
 
         {/* Nutrition Label */}
-        <div className="flex-1 overflow-y-auto p-3 xs:p-4 sm:p-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-3 xs:p-4 sm:p-5 md:p-6 min-h-0">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.3 }}
-            className="bg-white dark:bg-slate-800 border-2 border-slate-800 dark:border-slate-700 rounded-lg xs:rounded-xl p-3 xs:p-4 sm:p-6 shadow-xl"
+            className="bg-white dark:bg-slate-800 border-2 border-slate-800 dark:border-slate-700 rounded-lg xs:rounded-xl p-3 xs:p-4 sm:p-5 md:p-6 shadow-xl"
             style={{ fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' }}
           >
             {/* Label Header */}
@@ -256,21 +256,21 @@ export default function NutritionLabel({ recipe, servings, onClose }) {
             </div>
 
             {/* Daily Value Header */}
-            <div className="text-right text-[10px] xs:text-xs sm:text-sm mb-1.5 xs:mb-2 font-bold text-slate-900 dark:text-slate-100 tracking-wide">
+            <div className="text-right text-[10px] xs:text-xs sm:text-sm mb-1.5 xs:mb-2 font-bold text-slate-900 dark:text-slate-100 tracking-wide whitespace-nowrap">
               % Daily Value*
             </div>
 
             {/* Total Fat */}
             <div className="border-b border-slate-300 dark:border-slate-600 py-1.5 xs:py-2">
-              <div className="flex justify-between items-center gap-2">
-                <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100">
+              <div className="flex justify-between items-center gap-2 flex-wrap">
+                <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 flex-shrink-0">
                   Total Fat
                 </span>
-                <div className="flex items-center gap-2 xs:gap-3">
-                  <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100">
+                <div className="flex items-center gap-2 xs:gap-3 flex-shrink-0 ml-auto">
+                  <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 whitespace-nowrap">
                     {totalFat.toFixed(1)}g
                   </span>
-                  <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 min-w-[2.5rem] xs:min-w-[3rem] text-right">
+                  <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 min-w-[2.5rem] xs:min-w-[3rem] text-right whitespace-nowrap">
                     {dailyValue(totalFat, 65)}%
                   </span>
                 </div>
@@ -305,15 +305,15 @@ export default function NutritionLabel({ recipe, servings, onClose }) {
             {/* Cholesterol */}
             {cholesterol > 0 && (
               <div className="border-b border-slate-300 dark:border-slate-600 py-1.5 xs:py-2">
-                <div className="flex justify-between items-center gap-2">
-                  <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100">
+                <div className="flex justify-between items-center gap-2 flex-wrap">
+                  <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 flex-shrink-0">
                     Cholesterol
                   </span>
-                  <div className="flex items-center gap-2 xs:gap-3">
-                    <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100">
+                  <div className="flex items-center gap-2 xs:gap-3 flex-shrink-0 ml-auto">
+                    <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 whitespace-nowrap">
                       {cholesterol.toFixed(0)}mg
                     </span>
-                    <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 min-w-[2.5rem] xs:min-w-[3rem] text-right">
+                    <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 min-w-[2.5rem] xs:min-w-[3rem] text-right whitespace-nowrap">
                       {dailyValue(cholesterol, 300)}%
                     </span>
                   </div>
@@ -323,15 +323,15 @@ export default function NutritionLabel({ recipe, servings, onClose }) {
 
             {/* Sodium */}
             <div className="border-b border-slate-300 dark:border-slate-600 py-1.5 xs:py-2">
-              <div className="flex justify-between items-center gap-2">
-                <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100">
+              <div className="flex justify-between items-center gap-2 flex-wrap">
+                <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 flex-shrink-0">
                   Sodium
                 </span>
-                <div className="flex items-center gap-2 xs:gap-3">
-                  <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100">
+                <div className="flex items-center gap-2 xs:gap-3 flex-shrink-0 ml-auto">
+                  <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 whitespace-nowrap">
                     {sodium.toFixed(0)}mg
                   </span>
-                  <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 min-w-[2.5rem] xs:min-w-[3rem] text-right">
+                  <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 min-w-[2.5rem] xs:min-w-[3rem] text-right whitespace-nowrap">
                     {dailyValue(sodium, 2400)}%
                   </span>
                 </div>
@@ -340,15 +340,15 @@ export default function NutritionLabel({ recipe, servings, onClose }) {
 
             {/* Total Carbohydrate */}
             <div className="border-b border-slate-300 dark:border-slate-600 py-1.5 xs:py-2">
-              <div className="flex justify-between items-center gap-2">
-                <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100">
+              <div className="flex justify-between items-center gap-2 flex-wrap">
+                <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 flex-shrink-0">
                   Total Carbohydrate
                 </span>
-                <div className="flex items-center gap-2 xs:gap-3">
-                  <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100">
+                <div className="flex items-center gap-2 xs:gap-3 flex-shrink-0 ml-auto">
+                  <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 whitespace-nowrap">
                     {totalCarbs.toFixed(1)}g
                   </span>
-                  <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 min-w-[2.5rem] xs:min-w-[3rem] text-right">
+                  <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 min-w-[2.5rem] xs:min-w-[3rem] text-right whitespace-nowrap">
                     {dailyValue(totalCarbs, 300)}%
                   </span>
                 </div>
@@ -382,11 +382,11 @@ export default function NutritionLabel({ recipe, servings, onClose }) {
 
             {/* Protein */}
             <div className="border-b-4 border-slate-800 dark:border-slate-700 py-1.5 xs:py-2 mb-2 xs:mb-3">
-              <div className="flex justify-between items-center gap-2">
-                <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100">
+              <div className="flex justify-between items-center gap-2 flex-wrap">
+                <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 flex-shrink-0">
                   Protein
                 </span>
-                <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100">
+                <span className="font-bold text-xs xs:text-sm sm:text-base text-slate-900 dark:text-slate-100 whitespace-nowrap ml-auto">
                   {protein.toFixed(1)}g
                 </span>
               </div>
@@ -443,7 +443,7 @@ export default function NutritionLabel({ recipe, servings, onClose }) {
             </AnimatePresence>
 
             {/* Daily Value Note */}
-            <div className="text-[10px] sm:text-xs mt-4 pt-3 border-t border-slate-300 dark:border-slate-600 leading-relaxed text-slate-600 dark:text-slate-400">
+            <div className="text-[10px] sm:text-xs mt-4 pt-3 border-t border-slate-300 dark:border-slate-600 leading-relaxed text-slate-600 dark:text-slate-400 break-words">
               * The % Daily Value (DV) tells you how much a nutrient in a serving of food
               contributes to a daily diet. 2,000 calories a day is used for general nutrition
               advice.

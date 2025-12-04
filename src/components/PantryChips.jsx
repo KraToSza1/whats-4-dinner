@@ -119,6 +119,40 @@ export default function PantryChips({ pantry, setPantry, onSearch, showQuickActi
   const { addItems } = useGroceryList();
   const toast = useToast();
 
+  // Helper to determine if a color is light (needs dark text)
+  const isLightColor = color => {
+    const lightColors = [
+      'from-white',
+      'to-slate-50',
+      'to-slate-100',
+      'to-yellow-100',
+      'to-yellow-200',
+      'to-amber-200',
+      'to-amber-300',
+      'to-yellow-300',
+      'to-yellow-400',
+      'to-lime-300',
+      'to-green-300',
+      'to-green-400',
+      'to-emerald-300',
+      'to-emerald-400',
+      'to-blue-50',
+      'to-purple-300',
+      'to-purple-400',
+      'from-yellow-100',
+      'from-yellow-200',
+      'from-amber-200',
+      'from-amber-300',
+      'from-yellow-300',
+      'from-slate-100',
+      'from-slate-200',
+      'from-slate-300',
+      'from-white',
+      'from-slate-50',
+    ];
+    return lightColors.some(light => color.includes(light));
+  };
+
   const toggle = item => {
     setPantry(cur => (cur.includes(item) ? cur.filter(i => i !== item) : [...cur, item]));
   };
@@ -137,7 +171,7 @@ export default function PantryChips({ pantry, setPantry, onSearch, showQuickActi
   };
 
   const clearAll = () => {
-    if (pantry.length > 0 && window.confirm('Clear all ingredients from pantry?')) {
+    if (pantry.length > 0) {
       setPantry([]);
       toast.success('Pantry cleared!');
     }
@@ -165,7 +199,9 @@ export default function PantryChips({ pantry, setPantry, onSearch, showQuickActi
       category: 'Pantry',
     }));
     addItems(items);
-    toast.success(`Added ${pantry.length} ingredient${pantry.length !== 1 ? 's' : ''} to grocery list!`);
+    toast.success(
+      `Added ${pantry.length} ingredient${pantry.length !== 1 ? 's' : ''} to grocery list!`
+    );
   };
 
   const handleUseInMealPlanner = () => {
@@ -226,7 +262,7 @@ export default function PantryChips({ pantry, setPantry, onSearch, showQuickActi
                   Look inside your pantry Or Fridge and find recipes?
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Select ingredients, choose and cook! 
+                  Select ingredients, choose and cook!
                 </p>
               </div>
             </div>
@@ -347,7 +383,24 @@ export default function PantryChips({ pantry, setPantry, onSearch, showQuickActi
             <AnimatePresence mode="popLayout">
               {getFilteredSuggestions.map((ing, idx) => {
                 const active = pantry.includes(ing);
-                const data = INGREDIENT_DATA[ing] || { emoji: '🥘', color: 'from-slate-400 to-slate-500' };
+                const data = INGREDIENT_DATA[ing] || {
+                  emoji: '🥘',
+                  color: 'from-slate-400 to-slate-500',
+                };
+                const isLight = isLightColor(data.color);
+                const textColor =
+                  active && isLight
+                    ? 'text-slate-900 dark:text-slate-900'
+                    : active
+                      ? 'text-white'
+                      : 'text-slate-700 dark:text-slate-300';
+                const checkmarkColor =
+                  active && isLight
+                    ? 'bg-slate-900/20 dark:bg-slate-900/30'
+                    : 'bg-white/30 dark:bg-white/20';
+                const checkmarkIconColor =
+                  active && isLight ? 'text-slate-900 dark:text-slate-900' : 'text-white';
+
                 return (
                   <motion.button
                     key={ing}
@@ -361,23 +414,31 @@ export default function PantryChips({ pantry, setPantry, onSearch, showQuickActi
                     type="button"
                     onClick={() => toggle(ing)}
                     aria-pressed={active}
-                    className={`group relative px-4 py-2.5 rounded-2xl border-2 font-medium transition-all text-sm shadow-lg flex items-center gap-2 min-w-[120px] ${
+                    className={`group relative px-3 xs:px-4 py-2 xs:py-2.5 rounded-xl xs:rounded-2xl border-2 font-semibold transition-all text-xs xs:text-sm shadow-lg flex items-center gap-1.5 xs:gap-2 min-w-[100px] xs:min-w-[120px] touch-manipulation min-h-[44px] ${
                       active
-                        ? `bg-gradient-to-r ${data.color} border-transparent text-white shadow-xl`
+                        ? `bg-gradient-to-r ${data.color} border-2 ${isLight ? 'border-slate-300 dark:border-slate-400' : 'border-white/30 dark:border-white/20'} ${textColor} shadow-xl ring-2 ${isLight ? 'ring-slate-200 dark:ring-slate-300' : 'ring-white/20 dark:ring-white/10'} font-bold relative overflow-hidden`
                         : 'bg-white/90 dark:bg-slate-800/90 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20'
                     }`}
                   >
-                    <span className="text-lg">{data.emoji}</span>
-                    <span className="flex-1 text-left">
+                    {/* Dark overlay for light colors to improve readability */}
+                    {active && isLight && (
+                      <div className="absolute inset-0 bg-slate-900/5 dark:bg-slate-900/10 pointer-events-none" />
+                    )}
+                    <span className="text-base xs:text-lg shrink-0 relative z-10">
+                      {data.emoji}
+                    </span>
+                    <span className="flex-1 text-left truncate relative z-10">
                       {ing.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </span>
                     {active && (
                       <motion.div
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
-                        className="w-5 h-5 rounded-full bg-white/30 flex items-center justify-center"
+                        className={`w-4 h-4 xs:w-5 xs:h-5 rounded-full ${checkmarkColor} flex items-center justify-center shrink-0 relative z-10`}
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                        <CheckCircle2
+                          className={`w-3 h-3 xs:w-3.5 xs:h-3.5 ${checkmarkIconColor}`}
+                        />
                       </motion.div>
                     )}
                   </motion.button>
@@ -448,7 +509,10 @@ export default function PantryChips({ pantry, setPantry, onSearch, showQuickActi
               </div>
               <div className="flex flex-wrap gap-2">
                 {pantry.map(item => {
-                  const data = INGREDIENT_DATA[item] || { emoji: '🥘', color: 'from-slate-400 to-slate-500' };
+                  const data = INGREDIENT_DATA[item] || {
+                    emoji: '🥘',
+                    color: 'from-slate-400 to-slate-500',
+                  };
                   return (
                     <motion.span
                       key={item}

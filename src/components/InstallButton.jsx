@@ -6,7 +6,13 @@ export default function InstallButton({ compact = false, showBanner = false }) {
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  // Check if banner was previously dismissed (persist across sessions)
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('pwa:install:banner:dismissed') === 'true';
+    }
+    return false;
+  });
 
   // Function to check if app is installed
   const checkIfInstalled = () => {
@@ -15,81 +21,57 @@ export default function InstallButton({ compact = false, showBanner = false }) {
     return isStandalone || isIOSStandalone;
   };
 
+  // Compute installed status without setState in effect
+  const installedStatus = React.useMemo(() => {
+    return checkIfInstalled();
+  }, []);
+
   useEffect(() => {
-    // Only log in development to reduce console noise
-    if (import.meta.env.DEV) {
-      console.log('🔍 [InstallButton] useEffect triggered', { compact, showBanner });
-    }
-
-    // Check immediately if app is already installed
-    const installed = checkIfInstalled();
-    // Only log in development to reduce console noise
-    if (import.meta.env.DEV) {
-      console.log('🔍 [InstallButton] Check if installed:', {
-        installed,
-        displayMode: window.matchMedia('(display-mode: standalone)').matches,
-        iosStandalone: window.navigator.standalone === true,
-      });
-    }
-
-    if (installed) {
-      // Only log in development to reduce console noise
-      if (import.meta.env.DEV) {
-        console.log('✅ [InstallButton] App is already installed, hiding button');
-      }
-      setIsInstalled(true);
-      setIsInstallable(false);
+    // Use computed installed status
+    if (installedStatus) {
+      // Use setTimeout to avoid synchronous setState in effect
+      setTimeout(() => {
+        setIsInstalled(true);
+        setIsInstallable(false);
+      }, 0);
       return;
     }
 
     // Check periodically if app gets installed (for cases where user installs while page is open)
     const installCheckInterval = setInterval(() => {
       if (checkIfInstalled()) {
-        setIsInstalled(true);
-        setIsInstallable(false);
-        setDeferredPrompt(null);
-        window.deferredPrompt = null;
+        // Use setTimeout to avoid synchronous setState in interval
+        setTimeout(() => {
+          setIsInstalled(true);
+          setIsInstallable(false);
+          setDeferredPrompt(null);
+          window.deferredPrompt = null;
+        }, 0);
       }
     }, 1000);
 
     // Check if we already have a stored prompt (from previous page load)
     // This helps if the event fired before the component mounted
     if (window.deferredPrompt) {
-      // Only log in development to reduce console noise
-      if (import.meta.env.DEV) {
-        console.log('✅ [InstallButton] Found existing deferredPrompt in window');
-      }
-      setDeferredPrompt(window.deferredPrompt);
-      setIsInstallable(true);
-    } else {
-      // Only log in development to reduce console noise
-      if (import.meta.env.DEV) {
-        console.log('⚠️ [InstallButton] No existing deferredPrompt found');
-      }
+      // Use setTimeout to avoid synchronous setState in effect
+      setTimeout(() => {
+        setDeferredPrompt(window.deferredPrompt);
+        setIsInstallable(true);
+      }, 0);
     }
 
     // Listen for the beforeinstallprompt event
     const handleBeforeInstallPrompt = e => {
-      // Only log in development to reduce console noise
-      if (import.meta.env.DEV) {
-        console.log('🎉 [InstallButton] beforeinstallprompt event fired!', e);
-      }
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
       // Stash the event so it can be triggered later
-      setDeferredPrompt(e);
-      window.deferredPrompt = e; // Store globally for persistence
-      setIsInstallable(true);
-      // Only log in development to reduce console noise
-      if (import.meta.env.DEV) {
-        console.log('✅ [InstallButton] Install prompt is now available');
-      }
+      // Use setTimeout to avoid synchronous setState in event handler
+      setTimeout(() => {
+        setDeferredPrompt(e);
+        window.deferredPrompt = e; // Store globally for persistence
+        setIsInstallable(true);
+      }, 0);
     };
-
-    // Only log in development to reduce console noise
-    if (import.meta.env.DEV) {
-      console.log('👂 [InstallButton] Adding beforeinstallprompt listener');
-    }
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     // Debug: Log installability status (only in dev)
@@ -111,28 +93,29 @@ export default function InstallButton({ compact = false, showBanner = false }) {
 
     // Listen for app installed event (fires when user accepts install)
     const handleAppInstalled = () => {
-      // Only log in development to reduce console noise
-      if (import.meta.env.DEV) {
-        console.log('🎊 [InstallButton] appinstalled event fired!');
-      }
-      setIsInstalled(true);
-      setIsInstallable(false);
-      setDeferredPrompt(null);
-      window.deferredPrompt = null;
-      setBannerDismissed(true); // Also dismiss banner
+      // Use setTimeout to avoid synchronous setState in event handler
+      setTimeout(() => {
+        setIsInstalled(true);
+        setIsInstallable(false);
+        setDeferredPrompt(null);
+        window.deferredPrompt = null;
+        setBannerDismissed(true); // Also dismiss banner
+        // Persist dismissal to localStorage so banner doesn't show again
+        localStorage.setItem('pwa:install:banner:dismissed', 'true');
+      }, 0);
     };
 
-    // Only log in development to reduce console noise
-    if (import.meta.env.DEV) {
-      console.log('👂 [InstallButton] Adding appinstalled listener');
-    }
+    // Removed verbose logging
     window.addEventListener('appinstalled', handleAppInstalled);
 
     // Check periodically if install becomes available (for delayed events)
     const checkInterval = setInterval(() => {
       if (window.deferredPrompt && !isInstallable) {
-        setDeferredPrompt(window.deferredPrompt);
-        setIsInstallable(true);
+        // Use setTimeout to avoid synchronous setState in interval
+        setTimeout(() => {
+          setDeferredPrompt(window.deferredPrompt);
+          setIsInstallable(true);
+        }, 0);
       }
     }, 2000);
 
@@ -142,7 +125,7 @@ export default function InstallButton({ compact = false, showBanner = false }) {
       clearInterval(checkInterval);
       clearInterval(installCheckInterval);
     };
-  }, [isInstallable, compact, showBanner]);
+  }, [installedStatus, compact, showBanner]); // Use installedStatus instead of checking in effect
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
@@ -178,18 +161,7 @@ export default function InstallButton({ compact = false, showBanner = false }) {
     return null;
   }
 
-  // Only log in development to reduce console noise
-  if (import.meta.env.DEV) {
-    console.log('🔍 [InstallButton] Render check:', {
-      isInstalled,
-      isInstallable,
-      hasDeferredPrompt: !!deferredPrompt,
-      compact,
-      showBanner,
-      bannerDismissed,
-      showInstructions,
-    });
-  }
+  // Removed verbose logging
 
   // Show instructions modal if clicked without prompt
   if (showInstructions) {
@@ -228,40 +200,17 @@ export default function InstallButton({ compact = false, showBanner = false }) {
 
   // In compact mode (menu), only show if we have a real install prompt
   if (compact && (!isInstallable || !deferredPrompt)) {
-    // Only log in development to reduce console noise
-    if (import.meta.env.DEV) {
-      if (import.meta.env.DEV) {
-        console.log('🚫 [InstallButton] Not rendering menu button - no prompt available');
-      }
-    }
     return null; // Don't show in menu if not installable or no prompt
   }
 
   if (!compact && !isInstallable && !showBanner) {
-    // Only log in development to reduce console noise
-    if (import.meta.env.DEV) {
-      if (import.meta.env.DEV) {
-        console.log('🚫 [InstallButton] Not rendering standalone button - not installable');
-      }
-    }
     return null; // Don't show standalone button if not installable
   }
 
   // Don't show button if we don't have a deferredPrompt (will just show instructions)
   // Only show if we have a real install prompt OR if user explicitly wants instructions
   if (!deferredPrompt && !compact) {
-    // Only log in development to reduce console noise
-    if (import.meta.env.DEV) {
-      if (import.meta.env.DEV) {
-        console.log('🚫 [InstallButton] Not rendering - no deferredPrompt and not compact');
-      }
-    }
     return null; // No prompt available, don't show button (instructions modal handles this)
-  }
-
-  // Only log in development to reduce console noise
-  if (import.meta.env.DEV) {
-    console.log('✅ [InstallButton] Rendering button/banner');
   }
 
   // Banner style (top of page) - only show if we have a real install prompt ready
@@ -306,7 +255,11 @@ export default function InstallButton({ compact = false, showBanner = false }) {
               Install Now
             </button>
             <button
-              onClick={() => setBannerDismissed(true)}
+              onClick={() => {
+                setBannerDismissed(true);
+                // Persist dismissal to localStorage so banner doesn't show again
+                localStorage.setItem('pwa:install:banner:dismissed', 'true');
+              }}
               className="p-2 text-white hover:bg-white/20 rounded-lg transition-colors"
               title="Dismiss"
             >

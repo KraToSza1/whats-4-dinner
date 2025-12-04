@@ -70,7 +70,8 @@ function RecommendedBudgetDisplay({ country, currency, autoDetected, onUseRecomm
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              <span className="text-slate-600 dark:text-slate-400">📍</span> Your Location: {country}
+              <span className="text-slate-600 dark:text-slate-400">📍</span> Your Location:{' '}
+              {country}
             </div>
             <div className="text-xs text-slate-600 dark:text-slate-400 mb-2">
               Cost of Living Index: {getCostOfLivingIndex(country)}/100 (US average)
@@ -462,24 +463,26 @@ export default function BudgetTracker() {
         // Budget is returned in USD, need to convert to local currency
         const recommendedBudgetUSD = getRecommendedBudget(currency.country || 'US', 1);
         // Convert USD to local currency asynchronously
-        convertToLocal(recommendedBudgetUSD).then(recommendedBudgetLocal => {
-          const defaultSettings = {
-            enabled: false,
-            weeklyBudget: Math.round(recommendedBudgetLocal * 100) / 100, // Round to 2 decimals
-            currency: currency.currency,
-            country: currency.country || 'US',
-          };
-          setSettings(defaultSettings);
-        }).catch(() => {
-          // Fallback: use USD value if conversion fails
-          const defaultSettings = {
-            enabled: false,
-            weeklyBudget: recommendedBudgetUSD,
-            currency: currency.currency,
-            country: currency.country || 'US',
-          };
-          setSettings(defaultSettings);
-        });
+        convertToLocal(recommendedBudgetUSD)
+          .then(recommendedBudgetLocal => {
+            const defaultSettings = {
+              enabled: false,
+              weeklyBudget: Math.round(recommendedBudgetLocal * 100) / 100, // Round to 2 decimals
+              currency: currency.currency,
+              country: currency.country || 'US',
+            };
+            setSettings(defaultSettings);
+          })
+          .catch(() => {
+            // Fallback: use USD value if conversion fails
+            const defaultSettings = {
+              enabled: false,
+              weeklyBudget: recommendedBudgetUSD,
+              currency: currency.currency,
+              country: currency.country || 'US',
+            };
+            setSettings(defaultSettings);
+          });
       } else {
         // Update currency if not set, but preserve existing budget
         if (!settings.currency) {
@@ -1083,7 +1086,7 @@ export default function BudgetTracker() {
               </div>
               <button
                 onClick={async () => {
-                  toast.info('Re-detecting location...', { duration: 2000 });
+                  toast.info('Automatic...', { duration: 2000 });
                   setLoading(true);
                   try {
                     localStorage.removeItem('currency:settings:v1');
@@ -1100,8 +1103,8 @@ export default function BudgetTracker() {
                       duration: 3000,
                     });
                   } catch (error) {
-                    console.error('Re-detection error:', error);
-                    toast.error('Detection failed. Using browser locale.', { duration: 3000 });
+                    console.error('Automatic error:', error);
+                    toast.error('Automatic failed. Using browser locale.', { duration: 3000 });
                     const languages = navigator.languages || [navigator.language] || ['en-US'];
                     let countryFromLocale = 'US';
                     for (const locale of languages) {
@@ -1141,7 +1144,7 @@ export default function BudgetTracker() {
                 className="text-xs px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium shadow-sm"
                 title="Re-detect your location"
               >
-                🔄 Re-detect
+                🔄 Automatic
               </button>
             </div>
           </motion.div>

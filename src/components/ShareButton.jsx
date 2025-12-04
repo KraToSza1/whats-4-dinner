@@ -3,17 +3,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Share2, MessageCircle, Facebook, Mail, Link as LinkIcon } from 'lucide-react';
 import { useToast } from './Toast.jsx';
 
-export default function ShareButton({ title, text, url }) {
+export default function ShareButton({ title, text, url, recipeId }) {
   const [showMenu, setShowMenu] = useState(false);
   const [position, setPosition] = useState({ right: 0, top: 0 });
   const buttonRef = useRef(null);
   const dropdownRef = useRef(null);
   const toast = useToast();
 
+  // Generate shareable URL - use /recipe/shared/:id for public access
+  const shareableUrl = recipeId
+    ? `${window.location.origin}/recipe/shared/${recipeId}`
+    : url || window.location.href;
+
   const shareData = {
     title: title || 'Check this out!',
     text: text || '',
-    url: url || window.location.href,
+    url: shareableUrl,
   };
 
   const handleShare = async type => {
@@ -25,6 +30,14 @@ export default function ShareButton({ title, text, url }) {
         try {
           await navigator.share(shareData);
           toast.success('Shared successfully! 🎉');
+          // Track share event
+          if (recipeId && typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('recipeShared', {
+                detail: { recipeId, method: 'native', url: shareableUrl },
+              })
+            );
+          }
           return;
         } catch (error) {
           if (error.name !== 'AbortError') {
@@ -40,9 +53,16 @@ export default function ShareButton({ title, text, url }) {
     if (type === 'copy') {
       // Copy to clipboard
       try {
-        const shareUrl = url || window.location.href;
-        await navigator.clipboard.writeText(shareUrl);
-        toast.success('Link copied to clipboard! 📋');
+        await navigator.clipboard.writeText(shareableUrl);
+        toast.success('Shareable link copied! 📋');
+        // Track share event
+        if (recipeId && typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('recipeShared', {
+              detail: { recipeId, method: 'copy', url: shareableUrl },
+            })
+          );
+        }
         return;
       } catch (error) {
         console.error('Copy failed:', error);
@@ -51,7 +71,7 @@ export default function ShareButton({ title, text, url }) {
     }
 
     // Social media sharing
-    const encodedUrl = encodeURIComponent(url || window.location.href);
+    const encodedUrl = encodeURIComponent(shareableUrl);
     const encodedTitle = encodeURIComponent(title || '');
 
     const socialLinks = {
@@ -65,52 +85,65 @@ export default function ShareButton({ title, text, url }) {
 
     if (socialLinks[type]) {
       window.open(socialLinks[type], '_blank', 'width=600,height=400');
+      // Track share event
+      if (recipeId && typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('recipeShared', {
+            detail: { recipeId, method: type, url: shareableUrl },
+          })
+        );
+      }
     }
   };
 
   // Calculate smart positioning on mobile
   useEffect(() => {
     if (showMenu && buttonRef.current && dropdownRef.current) {
-      const isMobile = window.innerWidth < 640;
+      // Defer state update to avoid synchronous setState in effect
+      setTimeout(() => {
+        if (!buttonRef.current || !dropdownRef.current) return;
 
-      if (isMobile) {
-        const rect = buttonRef.current.getBoundingClientRect();
-        const dropdownWidth = 200; // Fixed width for mobile
-        const maxHeight = window.innerHeight - 24;
+        const isMobile = window.innerWidth < 640;
 
-        // Position dropdown - align with button's right edge by default
-        let right = window.innerWidth - rect.right;
+        if (isMobile) {
+          const rect = buttonRef.current.getBoundingClientRect();
+          const dropdownWidth = 200; // Fixed width for mobile
+          const maxHeight = window.innerHeight - 24;
 
-        // Ensure it doesn't go off the right edge
-        if (right < 12) {
-          right = 12;
-        }
+          // Position dropdown - align with button's right edge by default
+          let right = window.innerWidth - rect.right;
 
-        // Ensure it doesn't go off the left edge
-        if (right + dropdownWidth > window.innerWidth - 12) {
-          right = window.innerWidth - dropdownWidth - 12;
-        }
-
-        // Position vertically
-        let top = rect.bottom + 8;
-        const estimatedHeight = Math.min(300, maxHeight);
-
-        if (top + estimatedHeight > window.innerHeight - 12) {
-          top = rect.top - estimatedHeight - 8;
-          if (top < 12) {
-            top = 12;
+          // Ensure it doesn't go off the right edge
+          if (right < 12) {
+            right = 12;
           }
-          // Make sure bottom doesn't go off screen either
+
+          // Ensure it doesn't go off the left edge
+          if (right + dropdownWidth > window.innerWidth - 12) {
+            right = window.innerWidth - dropdownWidth - 12;
+          }
+
+          // Position vertically
+          let top = rect.bottom + 8;
+          const estimatedHeight = Math.min(300, maxHeight);
+
           if (top + estimatedHeight > window.innerHeight - 12) {
-            top = window.innerHeight - estimatedHeight - 12;
+            top = rect.top - estimatedHeight - 8;
+            if (top < 12) {
+              top = 12;
+            }
+            // Make sure bottom doesn't go off screen either
+            if (top + estimatedHeight > window.innerHeight - 12) {
+              top = window.innerHeight - estimatedHeight - 12;
+            }
           }
-        }
 
-        setPosition({ right, top });
-      } else {
-        // Reset position for desktop (uses absolute positioning)
-        setPosition({ right: 0, top: 0 });
-      }
+          setPosition({ right, top });
+        } else {
+          // Reset position for desktop (uses absolute positioning)
+          setPosition({ right: 0, top: 0 });
+        }
+      }, 0);
     }
   }, [showMenu]);
 

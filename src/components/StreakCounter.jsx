@@ -92,11 +92,13 @@ export default function StreakCounter({ size = 'default', showLongest = false })
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="text-center p-4 sm:p-6 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 rounded-xl border-2 border-slate-300 dark:border-slate-700"
+        className="text-center p-3 xs:p-4 sm:p-6 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 rounded-lg xs:rounded-xl border-2 border-slate-300 dark:border-slate-700"
       >
-        <div className="text-4xl sm:text-5xl mb-2">❄️</div>
-        <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-1">Start Your Streak!</h4>
-        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+        <div className="text-3xl xs:text-4xl sm:text-5xl mb-2">❄️</div>
+        <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-1 text-sm xs:text-base">
+          Start Your Streak!
+        </h4>
+        <p className="text-xs xs:text-sm text-slate-600 dark:text-slate-400 px-2">
           View or cook a recipe daily to build your streak!
         </p>
       </motion.div>
@@ -108,7 +110,7 @@ export default function StreakCounter({ size = 'default', showLongest = false })
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className={`relative overflow-hidden rounded-xl p-4 sm:p-6 bg-gradient-to-br ${intensity.gradient} ${intensity.glow} border-2 ${
+        className={`relative overflow-hidden rounded-lg xs:rounded-xl p-3 xs:p-4 sm:p-6 bg-gradient-to-br ${intensity.gradient} ${intensity.glow} border-2 ${
           streak >= 30
             ? 'border-yellow-400'
             : streak >= 7
@@ -145,38 +147,44 @@ export default function StreakCounter({ size = 'default', showLongest = false })
         )}
 
         <div className="relative z-10">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between mb-2 xs:mb-3">
+            <div className="flex items-center gap-1.5 xs:gap-2">
               <motion.div
-                animate={updatedToday ? { scale: [1, 1.3, 1], rotate: [0, 10, -10, 0] } : {}}
+                animate={updatedToday ? { scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] } : {}}
                 transition={{ duration: 0.6, repeat: streak > 0 ? Infinity : 0, repeatDelay: 2 }}
               >
                 <Flame
-                  className={`${size === 'large' ? 'w-8 h-8' : 'w-6 h-6'} text-white ${streak > 0 ? 'animate-pulse' : ''}`}
+                  className={`${size === 'large' ? 'w-7 h-7 xs:w-8 xs:h-8' : 'w-5 h-5 xs:w-6 xs:h-6'} text-white ${streak > 0 ? 'animate-pulse' : ''}`}
                 />
               </motion.div>
-              <h3 className="font-bold text-white text-lg sm:text-xl">Cooking Streak</h3>
+              <h3 className="font-bold text-white text-base xs:text-lg sm:text-xl">
+                Cooking Streak
+              </h3>
             </div>
-            {streak >= 30 && <Crown className="w-6 h-6 text-yellow-300 animate-bounce" />}
-            {streak >= 60 && <Zap className="w-5 h-5 text-yellow-200 ml-1 animate-pulse" />}
+            {streak >= 30 && (
+              <Crown className="w-5 h-5 xs:w-6 xs:h-6 text-yellow-300 animate-bounce shrink-0" />
+            )}
+            {streak >= 60 && (
+              <Zap className="w-4 h-4 xs:w-5 xs:h-5 text-yellow-200 ml-1 animate-pulse shrink-0" />
+            )}
           </div>
 
-          <div className="text-center mb-3">
+          <div className="text-center mb-2 xs:mb-3">
             <motion.div
               key={streak}
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-              className="flex items-center justify-center gap-2"
+              className="flex items-center justify-center gap-1.5 xs:gap-2"
             >
-              <span className="text-5xl sm:text-6xl md:text-7xl font-black text-white drop-shadow-lg">
+              <span className="text-4xl xs:text-5xl sm:text-6xl md:text-7xl font-black text-white drop-shadow-lg">
                 {streak}
               </span>
               <div className="flex flex-col items-start">
-                <span className="text-lg sm:text-xl font-bold text-white/90">
+                <span className="text-base xs:text-lg sm:text-xl font-bold text-white/90">
                   day{streak !== 1 ? 's' : ''}
                 </span>
-                <span className="text-2xl sm:text-3xl">{intensity.emoji}</span>
+                <span className="text-xl xs:text-2xl sm:text-3xl">{intensity.emoji}</span>
               </div>
             </motion.div>
           </div>

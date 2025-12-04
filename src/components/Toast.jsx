@@ -64,7 +64,7 @@ export function useToast() {
 function ToastContainer({ toasts, removeToast }) {
   return (
     <div
-      className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md w-full sm:w-auto pointer-events-none"
+      className="fixed bottom-4 left-4 right-4 xs:bottom-auto xs:top-4 xs:left-auto xs:right-4 z-[9999] flex flex-col gap-2 xs:gap-3 max-w-md xs:max-w-lg w-full xs:w-auto pointer-events-none px-2 xs:px-0"
       aria-live="polite"
       aria-label="Notifications"
     >
@@ -89,42 +89,48 @@ function Toast({ toast, onClose }) {
 
   const colors = {
     success:
-      'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200',
+      'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-100',
     error:
-      'bg-red-100 dark:bg-red-900/80 border-red-300 dark:border-red-700 text-red-900 dark:text-red-100 font-semibold', // Made more opaque and readable
+      'bg-red-50 dark:bg-red-900/40 border-red-300 dark:border-red-700 text-red-900 dark:text-red-100',
     warning:
-      'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200',
-    info: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200',
+      'bg-amber-50 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-100',
+    info: 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-100',
   };
 
   const iconColors = {
-    success: 'text-emerald-600 dark:text-emerald-400',
-    error: 'text-red-600 dark:text-red-400',
-    warning: 'text-amber-600 dark:text-amber-400',
-    info: 'text-blue-600 dark:text-blue-400',
+    success: 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/50',
+    error: 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/50',
+    warning: 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/50',
+    info: 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50',
   };
 
   const Icon = icons[type] || Info;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -20, scale: 0.95 }}
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-      className={`${colors[type]} border rounded-lg shadow-lg p-4 pointer-events-auto flex items-start gap-3 min-w-[300px] max-w-md`}
+      exit={{ opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } }}
+      className={`${colors[type]} border-2 rounded-xl xs:rounded-2xl shadow-2xl p-3 xs:p-4 pointer-events-auto flex items-start gap-2.5 xs:gap-3 w-full xs:min-w-[320px] xs:max-w-md backdrop-blur-sm`}
       role="alert"
       aria-live={type === 'error' ? 'assertive' : 'polite'}
     >
-      <Icon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${iconColors[type]}`} aria-hidden="true" />
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium break-words whitespace-pre-line">{message}</div>
+      <div
+        className={`w-8 h-8 xs:w-10 xs:h-10 rounded-lg xs:rounded-xl flex items-center justify-center shrink-0 ${iconColors[type]} bg-white/50 dark:bg-black/20`}
+      >
+        <Icon className={`w-4 h-4 xs:w-5 xs:h-5`} aria-hidden="true" />
+      </div>
+      <div className="flex-1 min-w-0 pt-0.5 xs:pt-1">
+        <div className="text-sm xs:text-base font-semibold xs:font-bold break-words whitespace-pre-line leading-relaxed">
+          {message}
+        </div>
       </div>
       <button
         onClick={onClose}
-        className="flex-shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1 -mt-1 -mr-1"
+        className="flex-shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 dark:text-slate-500 transition-colors p-1.5 xs:p-2 -mt-1 -mr-1 rounded-lg hover:bg-white/50 dark:hover:bg-black/20 touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
         aria-label="Close notification"
       >
-        <X className="w-4 h-4" />
+        <X className="w-4 h-4 xs:w-5 xs:h-5" />
       </button>
     </motion.div>
   );

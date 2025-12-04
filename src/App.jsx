@@ -14,6 +14,7 @@ import Help from './pages/Help.jsx';
 import Terms from './pages/Terms.jsx';
 import Privacy from './pages/Privacy.jsx';
 import Analytics from './pages/Analytics.jsx';
+import SharedRecipePage from './pages/SharedRecipePage.jsx';
 import BillingManagement from './pages/BillingManagement.jsx';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute.jsx';
 import MissingImagesPage from './pages/MissingImagesPage.jsx';
@@ -720,6 +721,8 @@ const App = () => {
         }
       }
 
+      const fetchStartTime = Date.now();
+
       try {
         // Read additional filters from localStorage (managed by Filters component)
         // Use try-catch for each localStorage access to prevent errors
@@ -766,17 +769,24 @@ const App = () => {
         const offset = options.offset || (page - 1) * recipesPerPage;
         const requestedLimit = limitOverride || recipesPerPage;
 
-        // Only log in development to reduce console noise
         if (import.meta.env.DEV) {
-          console.log('🔍 [FETCH RECIPES] Starting search', {
-            query: trimmedQuery?.substring(0, 50) || '(empty)',
+          console.log('🔍 [FETCH RECIPES] ============================================');
+          console.log('🔍 [FETCH RECIPES] Starting recipe fetch');
+          console.log('🔍 [FETCH RECIPES] Params:', {
+            query: trimmedQuery || '(empty)',
+            includeIngredients: includeIngredients.length,
+            diet: normalizedDiet || 'none',
+            mealType: normalizedMealType || 'none',
+            maxTime: normalizedMaxTime || 'none',
+            cuisine: cuisine || 'none',
+            difficulty: difficulty || 'none',
             page,
             offset,
-            requestedLimit,
-            recipesPerPage,
-            limitOverride: limitOverride || 'none',
+            limit: requestedLimit,
             shouldShowDefaultFeed,
+            timestamp: new Date().toISOString(),
           });
+          console.log('🔍 [FETCH RECIPES] ============================================');
         }
 
         const searchPromise = searchSupabaseRecipes({
@@ -796,12 +806,36 @@ const App = () => {
           offset: offset, // Add offset for server-side pagination
         });
 
-        // Add timeout to prevent hanging requests (30 seconds)
+        // Add timeout to prevent hanging requests (25 seconds - reduced from 30)
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Search request timed out. Please try again.')), 30000);
+          setTimeout(() => {
+            const elapsed = Date.now() - fetchStartTime;
+            if (import.meta.env.DEV) {
+              console.error('⏰ [FETCH RECIPES] TIMEOUT after', elapsed, 'ms');
+            }
+            reject(new Error('Search request timed out. Please try again.'));
+          }, 25000);
         });
 
+        if (import.meta.env.DEV) {
+          console.log('🔄 [FETCH RECIPES] Racing search promise against timeout...');
+        }
+
         const searchResult = await Promise.race([searchPromise, timeoutPromise]);
+
+        const fetchElapsed = Date.now() - fetchStartTime;
+
+        if (import.meta.env.DEV) {
+          console.log('✅ [FETCH RECIPES] Search completed in', fetchElapsed, 'ms');
+          console.log('✅ [FETCH RECIPES] Result:', {
+            isArray: Array.isArray(searchResult),
+            hasData: !!searchResult?.data,
+            dataLength: Array.isArray(searchResult)
+              ? searchResult.length
+              : searchResult?.data?.length || 0,
+            totalCount: searchResult?.totalCount ?? 'null',
+          });
+        }
 
         // Handle both old format (array) and new format (object with data and totalCount)
         const supabaseResults = Array.isArray(searchResult)
@@ -809,56 +843,21 @@ const App = () => {
           : searchResult?.data || [];
         const totalCountFromServer = searchResult?.totalCount ?? null;
 
-        // Only log in development to reduce console noise
-        if (import.meta.env.DEV) {
-          console.log('📥 [FETCH RECIPES] Search results received', {
-            resultsCount: supabaseResults?.length || 0,
-            expectedCount: requestedLimit,
-            totalCountFromServer: totalCountFromServer ?? 'not provided',
-            page: page || 1,
-            offset,
-            hasResults: !!supabaseResults?.length,
-            firstRecipe: supabaseResults?.[0]?.title?.substring(0, 30) || 'none',
-          });
-        }
+        // Removed verbose logging
 
         if (supabaseResults?.length) {
           setRecipes(supabaseResults);
 
           // Use actual total count from server if available, otherwise estimate
           if (totalCountFromServer !== null && totalCountFromServer !== undefined) {
-            if (import.meta.env.DEV) {
-              console.log('📊 [FETCH RECIPES] Using server-provided total count', {
-                received: supabaseResults.length,
-                requested: requestedLimit,
-                offset,
-                totalCount: totalCountFromServer,
-              });
-            }
             setTotalRecipesCount(totalCountFromServer);
           } else if (supabaseResults.length < requestedLimit) {
             // If we got fewer than requested, that's likely all there is
             const estimatedTotal = offset + supabaseResults.length;
-            if (import.meta.env.DEV) {
-              console.log('📊 [FETCH RECIPES] Estimated total recipes (no server count)', {
-                received: supabaseResults.length,
-                requested: requestedLimit,
-                offset,
-                estimatedTotal,
-              });
-            }
             setTotalRecipesCount(estimatedTotal);
           } else {
             // Got full page - assume there are more (conservative estimate)
             const estimatedTotal = Math.max(offset + requestedLimit * 2, 1000);
-            if (import.meta.env.DEV) {
-              console.log('📊 [FETCH RECIPES] Full page received - estimating more exist', {
-                received: supabaseResults.length,
-                requested: requestedLimit,
-                offset,
-                estimatedTotal,
-              });
-            }
             setTotalRecipesCount(estimatedTotal);
           }
 
@@ -892,6 +891,21 @@ const App = () => {
           }
         }
       } catch (searchError) {
+        const fetchElapsed = Date.now() - (fetchStartTime || Date.now());
+
+        if (import.meta.env.DEV) {
+          console.error('❌ [FETCH RECIPES] ============================================');
+          console.error('❌ [FETCH RECIPES] SEARCH FAILED');
+          console.error('❌ [FETCH RECIPES] Elapsed time:', fetchElapsed, 'ms');
+          console.error('❌ [FETCH RECIPES] Error:', searchError);
+          console.error(
+            '❌ [FETCH RECIPES] Error message:',
+            searchError?.message || 'Unknown error'
+          );
+          console.error('❌ [FETCH RECIPES] Error stack:', searchError?.stack || 'No stack trace');
+          console.error('❌ [FETCH RECIPES] ============================================');
+        }
+
         console.error('[fetchRecipes] Search error:', searchError);
 
         // Enhanced error messages for different error types
@@ -1028,40 +1042,11 @@ const App = () => {
   const paginatedRecipes = recipes.slice(startIndex, endIndex);
 
   // Only log in development to reduce console noise
-  if (import.meta.env.DEV) {
-    console.log('📄 [PAGINATION] Current state', {
-      currentPage,
-      recipesPerPage,
-      totalRecipes: recipes.length,
-      totalRecipesCount,
-      totalPages,
-      startIndex,
-      endIndex,
-      showingRecipes: paginatedRecipes.length,
-    });
-
-    console.log('🎯 [PAGINATION] Displaying recipes', {
-      paginatedRecipesCount: paginatedRecipes.length,
-      expectedCount: recipesPerPage,
-      currentPage,
-      isFullPage: paginatedRecipes.length === recipesPerPage,
-      hasMore: paginatedRecipes.length === recipesPerPage,
-    });
-  }
+  // Removed verbose logging
 
   // Handle page change - now with server-side pagination!
   const handlePageChange = async page => {
-    // Only log in development to reduce console noise
-    if (import.meta.env.DEV) {
-      console.log('🔄 [PAGINATION] Page change requested', {
-        fromPage: currentPage,
-        toPage: page,
-        recipesPerPage,
-        currentRecipesCount: recipes.length,
-        totalRecipesCount,
-        needToFetch: page * recipesPerPage > recipes.length,
-      });
-    }
+    // Removed verbose logging
 
     setCurrentPage(page);
 
@@ -1069,14 +1054,7 @@ const App = () => {
     const offset = (page - 1) * recipesPerPage;
 
     // For server-side pagination: Always fetch the page we need from the server
-    if (import.meta.env.DEV) {
-      console.log('📥 [PAGINATION] Fetching recipes for page', {
-        page,
-        offset,
-        limit: recipesPerPage,
-        lastSearch: lastSearch || '(empty - default feed)',
-      });
-    }
+    // Removed verbose logging
 
     // Fetch the specific page from server
     await fetchRecipes(lastSearch || '', {
@@ -1140,29 +1118,29 @@ const App = () => {
                       {/* Responsive Layout: Stacked on mobile, side-by-side on desktop */}
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
                         {/* Left Side: Streak & Progress Cards (Stacked) */}
-                        <div className="lg:col-span-1 space-y-4 sm:space-y-5">
+                        <div className="lg:col-span-1 space-y-3 xs:space-y-4 sm:space-y-5">
                           {/* Streak Card */}
                           <motion.div
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
-                            className="group relative overflow-hidden bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 shadow-lg border-2 border-orange-200 dark:border-orange-800 hover:border-orange-400 dark:hover:border-orange-600 transition-all duration-300"
+                            className="group relative overflow-hidden bg-white dark:bg-slate-800 rounded-xl xs:rounded-2xl p-4 xs:p-5 sm:p-6 shadow-lg border-2 border-orange-200 dark:border-orange-800 hover:border-orange-400 dark:hover:border-orange-600 transition-all duration-300"
                           >
                             {/* Gradient Accent */}
-                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 via-red-500 to-pink-500"></div>
+                            <div className="absolute top-0 left-0 right-0 h-0.5 xs:h-1 bg-gradient-to-r from-orange-500 via-red-500 to-pink-500"></div>
 
-                            <div className="flex items-start gap-4">
+                            <div className="flex items-start gap-3 xs:gap-4">
                               <motion.div
                                 animate={{ scale: [1, 1.1, 1] }}
                                 transition={{ duration: 2, repeat: Infinity }}
-                                className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg shrink-0"
+                                className="w-10 h-10 xs:w-12 xs:h-12 rounded-lg xs:rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg shrink-0"
                               >
-                                <Flame className="w-6 h-6 text-white" />
+                                <Flame className="w-5 h-5 xs:w-6 xs:h-6 text-white" />
                               </motion.div>
                               <div className="flex-1 min-w-0">
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                                <h3 className="text-base xs:text-lg font-bold text-slate-900 dark:text-white mb-0.5 xs:mb-1">
                                   Cooking Streak
                                 </h3>
-                                <p className="text-xs text-slate-600 dark:text-slate-400 mb-3">
+                                <p className="text-xs text-slate-600 dark:text-slate-400 mb-2 xs:mb-3">
                                   Keep the fire burning!
                                 </p>
                                 <StreakCounter size="default" showLongest={false} />
@@ -1175,24 +1153,24 @@ const App = () => {
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.1 }}
-                            className="group relative overflow-hidden bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 shadow-lg border-2 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all duration-300"
+                            className="group relative overflow-hidden bg-white dark:bg-slate-800 rounded-xl xs:rounded-2xl p-4 xs:p-5 sm:p-6 shadow-lg border-2 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all duration-300"
                           >
                             {/* Gradient Accent */}
-                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500"></div>
+                            <div className="absolute top-0 left-0 right-0 h-0.5 xs:h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500"></div>
 
-                            <div className="flex items-start gap-4">
+                            <div className="flex items-start gap-3 xs:gap-4">
                               <motion.div
                                 animate={{ rotate: [0, 360] }}
                                 transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-                                className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shrink-0"
+                                className="w-10 h-10 xs:w-12 xs:h-12 rounded-lg xs:rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shrink-0"
                               >
-                                <Sparkles className="w-6 h-6 text-white" />
+                                <Sparkles className="w-5 h-5 xs:w-6 xs:h-6 text-white" />
                               </motion.div>
                               <div className="flex-1 min-w-0">
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                                <h3 className="text-base xs:text-lg font-bold text-slate-900 dark:text-white mb-0.5 xs:mb-1">
                                   Your Progress
                                 </h3>
-                                <p className="text-xs text-slate-600 dark:text-slate-400 mb-3">
+                                <p className="text-xs text-slate-600 dark:text-slate-400 mb-2 xs:mb-3">
                                   Level up and earn rewards!
                                 </p>
                                 <XPBar size="small" showLevel={true} showTitle={false} />
@@ -1358,6 +1336,7 @@ const App = () => {
               }
             />
             <Route path="/recipe/:id" element={<RecipePage />} />
+            <Route path="/recipe/shared/:id" element={<SharedRecipePage />} />
             <Route path="/meal-planner" element={<MealPlanner />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/family-plan" element={<FamilyPlan />} />

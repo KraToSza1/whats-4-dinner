@@ -223,6 +223,37 @@ export default function Terms() {
               contact us through your Profile settings.
             </p>
           </section>
+
+          {/* Quick Links */}
+          <section className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-700">
+            <h2 className="text-xl font-bold mb-4">Related Links</h2>
+            <div className="flex flex-wrap gap-3">
+              <motion.button
+                onClick={() => navigate('/help')}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-colors"
+              >
+                Help & FAQ
+              </motion.button>
+              <motion.button
+                onClick={() => navigate('/privacy')}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 rounded-lg font-semibold transition-colors"
+              >
+                Privacy Policy
+              </motion.button>
+              <motion.button
+                onClick={() => navigate('/profile?tab=account')}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 rounded-lg font-semibold transition-colors"
+              >
+                Account Settings
+              </motion.button>
+            </div>
+          </section>
         </motion.div>
       </div>
     </div>

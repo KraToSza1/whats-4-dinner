@@ -138,6 +138,25 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Custom scrollbar for chat */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(196 181 253 / 0.5) transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgb(196 181 253 / 0.5);
+    border-radius: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgb(196 181 253 / 0.8);
+  }
 }
 
 /* ------------ Components (design tokens) ------------ */

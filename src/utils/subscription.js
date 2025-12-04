@@ -2,9 +2,11 @@
  * Subscription Management Utilities
  * Handles subscription status, ad display, and feature access
  * ENFORCES STRICT LIMITS - Makes people want to upgrade!
+ * Includes 30-day free trial support
  */
 
 import { supabase } from '../lib/supabaseClient';
+import { isTrialActive } from './trial.js';
 
 const SUBSCRIPTION_KEY = 'subscription:plan:v1';
 const AD_DISABLED_KEY = 'ads:disabled';
@@ -17,6 +19,44 @@ export const PLANS = {
   SUPPORTER: 'supporter',
   UNLIMITED: 'unlimited',
   FAMILY: 'family',
+};
+
+// Trial plan (temporary premium access)
+export const TRIAL_PLAN_DETAILS = {
+  name: 'Free Trial',
+  price: 0,
+  priceMonthly: 0,
+  priceYearly: 0,
+  hasAds: false,
+  searchLimit: -1, // Unlimited searches
+  favoritesLimit: -1, // Unlimited favorites
+  groceryListsLimit: -1, // Unlimited grocery lists
+  mealPlannerDays: -1, // Unlimited meal planner
+  collectionsLimit: -1, // Unlimited collections
+  analyticsEnabled: true, // Full analytics
+  budgetTrackerEnabled: true, // Full budget tracker
+  nutritionDetails: 'full',
+  filtersEnabled: true,
+  exportEnabled: true,
+  importEnabled: true,
+  challengesPerWeek: -1, // Unlimited challenges
+  streaksEnabled: true,
+  xpMultiplier: 2.0, // 2x XP multiplier
+  familyMembers: -1, // Unlimited family members
+  aiMealPlanner: true,
+  foodScan: true,
+  waterTracker: true,
+  dieticianAI: true,
+  instantLoading: true,
+  features: [
+    'All premium features',
+    'Unlimited everything',
+    'AI meal planner',
+    'Full analytics',
+    'Family plan features',
+    'Dietician AI',
+    '30-day free trial',
+  ],
 };
 
 // Plan details - Updated with new features
@@ -183,30 +223,14 @@ export function clearPlanCache() {
 /**
  * Get current subscription plan from Supabase profiles table
  * Falls back to localStorage if not authenticated
+ * Checks trial status and returns 'trial' if active
  */
 export async function getCurrentPlan() {
   // Only log in development to reduce console noise
-  if (import.meta.env.DEV) {
-    console.warn('🔍 [SUBSCRIPTION] ============================================');
-    console.warn('🔍 [SUBSCRIPTION] getCurrentPlan() called');
-    console.warn('🔍 [SUBSCRIPTION] ============================================');
-  }
-
   try {
     // Check cache first
     if (cachedPlan && Date.now() - planCacheTime < PLAN_CACHE_TTL) {
-      if (import.meta.env.DEV) {
-        console.warn('✅ [SUBSCRIPTION] Using cached plan:', cachedPlan);
-      }
       return cachedPlan;
-    }
-    if (import.meta.env.DEV) {
-      console.warn('📋 [SUBSCRIPTION] Cache expired or empty, fetching from Supabase...');
-    }
-
-    // Try to get from Supabase if authenticated
-    if (import.meta.env.DEV) {
-      console.warn('📋 [SUBSCRIPTION] Step 1: Getting user from Supabase auth...');
     }
     const {
       data: { user },
@@ -214,76 +238,47 @@ export async function getCurrentPlan() {
     } = await supabase.auth.getUser();
 
     if (userError) {
-      console.error('❌ [SUBSCRIPTION] Step 1 FAILED: Error getting user:', userError);
-    } else if (user) {
       if (import.meta.env.DEV) {
-        console.warn('✅ [SUBSCRIPTION] Step 1 SUCCESS: User found:', {
-          userId: user.id,
-          userEmail: user.email,
-        });
-      }
-    } else {
-      if (import.meta.env.DEV) {
-        console.warn('⚠️ [SUBSCRIPTION] Step 1: No user (not authenticated)');
+        console.error('❌ [SUBSCRIPTION] Error getting user:', userError);
       }
     }
 
     if (user) {
-      if (import.meta.env.DEV) {
-        console.warn('📋 [SUBSCRIPTION] Step 2: Fetching profile from Supabase...');
-        console.warn('📋 [SUBSCRIPTION] Querying profiles table for user ID:', user.id);
-      }
-
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('plan, subscription_status, billing_period')
+        .select('plan, subscription_status, billing_period, trial_start_date, trial_ended')
         .eq('id', user.id)
         .maybeSingle(); // Use maybeSingle() instead of single() to handle missing rows gracefully
 
-      if (import.meta.env.DEV) {
-        console.warn('📋 [SUBSCRIPTION] Step 2: Supabase query result:', {
-          hasProfile: !!profile,
-          profile: profile,
-          hasError: !!error,
-          error: error
-            ? {
-                message: error.message,
-                code: error.code,
-                details: error.details,
-              }
-            : null,
-        });
-      }
-
       // If profile doesn't exist, create one with free plan
       if (error && error.code === 'PGRST116') {
-        if (import.meta.env.DEV) {
-          console.warn('📋 [SUBSCRIPTION] Step 2: Profile not found, creating default profile...');
-        }
-        // Row not found - create profile
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert({ id: user.id, plan: 'free' });
+        // Row not found - create profile with trial
+        const { startTrial } = await import('./trial.js');
+        const { error: insertError } = await supabase.from('profiles').insert({
+          id: user.id,
+          plan: 'free',
+          trial_start_date: new Date().toISOString(),
+          trial_ended: false,
+        });
 
+        // Also call startTrial to ensure it's set (redundant but safe)
         if (!insertError) {
-          if (import.meta.env.DEV) {
-            console.warn('✅ [SUBSCRIPTION] Step 2: Default profile created');
-          }
-          // Return free plan after creating profile
-          cachedPlan = PLANS.FREE;
+          await startTrial(user.id);
+          // Check if trial is active and return 'trial' plan
+          const trialActive = await isTrialActive(user.id);
+          const effectivePlan = trialActive ? 'trial' : PLANS.FREE;
+          cachedPlan = effectivePlan;
           planCacheTime = Date.now();
-          return PLANS.FREE;
+          return effectivePlan;
         } else {
-          console.error('❌ [SUBSCRIPTION] Step 2: Failed to create profile:', insertError);
+          if (import.meta.env.DEV) {
+            console.error('❌ [SUBSCRIPTION] Failed to create profile:', insertError);
+          }
         }
       }
 
       if (!error && profile?.plan) {
         const plan = profile.plan.toLowerCase();
-        if (import.meta.env.DEV) {
-          console.warn('✅ [SUBSCRIPTION] Step 2 SUCCESS: Profile found with plan:', plan);
-          console.warn('📋 [SUBSCRIPTION] Full profile data:', profile);
-        }
 
         // Validate plan
         if (Object.values(PLANS).includes(plan)) {
@@ -295,33 +290,22 @@ export async function getCurrentPlan() {
           } catch {
             // Ignore localStorage errors
           }
-          if (import.meta.env.DEV) {
-            console.warn('✅ [SUBSCRIPTION] ============================================');
-            console.warn('✅ [SUBSCRIPTION] RETURNING PLAN:', plan);
-            console.warn('✅ [SUBSCRIPTION] ============================================');
-          }
           return plan;
         } else {
-          console.error('❌ [SUBSCRIPTION] Invalid plan value:', plan);
+          if (import.meta.env.DEV) {
+            console.error('❌ [SUBSCRIPTION] Invalid plan value:', plan);
+          }
         }
-      } else if (error) {
-        console.error('❌ [SUBSCRIPTION] Step 2 FAILED: Error fetching profile:', error);
-      } else {
+      } else if (error && error.code !== 'PGRST116') {
         if (import.meta.env.DEV) {
-          console.warn('⚠️ [SUBSCRIPTION] Step 2: Profile exists but no plan field');
+          console.error('❌ [SUBSCRIPTION] Error fetching profile:', error);
         }
       }
     }
 
     // Fallback to localStorage
-    if (import.meta.env.DEV) {
-      console.warn('📋 [SUBSCRIPTION] Step 3: Checking localStorage fallback...');
-    }
     try {
       const plan = localStorage.getItem(SUBSCRIPTION_KEY);
-      if (import.meta.env.DEV) {
-        console.warn('📋 [SUBSCRIPTION] localStorage plan:', plan);
-      }
 
       if (plan && Object.values(PLANS).includes(plan)) {
         // SECURITY: Family plan can only come from Supabase (verified payment)
@@ -340,32 +324,19 @@ export async function getCurrentPlan() {
           return PLANS.FREE;
         }
 
-        if (import.meta.env.DEV) {
-          console.warn('✅ [SUBSCRIPTION] Step 3 SUCCESS: Using localStorage plan:', plan);
-        }
         cachedPlan = plan;
         planCacheTime = Date.now();
         return plan;
-      } else {
-        if (import.meta.env.DEV) {
-          console.warn('⚠️ [SUBSCRIPTION] Step 3: No valid plan in localStorage');
-        }
       }
     } catch (err) {
-      console.error('❌ [SUBSCRIPTION] Step 3: localStorage error:', err);
+      if (import.meta.env.DEV) {
+        console.error('❌ [SUBSCRIPTION] localStorage error:', err);
+      }
     }
 
     // Default to FREE plan
-    if (import.meta.env.DEV) {
-      console.warn('📋 [SUBSCRIPTION] Step 4: Defaulting to FREE plan');
-    }
     cachedPlan = PLANS.FREE;
     planCacheTime = Date.now();
-    if (import.meta.env.DEV) {
-      console.warn('✅ [SUBSCRIPTION] ============================================');
-      console.warn('✅ [SUBSCRIPTION] RETURNING DEFAULT PLAN: free');
-      console.warn('✅ [SUBSCRIPTION] ============================================');
-    }
     return PLANS.FREE;
   } catch (error) {
     console.error('[Subscription] Error getting plan:', error);
@@ -467,30 +438,34 @@ export function shouldShowAds() {
 }
 
 // Check if user has access to a feature
+// Note: This is synchronous and uses cache. For trial checks, use hasFeatureAsync()
 export function hasFeature(feature) {
   const plan = getCurrentPlanSync();
-  const planDetails = PLAN_DETAILS[plan];
+  // If plan is 'trial', use trial plan details
+  const planDetails = plan === 'trial' ? TRIAL_PLAN_DETAILS : PLAN_DETAILS[plan];
 
   const premiumFeatures = {
     unlimited_searches: () => planDetails.searchLimit === -1,
     unlimited_favorites: () => planDetails.favoritesLimit === -1,
     no_ads: () => !planDetails.hasAds,
-    cloud_sync: () => plan !== PLANS.FREE,
+    cloud_sync: () => plan !== PLANS.FREE || plan === 'trial',
     analytics: () => planDetails.analyticsEnabled,
-    analytics_full: () => plan === PLANS.UNLIMITED || plan === PLANS.FAMILY, // Full analytics for Unlimited/Family
+    analytics_full: () => plan === PLANS.UNLIMITED || plan === PLANS.FAMILY || plan === 'trial', // Full analytics for Unlimited/Family/Trial
     analytics_limited: () => plan === PLANS.SUPPORTER, // Limited analytics for Supporter
     budget_tracker: () => planDetails.budgetTrackerEnabled,
-    budget_tracker_full: () => plan === PLANS.UNLIMITED || plan === PLANS.FAMILY, // Full budget tracker
+    budget_tracker_full: () =>
+      plan === PLANS.UNLIMITED || plan === PLANS.FAMILY || plan === 'trial', // Full budget tracker
     budget_tracker_limited: () => plan === PLANS.SUPPORTER, // Limited budget tracker
-    family_plan: () => plan === PLANS.FAMILY,
-    family_unlimited: () => plan === PLANS.FAMILY && planDetails.familyMembers === -1,
+    family_plan: () => plan === PLANS.FAMILY || plan === 'trial',
+    family_unlimited: () =>
+      (plan === PLANS.FAMILY || plan === 'trial') && planDetails.familyMembers === -1,
     streak_freeze: () => planDetails.streaksEnabled,
-    streak_recovery: () => plan !== PLANS.FREE,
+    streak_recovery: () => plan !== PLANS.FREE || plan === 'trial',
     unlimited_challenges: () => planDetails.challengesPerWeek === -1,
     xp_multiplier: () => planDetails.xpMultiplier > 1.0,
-    animated_badges: () => plan !== PLANS.FREE,
-    badge_showcase: () => plan !== PLANS.FREE,
-    leaderboards: () => plan === PLANS.UNLIMITED || plan === PLANS.FAMILY,
+    animated_badges: () => plan !== PLANS.FREE || plan === 'trial',
+    badge_showcase: () => plan !== PLANS.FREE || plan === 'trial',
+    leaderboards: () => plan === PLANS.UNLIMITED || plan === PLANS.FAMILY || plan === 'trial',
     meal_planner: () => planDetails.mealPlannerDays > 0,
     ai_meal_planner: () => planDetails.aiMealPlanner,
     collections: () => planDetails.collectionsLimit !== 0, // Free for everyone (unlimited = -1, disabled = 0)
@@ -518,7 +493,7 @@ export function hasFeature(feature) {
  */
 export function canPerformAction(action, currentCount = 0) {
   const plan = getCurrentPlanSync();
-  const planDetails = PLAN_DETAILS[plan];
+  const planDetails = plan === 'trial' ? TRIAL_PLAN_DETAILS : PLAN_DETAILS[plan];
 
   switch (action) {
     case 'search': {
@@ -584,7 +559,7 @@ export function recordSearch() {
  */
 export function getRemainingActions(action, currentCount = 0) {
   const plan = getCurrentPlanSync();
-  const planDetails = PLAN_DETAILS[plan];
+  const planDetails = plan === 'trial' ? TRIAL_PLAN_DETAILS : PLAN_DETAILS[plan];
 
   switch (action) {
     case 'search': {
@@ -622,16 +597,23 @@ export function getRemainingActions(action, currentCount = 0) {
 // Get plan display name
 export function getPlanName() {
   const plan = getCurrentPlanSync();
-  return PLAN_DETAILS[plan].name;
+  if (plan === 'trial') {
+    return TRIAL_PLAN_DETAILS.name;
+  }
+  return PLAN_DETAILS[plan]?.name || 'Free';
 }
 
 // Check if user is on free plan
 export function isFreePlan() {
-  return getCurrentPlanSync() === PLANS.FREE;
+  const plan = getCurrentPlanSync();
+  return plan === PLANS.FREE || plan === null;
 }
 
 // Get plan details
 export function getPlanDetails(plan = null) {
   const currentPlan = plan || getCurrentPlanSync();
+  if (currentPlan === 'trial') {
+    return TRIAL_PLAN_DETAILS;
+  }
   return PLAN_DETAILS[currentPlan] || PLAN_DETAILS[PLANS.FREE];
 }

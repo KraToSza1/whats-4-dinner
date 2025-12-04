@@ -95,8 +95,13 @@ export default function DailyChallenge({ onComplete }) {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2 sm:gap-3">
               <motion.div
-                animate={currentProgress.progress === 100 ? { rotate: [0, 360], scale: [1, 1.2, 1] } : {}}
-                transition={{ duration: 2, repeat: currentProgress.progress === 100 ? Infinity : 0 }}
+                animate={
+                  currentProgress.progress === 100 ? { rotate: [0, 360], scale: [1, 1.2, 1] } : {}
+                }
+                transition={{
+                  duration: 2,
+                  repeat: currentProgress.progress === 100 ? Infinity : 0,
+                }}
               >
                 <Trophy className="w-6 h-6 sm:w-7 sm:h-7 text-yellow-500" />
               </motion.div>
@@ -212,7 +217,7 @@ export default function DailyChallenge({ onComplete }) {
 
           {/* Challenges List */}
           <div className="space-y-3 sm:space-y-4">
-            <AnimatePresence mode="wait">
+            <AnimatePresence>
               {currentChallenges.map((challenge, index) => (
                 <motion.div
                   key={challenge.id}

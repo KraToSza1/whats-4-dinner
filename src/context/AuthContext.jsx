@@ -55,13 +55,27 @@ export function AuthProvider({ children }) {
       }
       setLoading(false);
     })();
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user || null);
+
+      // Start free trial on signup
+      if (event === 'SIGNED_IN' && session?.user) {
+        try {
+          const { startTrial } = await import('../utils/trial.js');
+          await startTrial(session.user.id);
+          if (import.meta.env.DEV) {
+            console.log('✅ [AUTH] Free trial started for user:', session.user.id);
+          }
+        } catch (error) {
+          console.error('❌ [AUTH] Error starting trial:', error);
+        }
+      }
 
       // Sync subscription plan when auth state changes
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
         import('../utils/subscription.js').then(subscriptionUtils => {
           // Clear cache to force refresh from Supabase
+          subscriptionUtils.clearPlanCache();
           subscriptionUtils.getCurrentPlan().then(plan => {
             // Dispatch event to notify app of plan change
             window.dispatchEvent(new CustomEvent('subscriptionPlanChanged', { detail: { plan } }));

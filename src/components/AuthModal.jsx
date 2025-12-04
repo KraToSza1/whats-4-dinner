@@ -102,7 +102,7 @@ export default function AuthModal({ open, onClose }) {
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[200] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 xs:p-4 sm:p-6 py-4 xs:py-6 sm:py-8">
+    <div className="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 xs:p-4 sm:p-6 py-4 xs:py-6 sm:py-8">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}

@@ -560,7 +560,7 @@ export default function Help() {
                   icon: Settings,
                   title: 'Profile & Settings',
                   desc: 'Manage your account',
-                  link: '/profile',
+                  link: '/profile?tab=account',
                   color: 'blue',
                 },
                 {
@@ -615,13 +615,22 @@ export default function Help() {
               ].map((item, index) => {
                 const Icon = item.icon;
                 return (
-                  <motion.a
+                  <motion.button
                     key={item.title}
-                    href={item.link}
+                    onClick={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (item.link) {
+                        navigate(item.link);
+                      }
+                    }}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.7 + index * 0.05 }}
-                    className="bg-white dark:bg-slate-800 rounded-xl p-5 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-md hover:shadow-xl group"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full bg-white dark:bg-slate-800 rounded-xl p-5 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-md hover:shadow-xl group text-left cursor-pointer"
+                    type="button"
                   >
                     <div
                       className={`w-12 h-12 rounded-lg bg-gradient-to-br ${
@@ -642,12 +651,14 @@ export default function Help() {
                     >
                       <Icon className="w-6 h-6 text-white" />
                     </div>
-                    <h3 className="font-bold text-lg mb-1">{item.title}</h3>
+                    <h3 className="font-bold text-lg mb-1 text-slate-900 dark:text-slate-100">
+                      {item.title}
+                    </h3>
                     <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">{item.desc}</p>
                     <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-sm font-medium group-hover:gap-2 transition-all">
                       Visit <ChevronRight className="w-4 h-4" />
                     </div>
-                  </motion.a>
+                  </motion.button>
                 );
               })}
             </div>
@@ -677,53 +688,58 @@ export default function Help() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center relative z-10">
               <motion.button
-                onMouseDown={e => {
-                  e.preventDefault();
-                  console.log('🔘 [Help] Account Settings button clicked (mousedown)');
-                }}
                 onClick={e => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('🔘 [Help] Account Settings button clicked (onClick)');
-                  navigate('/profile');
-                }}
-                onTouchStart={e => {
-                  e.stopPropagation();
-                  console.log('🔘 [Help] Account Settings button touched');
+                  navigate('/profile?tab=account');
                 }}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="px-6 py-3 bg-white text-emerald-600 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer touch-manipulation min-h-[44px] relative z-10"
                 type="button"
-                style={{ pointerEvents: 'auto' }}
               >
                 <Settings className="w-5 h-5" />
                 Account Settings
               </motion.button>
-              <motion.button
-                onMouseDown={e => {
-                  e.preventDefault();
-                  console.log('🔘 [Help] Terms & Privacy button clicked (mousedown)');
-                }}
-                onClick={e => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('🔘 [Help] Terms & Privacy button clicked (onClick)');
-                  navigate('/terms');
-                }}
-                onTouchStart={e => {
-                  e.stopPropagation();
-                  console.log('🔘 [Help] Terms & Privacy button touched');
-                }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-6 py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl font-semibold hover:bg-white/20 transition-all flex items-center justify-center gap-2 cursor-pointer touch-manipulation min-h-[44px] relative z-10"
-                type="button"
-                style={{ pointerEvents: 'auto' }}
-              >
-                <FileText className="w-5 h-5" />
-                Terms & Privacy
-              </motion.button>
+              <div className="relative group">
+                <motion.button
+                  onClick={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigate('/terms');
+                  }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-6 py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl font-semibold hover:bg-white/20 transition-all flex items-center justify-center gap-2 cursor-pointer touch-manipulation min-h-[44px] relative z-10"
+                  type="button"
+                >
+                  <FileText className="w-5 h-5" />
+                  Terms & Privacy
+                </motion.button>
+                {/* Quick links dropdown */}
+                <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <button
+                    onClick={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate('/terms');
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-t-lg transition-colors"
+                  >
+                    Terms of Service
+                  </button>
+                  <button
+                    onClick={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate('/privacy');
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-b-lg transition-colors"
+                  >
+                    Privacy Policy
+                  </button>
+                </div>
+              </div>
             </div>
             <div className="mt-8 pt-8 border-t border-white/20">
               <p className="text-emerald-50 text-sm">
