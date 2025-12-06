@@ -195,6 +195,12 @@ export default function Filters({ onFiltersChange, compact = false }) {
     if (preset.filters.difficulty) filters.setDifficulty(preset.filters.difficulty);
     if (preset.filters.cuisine) filters.setCuisine(preset.filters.cuisine);
     toast.success(`Applied preset: ${preset.name}`);
+    // Trigger search after applying preset (with small delay to ensure state updates)
+    setTimeout(() => {
+      if (onFiltersChange) {
+        onFiltersChange(filters.getActiveFilters());
+      }
+    }, 100);
   };
 
   const suggestFilters = () => {
@@ -211,6 +217,12 @@ export default function Filters({ onFiltersChange, compact = false }) {
       filters.setMealType(timeBasedMeal);
     }
     toast.success('Applied smart filter suggestions!');
+    // Trigger search after suggesting filters (with small delay to ensure state updates)
+    setTimeout(() => {
+      if (onFiltersChange) {
+        onFiltersChange(filters.getActiveFilters());
+      }
+    }, 100);
   };
 
   const reset = () => {
@@ -300,6 +312,24 @@ export default function Filters({ onFiltersChange, compact = false }) {
               )}
               {hasActiveFilters && (
                 <>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      // Trigger immediate search with current filters
+                      if (onFiltersChange) {
+                        onFiltersChange(filters.getActiveFilters());
+                      }
+                      // Also trigger toast feedback
+                      toast.success('Applying filters...', 1000);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-1 min-h-[36px] touch-manipulation"
+                    type="button"
+                    aria-label="Apply filters to search"
+                  >
+                    <Filter className="w-3 h-3" />
+                    Apply
+                  </motion.button>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}

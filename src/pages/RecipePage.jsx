@@ -1143,17 +1143,20 @@ export default function RecipePage() {
   }
   if (!recipe) return null;
 
-  const Stat = ({ label, value, icon }) => (
+  const Stat = ({ label, value, icon, mobileValue }) => (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 border-2 border-emerald-200 dark:border-emerald-800 shadow-md backdrop-blur-sm"
+      className="flex items-center gap-1 sm:gap-1.5 md:gap-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-2.5 rounded-md sm:rounded-lg md:rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 border-2 border-emerald-200 dark:border-emerald-800 shadow-md backdrop-blur-sm min-w-0 flex-shrink"
       title={label}
     >
-      <span className="text-xl">{icon}</span>
-      <span className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">{label}:</span>
-      <span className="font-bold text-emerald-800 dark:text-emerald-100">{value ?? '—'}</span>
+      <span className="text-sm sm:text-lg md:text-xl flex-shrink-0">{icon}</span>
+      <span className="hidden sm:inline text-xs sm:text-sm font-semibold text-emerald-900 dark:text-emerald-200 whitespace-nowrap">{label}:</span>
+      <span className="font-bold text-xs sm:text-sm text-emerald-800 dark:text-emerald-100 truncate min-w-0">
+        <span className="sm:hidden">{mobileValue ?? value ?? '—'}</span>
+        <span className="hidden sm:inline">{value ?? '—'}</span>
+      </span>
     </motion.div>
   );
 
@@ -1167,12 +1170,12 @@ export default function RecipePage() {
     };
     const colorClass = colors[label] || 'from-emerald-500 to-teal-500';
     return (
-      <div className="rounded-xl bg-white/80 dark:bg-slate-800/80 p-4 border-2 border-emerald-200 dark:border-emerald-800 shadow-md">
-        <div className="flex items-center justify-between text-sm font-semibold text-emerald-900 dark:text-emerald-200 mb-2">
-          <span>{label}</span>
-          <span className="text-lg">{display ?? Number(value || 0).toFixed(1)}</span>
+      <div className="rounded-lg sm:rounded-xl bg-white/80 dark:bg-slate-800/80 p-3 sm:p-4 border-2 border-emerald-200 dark:border-emerald-800 shadow-md">
+        <div className="flex items-center justify-between text-xs sm:text-sm font-semibold text-emerald-900 dark:text-emerald-200 mb-2 gap-2">
+          <span className="truncate min-w-0">{label}</span>
+          <span className="text-base sm:text-lg font-bold flex-shrink-0">{display ?? Number(value || 0).toFixed(1)}</span>
         </div>
-        <div className="h-3 rounded-full bg-emerald-100 dark:bg-emerald-900/50 overflow-hidden shadow-inner">
+        <div className="h-2.5 sm:h-3 rounded-full bg-emerald-100 dark:bg-emerald-900/50 overflow-hidden shadow-inner">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${pct}%` }}
@@ -1293,10 +1296,10 @@ export default function RecipePage() {
       </AnimatePresence>
       {/* Top bar */}
       <div className="sticky top-0 z-20 bg-white/70 dark:bg-slate-900/70 backdrop-blur border-b border-slate-200 dark:border-slate-800">
-        <div className="mx-auto max-w-4xl px-3 sm:px-4 lg:px-6 py-2 sm:py-3 flex items-center justify-between gap-2">
+        <div className="mx-auto max-w-4xl px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-3">
           <BackToHome toHome={false} label="Back" />
 
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-nowrap justify-end flex-1 min-w-0 overflow-x-auto scrollbar-hide">
             {/* Collections */}
             <RecipeCollectionsButton recipeId={id} />
 
@@ -1328,10 +1331,10 @@ export default function RecipePage() {
                 triggerHaptic('success');
                 toast.success(`Added to ${dayName}'s dinner! 📅`);
               }}
-              className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-all min-h-[44px] sm:min-h-0 touch-manipulation flex items-center gap-1.5 sm:gap-2"
+              className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-2.5 rounded-md sm:rounded-lg md:rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-all min-h-[36px] sm:min-h-0 touch-manipulation flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0"
               title="Add to today's dinner"
             >
-              <span className="text-base sm:text-lg">📅</span>
+              <span className="text-sm sm:text-base md:text-lg">📅</span>
               <span className="hidden sm:inline">Add to Planner</span>
             </motion.button>
 
@@ -1340,7 +1343,7 @@ export default function RecipePage() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleRecipeMade}
-              className="px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm min-h-[44px] sm:min-h-0 touch-manipulation"
+              className="px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 md:py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm min-h-[36px] sm:min-h-0 touch-manipulation flex-shrink-0"
               title="Mark as made"
             >
               <span className="hidden sm:inline">✓ Made</span>
@@ -1378,12 +1381,12 @@ export default function RecipePage() {
             <div className="absolute inset-0 bg-gradient-to-r from-teal-900/8 to-cyan-900/8 pointer-events-none" />
           </>
         )}
-        <div className="mx-auto max-w-4xl px-3 sm:px-4 lg:px-6 py-8 sm:py-12 relative">
+        <div className="mx-auto max-w-4xl px-3 sm:px-4 lg:px-6 py-6 sm:py-8 md:py-10 lg:py-12 relative">
           <motion.h1
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35 }}
-            className="text-center text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight px-4 sm:px-6 md:px-8 break-words hyphens-auto bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-700 dark:from-emerald-300 dark:via-teal-300 dark:to-cyan-300 bg-clip-text text-transparent drop-shadow-lg mb-4 sm:mb-6 select-none"
+            className="text-center text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight px-2 sm:px-4 md:px-6 lg:px-8 break-words hyphens-auto bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-700 dark:from-emerald-300 dark:via-teal-300 dark:to-cyan-300 bg-clip-text text-transparent drop-shadow-lg mb-3 sm:mb-4 md:mb-6 select-none"
             style={{
               wordBreak: 'break-word',
               overflowWrap: 'break-word',
@@ -1394,14 +1397,25 @@ export default function RecipePage() {
             {title}
           </motion.h1>
 
-          <div className="mt-6 flex flex-wrap gap-3 justify-center px-2">
+          <div className="mt-4 sm:mt-6 flex flex-nowrap sm:flex-wrap gap-1.5 sm:gap-2 md:gap-3 justify-center px-2 sm:px-4">
             <Stat
               label="Ready"
               value={recipe.readyInMinutes ? `${recipe.readyInMinutes} mins` : '—'}
+              mobileValue={recipe.readyInMinutes ? `${recipe.readyInMinutes}` : '—'}
               icon="⏱️"
             />
-            <Stat label="Servings" value={recipe.servings} icon="🍽️" />
-            <Stat label="Health" value={recipe.healthScore ?? '—'} icon="💚" />
+            <Stat 
+              label="Servings" 
+              value={recipe.servings} 
+              mobileValue={recipe.servings}
+              icon="🍽️" 
+            />
+            <Stat 
+              label="Health" 
+              value={recipe.healthScore ?? '—'} 
+              mobileValue={recipe.healthScore ?? '—'}
+              icon="💚" 
+            />
           </div>
 
           {/* Medical Condition Warnings */}
@@ -1410,19 +1424,19 @@ export default function RecipePage() {
           </div>
 
           {heroImage && (
-            <div className="flex justify-center mt-8">
+            <div className="flex justify-center mt-6 sm:mt-8">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5, delay: 0.1 }}
-                className="relative group"
+                className="relative group w-full px-2 sm:px-0"
               >
-                <div className="absolute -inset-2 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 rounded-2xl blur-xl opacity-40 group-hover:opacity-60 transition-opacity" />
+                <div className="absolute -inset-1 sm:-inset-2 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 rounded-xl sm:rounded-2xl blur-xl opacity-40 group-hover:opacity-60 transition-opacity" />
                 <motion.img
                   whileHover={{ scale: 1.02 }}
                   src={heroImage}
                   alt={title}
-                  className="relative mx-auto w-full max-w-3xl aspect-[4/3] object-cover rounded-2xl shadow-2xl ring-4 ring-emerald-200/50 dark:ring-emerald-800/50"
+                  className="relative mx-auto w-full max-w-3xl aspect-[4/3] object-cover rounded-xl sm:rounded-2xl shadow-2xl ring-2 sm:ring-4 ring-emerald-200/50 dark:ring-emerald-800/50"
                   referrerPolicy="no-referrer"
                   loading="lazy"
                   onError={fallbackOnce}
@@ -1432,7 +1446,7 @@ export default function RecipePage() {
           )}
 
           {steps.length > 0 && (
-            <div className="mt-4 xs:mt-6 flex justify-center gap-2 xs:gap-3 flex-wrap">
+            <div className="mt-4 sm:mt-6 flex justify-center gap-1.5 sm:gap-2 md:gap-3 flex-nowrap px-2">
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: '0 10px 25px rgba(5, 150, 105, 0.4)' }}
                 whileTap={{ scale: 0.95 }}
@@ -1443,34 +1457,34 @@ export default function RecipePage() {
                     toast.error('No cooking instructions available for this recipe.');
                   }
                 }}
-                className="px-4 xs:px-6 py-2.5 xs:py-3 rounded-lg xs:rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm xs:text-base shadow-lg hover:shadow-xl transition-all flex items-center gap-1.5 xs:gap-2 touch-manipulation min-h-[44px] xs:min-h-0"
+                className="flex-1 sm:flex-none px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-xs sm:text-sm md:text-base shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-1 sm:gap-1.5 md:gap-2 touch-manipulation min-h-[44px]"
                 title="Open step-by-step Cook Mode with timer"
               >
-                <span className="text-lg xs:text-xl">👨‍🍳</span>
-                <span className="hidden xs:inline">Start Cook Mode</span>
-                <span className="xs:hidden">Cook</span>
+                <span className="text-base sm:text-lg md:text-xl">👨‍🍳</span>
+                <span className="hidden sm:inline">Start Cook Mode</span>
+                <span className="sm:hidden">Cook</span>
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: '0 10px 25px rgba(255, 140, 0, 0.4)' }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowMealPrepMode(true)}
-                className="px-4 xs:px-6 py-2.5 xs:py-3 rounded-lg xs:rounded-xl bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold text-sm xs:text-base shadow-lg hover:shadow-xl transition-all flex items-center gap-1.5 xs:gap-2 touch-manipulation min-h-[44px] xs:min-h-0"
+                className="flex-1 sm:flex-none px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold text-xs sm:text-sm md:text-base shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-1 sm:gap-1.5 md:gap-2 touch-manipulation min-h-[44px]"
                 title="Open Meal Prep Mode for batch cooking"
               >
-                <span className="text-lg xs:text-xl">🍱</span>
-                <span className="hidden xs:inline">Meal Prep Mode</span>
-                <span className="xs:hidden">Prep</span>
+                <span className="text-base sm:text-lg md:text-xl">🍱</span>
+                <span className="hidden sm:inline">Meal Prep Mode</span>
+                <span className="sm:hidden">Prep</span>
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: '0 10px 25px rgba(139, 92, 246, 0.4)' }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowCookingSkills(true)}
-                className="px-4 xs:px-6 py-2.5 xs:py-3 rounded-lg xs:rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold text-sm xs:text-base shadow-lg hover:shadow-xl transition-all flex items-center gap-1.5 xs:gap-2 touch-manipulation min-h-[44px] xs:min-h-0"
+                className="flex-1 sm:flex-none px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold text-xs sm:text-sm md:text-base shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-1 sm:gap-1.5 md:gap-2 touch-manipulation min-h-[44px]"
                 title="Learn cooking techniques and skills"
               >
-                <span className="text-lg xs:text-xl">📚</span>
-                <span className="hidden xs:inline">Cooking Skills</span>
-                <span className="xs:hidden">Skills</span>
+                <span className="text-base sm:text-lg md:text-xl">📚</span>
+                <span className="hidden sm:inline">Cooking Skills</span>
+                <span className="sm:hidden">Skills</span>
               </motion.button>
             </div>
           )}
@@ -1478,80 +1492,82 @@ export default function RecipePage() {
       </section>
 
       {/* Body */}
-      <div className="mx-auto max-w-4xl px-2 xs:px-3 sm:px-4 md:px-5 lg:px-6 py-4 xs:py-6 sm:py-8 md:py-10 space-y-4 xs:space-y-6 sm:space-y-8 md:space-y-10">
+      <div className="mx-auto max-w-4xl px-3 sm:px-4 md:px-5 lg:px-6 py-4 sm:py-6 md:py-8 lg:py-10 space-y-4 sm:space-y-6 md:space-y-8 lg:space-y-10">
         {/* Macros */}
-        <section className="bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-2xl p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg xs:text-xl sm:text-2xl md:text-3xl font-extrabold text-center sm:text-left bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-300 dark:to-teal-300 bg-clip-text text-transparent break-words">
+        <section className="bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-5 gap-3 sm:gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-center sm:text-left bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-300 dark:to-teal-300 bg-clip-text text-transparent break-words">
                 🍽️ Nutritional Info
               </h2>
-              <div className="group relative">
-                <span
-                  className="text-lg cursor-help"
-                  title="Nutrition values scale automatically based on serving size"
-                >
-                  ℹ️
-                </span>
-                <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 dark:bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                  <p className="font-semibold mb-1">Understanding Nutrition Values:</p>
-                  <p className="mb-2">
-                    • <strong>Per Serving:</strong> Values for 1 serving (set servings to 1)
-                  </p>
-                  <p>
-                    • <strong>Totals:</strong> Combined values for all servings (shown when servings
-                    &gt; 1)
-                  </p>
-                  <p className="mt-2 text-emerald-300">
-                    💡 Adjust servings above to see different totals!
-                  </p>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="group relative">
+                  <span
+                    className="text-lg cursor-help"
+                    title="Nutrition values scale automatically based on serving size"
+                  >
+                    ℹ️
+                  </span>
+                  <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 dark:bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <p className="font-semibold mb-1">Understanding Nutrition Values:</p>
+                    <p className="mb-2">
+                      • <strong>Per Serving:</strong> Values for 1 serving (set servings to 1)
+                    </p>
+                    <p>
+                      • <strong>Totals:</strong> Combined values for all servings (shown when servings
+                      &gt; 1)
+                    </p>
+                    <p className="mt-2 text-emerald-300">
+                      💡 Adjust servings above to see different totals!
+                    </p>
+                  </div>
                 </div>
+                {recipe?.nutrition?.nutrients && recipe.nutrition.nutrients.length > 0 && (
+                  <motion.button
+                    whileHover={{ scale: 1.08, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      // Full nutrition label is now FREE for everyone!
+                      setShowNutritionLabel(true);
+                    }}
+                    className="group relative px-2.5 sm:px-4 md:px-5 py-2.5 sm:py-2.5 md:py-3 rounded-md sm:rounded-lg md:rounded-xl bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-bold text-[10px] sm:text-xs md:text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-1 sm:gap-1.5 md:gap-2 overflow-hidden aspect-square sm:aspect-auto w-10 sm:w-auto min-h-[40px] sm:min-h-[44px] md:min-h-0 touch-manipulation"
+                    title="View full FDA-style nutrition label"
+                  >
+                    {/* Animated background shimmer */}
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                      animate={{
+                        x: ['-100%', '200%'],
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: 'linear',
+                      }}
+                    />
+                    <motion.span
+                      animate={{ rotate: [0, 10, -10, 0] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                      className="text-base sm:text-base md:text-lg relative z-10"
+                    >
+                      📊
+                    </motion.span>
+                    <span className="hidden sm:inline relative z-10">Full Nutrition Label</span>
+                    <motion.span
+                      className="hidden sm:inline relative z-10"
+                      animate={{ opacity: [1, 0.5, 1] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    >
+                      →
+                    </motion.span>
+                  </motion.button>
+                )}
               </div>
             </div>
-            {recipe?.nutrition?.nutrients && recipe.nutrition.nutrients.length > 0 && (
-              <motion.button
-                whileHover={{ scale: 1.08, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                  // Full nutrition label is now FREE for everyone!
-                  setShowNutritionLabel(true);
-                }}
-                className="group relative px-5 py-3 rounded-xl bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2 overflow-hidden"
-                title="View full FDA-style nutrition label"
-              >
-                {/* Animated background shimmer */}
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                  animate={{
-                    x: ['-100%', '200%'],
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: 'linear',
-                  }}
-                />
-                <motion.span
-                  animate={{ rotate: [0, 10, -10, 0] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                  className="text-lg relative z-10"
-                >
-                  📊
-                </motion.span>
-                <span className="hidden sm:inline relative z-10">Full Nutrition Label</span>
-                <motion.span
-                  className="hidden sm:inline relative z-10"
-                  animate={{ opacity: [1, 0.5, 1] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                >
-                  →
-                </motion.span>
-              </motion.button>
-            )}
           </div>
-          <div className="mb-6 flex flex-col gap-3">
+          <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:gap-4">
             <div className="text-center sm:text-left">
-              <p className="text-sm text-slate-600 dark:text-slate-300">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
                 Pick a measurement system to keep nutrition and ingredients in sync.
               </p>
               <div className="mt-2 space-y-1">
@@ -1567,7 +1583,7 @@ export default function RecipePage() {
                 </p>
               </div>
             </div>
-            <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-white/80 dark:bg-slate-900/40 p-1 flex flex-col gap-1 sm:flex-row sm:items-stretch">
+            <div className="rounded-xl sm:rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-white/80 dark:bg-slate-900/40 p-1 flex flex-row gap-1 sm:gap-2 items-stretch">
               {MEASUREMENT_OPTIONS.map(opt => {
                 const isActive = unitSystem === opt.key;
                 return (
@@ -1578,20 +1594,20 @@ export default function RecipePage() {
                     whileTap={{ scale: 0.97 }}
                     onClick={() => handleUnitPreferenceChange(opt.key)}
                     aria-pressed={isActive}
-                    className={`flex-1 rounded-xl px-3 py-2 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                    className={`flex-1 rounded-lg sm:rounded-xl px-2 sm:px-3 md:px-4 py-2 sm:py-2 text-center sm:text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 min-h-[44px] touch-manipulation ${
                       isActive
                         ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/30'
                         : 'text-slate-700 dark:text-slate-200 hover:bg-emerald-50/80 dark:hover:bg-emerald-900/40'
                     }`}
                   >
-                    <span className="flex items-center gap-2 text-sm font-semibold">
-                      <span role="img" aria-hidden="true">
+                    <span className="flex items-center justify-center sm:justify-start gap-1 sm:gap-1.5 md:gap-2 text-xs sm:text-sm font-semibold">
+                      <span role="img" aria-hidden="true" className="text-sm sm:text-base md:text-lg">
                         {opt.flag}
                       </span>
-                      {opt.label}
+                      <span className="hidden sm:inline">{opt.label}</span>
                     </span>
                     <span
-                      className={`text-[11px] ${
+                      className={`hidden sm:block text-[10px] sm:text-[11px] mt-0.5 ${
                         isActive ? 'text-emerald-100/90' : 'text-slate-500 dark:text-slate-400'
                       }`}
                     >
@@ -1602,7 +1618,7 @@ export default function RecipePage() {
               })}
             </div>
           </div>
-          <div className="mx-auto max-w-3xl grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 xs:gap-4 sm:gap-5">
+          <div className="mx-auto max-w-3xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
             {macros.map(m => (
               <MacroBar
                 key={m.key}
@@ -1627,47 +1643,47 @@ export default function RecipePage() {
         )}
 
         {beveragePairings.length > 0 && (
-          <section className="bg-gradient-to-br from-rose-50/70 to-amber-50/70 dark:from-rose-900/20 dark:to-amber-900/20 rounded-2xl p-6 border-2 border-rose-200 dark:border-rose-800 shadow-lg">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <span className="text-3xl">
+          <section className="bg-gradient-to-br from-rose-50/70 to-amber-50/70 dark:from-rose-900/20 dark:to-amber-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border-2 border-rose-200 dark:border-rose-800 shadow-lg">
+            <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <span className="text-2xl sm:text-3xl">
                 {beveragePairings.some(p => p.type === 'beer')
                   ? '🍺'
                   : beveragePairings.some(p => p.type === 'cocktail')
                     ? '🍸'
                     : '🍷'}
               </span>
-              <h2 className="text-2xl font-extrabold bg-gradient-to-r from-rose-600 via-amber-500 to-orange-500 dark:from-rose-300 dark:via-amber-300 dark:to-orange-300 bg-clip-text text-transparent">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-extrabold bg-gradient-to-r from-rose-600 via-amber-500 to-orange-500 dark:from-rose-300 dark:via-amber-300 dark:to-orange-300 bg-clip-text text-transparent">
                 Suggested Pairings
               </h2>
             </div>
-            <p className="text-sm text-center text-slate-600 dark:text-slate-300 mb-6">
+            <p className="text-xs sm:text-sm text-center text-slate-600 dark:text-slate-300 mb-4 sm:mb-6">
               Enjoy this recipe with a curated beverage pairing.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               {beveragePairings.map(pair => (
                 <motion.div
                   key={pair.id}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
-                  className="rounded-xl border-2 border-rose-200 dark:border-rose-800 bg-white/85 dark:bg-slate-900/70 p-4 shadow-md backdrop-blur-sm"
+                  className="rounded-lg sm:rounded-xl border-2 border-rose-200 dark:border-rose-800 bg-white/85 dark:bg-slate-900/70 p-3 sm:p-4 shadow-md backdrop-blur-sm"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">
+                  <div className="flex items-center justify-between mb-2 gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+                      <span className="text-lg sm:text-xl flex-shrink-0">
                         {pair.type === 'beer' ? '🍺' : pair.type === 'cocktail' ? '🍸' : '🍷'}
                       </span>
-                      <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                      <h3 className="text-base sm:text-lg font-semibold text-slate-800 dark:text-slate-100 truncate min-w-0">
                         {pair.name || 'Pairing'}
                       </h3>
                     </div>
                     {pair.confidence && (
-                      <span className="text-xs font-semibold px-2 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-200">
-                        Score: {pair.confidence}
+                      <span className="text-xs font-semibold px-2 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-200 flex-shrink-0">
+                        {pair.confidence}
                       </span>
                     )}
                   </div>
-                  <dl className="space-y-1 text-sm text-slate-700 dark:text-slate-200">
+                  <dl className="space-y-1 text-xs sm:text-sm text-slate-700 dark:text-slate-200">
                     {pair.varietal && (
                       <div className="flex gap-2">
                         <dt className="font-semibold text-slate-600 dark:text-slate-300">
@@ -1700,11 +1716,11 @@ export default function RecipePage() {
                     )}
                   </dl>
                   {pair.notes && (
-                    <p className="mt-3 text-sm italic text-slate-600 dark:text-slate-300">
-                      “{pair.notes}”
+                    <p className="mt-2 sm:mt-3 text-xs sm:text-sm italic text-slate-600 dark:text-slate-300 break-words">
+                      "{pair.notes}"
                     </p>
                   )}
-                  <p className="mt-3 text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                  <p className="mt-2 sm:mt-3 text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                     Source: {pair.source}
                   </p>
                 </motion.div>
@@ -1714,55 +1730,55 @@ export default function RecipePage() {
         )}
 
         {/* Ingredients checklist + Grocery */}
-        <section className="bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl xs:rounded-2xl p-3 xs:p-4 sm:p-5 md:p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg overflow-hidden">
-          <div className="flex flex-col xs:flex-row items-start xs:items-center justify-between mb-4 gap-3 xs:gap-2">
-            <div className="w-full xs:w-auto flex-1 min-w-0">
-              <h2 className="text-lg xs:text-xl sm:text-2xl md:text-3xl font-extrabold text-center xs:text-left bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-300 dark:to-teal-300 bg-clip-text text-transparent break-words">
+        <section className="bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-5 lg:p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-5 gap-3 sm:gap-2">
+            <div className="w-full sm:w-auto flex-1 min-w-0">
+              <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-center sm:text-left bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-300 dark:to-teal-300 bg-clip-text text-transparent break-words">
                 🧂 Ingredients
               </h2>
               {recipeCost && (
-                <p className="text-xs xs:text-sm text-slate-600 dark:text-slate-400 mt-1 break-words">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 break-words">
                   💰 Estimated cost: {formatCurrency(recipeCost.total)} total (
                   {formatCurrency(recipeCost.perServing)} per serving)
                 </p>
               )}
             </div>
-            <div className="w-full xs:w-auto flex flex-col xs:flex-row gap-2 xs:gap-2">
+            <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: '0 5px 15px rgba(34, 197, 94, 0.3)' }}
                 whileTap={{ scale: 0.95 }}
-                className="flex-1 xs:flex-none px-3 xs:px-4 py-2.5 xs:py-2 rounded-lg border-2 border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 font-semibold text-xs xs:text-sm shadow-md hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all touch-manipulation min-h-[44px] xs:min-h-0 flex items-center justify-center gap-1.5 xs:gap-2"
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg border-2 border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 font-semibold text-xs sm:text-sm shadow-md hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all touch-manipulation min-h-[44px] flex items-center justify-center gap-1.5 sm:gap-2"
                 onClick={() => setOpen(true)}
                 title="Open grocery list"
               >
-                <span className="text-base xs:text-lg">🛒</span>
+                <span className="text-base sm:text-lg">🛒</span>
                 <span>Open List</span>
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: '0 5px 15px rgba(5, 150, 105, 0.4)' }}
                 whileTap={{ scale: 0.95 }}
-                className="flex-1 xs:flex-none px-3 xs:px-4 py-2.5 xs:py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs xs:text-sm shadow-lg hover:shadow-xl transition-all touch-manipulation min-h-[44px] xs:min-h-0 flex items-center justify-center gap-1.5 xs:gap-2"
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs sm:text-sm shadow-lg hover:shadow-xl transition-all touch-manipulation min-h-[44px] flex items-center justify-center gap-1.5 sm:gap-2"
                 onClick={addAllToGrocery}
                 title="Add all ingredients to grocery list"
               >
-                <span className="text-base xs:text-lg">➕</span>
+                <span className="text-base sm:text-lg">➕</span>
                 <span>Add All to List</span>
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: '0 5px 15px rgba(245, 158, 11, 0.4)' }}
                 whileTap={{ scale: 0.95 }}
-                className="flex-1 xs:flex-none px-3 xs:px-4 py-2.5 xs:py-2 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold text-xs xs:text-sm shadow-lg hover:shadow-xl transition-all touch-manipulation min-h-[44px] xs:min-h-0 flex items-center justify-center gap-1.5 xs:gap-2"
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold text-xs sm:text-sm shadow-lg hover:shadow-xl transition-all touch-manipulation min-h-[44px] flex items-center justify-center gap-1.5 sm:gap-2"
                 onClick={addAllToPantry}
                 title="Add all ingredients to your pantry"
               >
-                <span className="text-base xs:text-lg">🥘</span>
+                <span className="text-base sm:text-lg">🥘</span>
                 <span>Add to Pantry</span>
               </motion.button>
               {nutrient('Calories') && (
                 <motion.button
                   whileHover={{ scale: 1.05, boxShadow: '0 5px 15px rgba(139, 92, 246, 0.4)' }}
                   whileTap={{ scale: 0.95 }}
-                  className="flex-1 xs:flex-none px-3 xs:px-4 py-2.5 xs:py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold text-xs xs:text-sm shadow-lg hover:shadow-xl transition-all touch-manipulation min-h-[44px] xs:min-h-0 flex items-center justify-center gap-1.5 xs:gap-2"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold text-xs sm:text-sm shadow-lg hover:shadow-xl transition-all touch-manipulation min-h-[44px] flex items-center justify-center gap-1.5 sm:gap-2"
                   onClick={() => {
                     // Try multiple methods to get calories
                     let calories = Math.round(nutrient('Calories') || 0);
@@ -1810,14 +1826,14 @@ export default function RecipePage() {
                   }}
                   title="Add to calorie tracker"
                 >
-                  <span className="text-base xs:text-lg">📊</span>
+                  <span className="text-base sm:text-lg">📊</span>
                   <span>Add to Tracker</span>
                 </motion.button>
               )}
             </div>
           </div>
 
-          <ul className="mx-auto max-w-3xl grid grid-cols-1 sm:grid-cols-2 gap-2 xs:gap-3 sm:gap-4">
+          <ul className="mx-auto max-w-3xl grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
             {scaledIngredients.length ? (
               scaledIngredients.map((ing, idx) => {
                 const uid = `${ing.id ?? 'noid'}-${idx}`;
@@ -1872,7 +1888,7 @@ export default function RecipePage() {
                       </motion.div>
                       <div className="flex-1 flex items-start justify-between gap-2 min-w-0">
                         <motion.span
-                          className={`text-sm xs:text-base break-words ${isChecked ? 'line-through opacity-70' : ''}`}
+                          className={`text-sm sm:text-base break-words ${isChecked ? 'line-through opacity-70' : ''}`}
                           animate={
                             isChecked
                               ? {
@@ -1908,23 +1924,23 @@ export default function RecipePage() {
 
         {/* Steps */}
         {steps.length > 0 && (
-          <section className="print:break-inside-avoid bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl xs:rounded-2xl p-3 xs:p-4 sm:p-5 md:p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg">
-            <h2 className="text-lg xs:text-xl sm:text-2xl font-extrabold mb-3 xs:mb-4 text-center bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-300 dark:to-teal-300 bg-clip-text text-transparent">
+          <section className="print:break-inside-avoid bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-5 lg:p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg">
+            <h2 className="text-lg sm:text-xl md:text-2xl font-extrabold mb-3 sm:mb-4 md:mb-5 text-center bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-300 dark:to-teal-300 bg-clip-text text-transparent">
               📋 Instructions
             </h2>
-            <ol className="mx-auto max-w-3xl space-y-2 xs:space-y-3 sm:space-y-4">
+            <ol className="mx-auto max-w-3xl space-y-2 sm:space-y-3 md:space-y-4">
               {steps.map((s, i) => (
                 <motion.li
                   key={i}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.1 }}
-                  className="flex gap-2 xs:gap-3 sm:gap-4 items-start bg-white/80 dark:bg-slate-800/80 rounded-lg xs:rounded-xl p-3 xs:p-4 border-2 border-emerald-200 dark:border-emerald-800 shadow-md"
+                  className="flex gap-2 sm:gap-3 md:gap-4 items-start bg-white/80 dark:bg-slate-800/80 rounded-lg sm:rounded-xl p-3 sm:p-4 border-2 border-emerald-200 dark:border-emerald-800 shadow-md"
                 >
-                  <span className="shrink-0 mt-0.5 xs:mt-1 inline-flex h-7 w-7 xs:h-8 xs:w-8 items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs xs:text-sm font-bold shadow-lg">
+                  <span className="shrink-0 mt-0.5 sm:mt-1 inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs sm:text-sm font-bold shadow-lg">
                     {i + 1}
                   </span>
-                  <p className="flex-1 min-w-0 leading-relaxed text-sm xs:text-base text-slate-700 dark:text-slate-200 font-medium break-words">
+                  <p className="flex-1 min-w-0 leading-relaxed text-sm sm:text-base text-slate-700 dark:text-slate-200 font-medium break-words">
                     {s}
                   </p>
                 </motion.li>
@@ -1935,41 +1951,41 @@ export default function RecipePage() {
 
         {/* Suggestions Sections */}
         {(leftoverIdeas.length > 0 || similarRecipes.length > 0 || mealSuggestions.length > 0) && (
-          <div className="space-y-12 mt-12">
+          <div className="space-y-8 sm:space-y-10 md:space-y-12 mt-8 sm:mt-10 md:mt-12">
             {/* Leftover Ideas */}
             {leftoverIdeas.length > 0 && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-2xl p-6 sm:p-8 border border-amber-200 dark:border-amber-800"
+                className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 lg:p-8 border border-amber-200 dark:border-amber-800"
               >
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="text-3xl">♻️</span>
+                <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5 md:mb-6">
+                  <span className="text-2xl sm:text-3xl">♻️</span>
                   <div>
-                    <h2 className="text-2xl font-bold">Leftover Ideas</h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <h2 className="text-lg sm:text-xl md:text-2xl font-bold">Leftover Ideas</h2>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
                       What to make with leftover ingredients from this recipe
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {leftoverIdeas.map(recipe => (
                     <motion.div
                       key={recipe.id}
                       whileHover={{ scale: 1.02, y: -4 }}
                       onClick={() => navigate(`/recipe/${recipe.id}`, { state: { recipe } })}
-                      className="bg-white dark:bg-slate-800 rounded-xl p-4 cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-amber-400 dark:hover:border-amber-600 transition-all"
+                      className="bg-white dark:bg-slate-800 rounded-lg sm:rounded-xl p-3 sm:p-4 cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-amber-400 dark:hover:border-amber-600 transition-all touch-manipulation min-h-[44px]"
                     >
                       <img
                         src={recipeImg(recipe.hero_image_url || recipe.image, recipe.id)}
                         data-original-src={recipe.hero_image_url || recipe.image}
                         alt={recipe.title}
-                        className="w-full aspect-[4/3] object-cover rounded-lg mb-3"
+                        className="w-full aspect-[4/3] object-cover rounded-lg mb-2 sm:mb-3"
                         referrerPolicy="no-referrer"
                         loading="lazy"
                         onError={fallbackOnce}
                       />
-                      <h3 className="font-semibold text-sm line-clamp-2">{recipe.title}</h3>
+                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 break-words">{recipe.title}</h3>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                         {recipe.readyInMinutes} min
                       </p>
@@ -1984,35 +2000,35 @@ export default function RecipePage() {
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 sm:p-8 border border-blue-200 dark:border-blue-800"
+                className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 lg:p-8 border border-blue-200 dark:border-blue-800"
               >
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="text-3xl">🔍</span>
+                <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5 md:mb-6">
+                  <span className="text-2xl sm:text-3xl">🔍</span>
                   <div>
-                    <h2 className="text-2xl font-bold">Similar Recipes</h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <h2 className="text-lg sm:text-xl md:text-2xl font-bold">Similar Recipes</h2>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
                       Recipes you might also like
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {similarRecipes.map(recipe => (
                     <motion.div
                       key={recipe.id}
                       whileHover={{ scale: 1.02, y: -4 }}
                       onClick={() => navigate(`/recipe/${recipe.id}`, { state: { recipe } })}
-                      className="bg-white dark:bg-slate-800 rounded-xl p-4 cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all"
+                      className="bg-white dark:bg-slate-800 rounded-lg sm:rounded-xl p-3 sm:p-4 cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all touch-manipulation min-h-[44px]"
                     >
                       <img
                         src={recipeImg(recipe.hero_image_url || recipe.image, recipe.id)}
                         data-original-src={recipe.hero_image_url || recipe.image}
                         alt={recipe.title}
-                        className="w-full aspect-[4/3] object-cover rounded-lg mb-3"
+                        className="w-full aspect-[4/3] object-cover rounded-lg mb-2 sm:mb-3"
                         referrerPolicy="no-referrer"
                         loading="lazy"
                         onError={fallbackOnce}
                       />
-                      <h3 className="font-semibold text-sm line-clamp-2">{recipe.title}</h3>
+                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 break-words">{recipe.title}</h3>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                         {recipe.readyInMinutes} min
                       </p>
@@ -2027,35 +2043,35 @@ export default function RecipePage() {
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-6 sm:p-8 border border-purple-200 dark:border-purple-800"
+                className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 lg:p-8 border border-purple-200 dark:border-purple-800"
               >
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="text-3xl">🍽️</span>
+                <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5 md:mb-6">
+                  <span className="text-2xl sm:text-3xl">🍽️</span>
                   <div>
-                    <h2 className="text-2xl font-bold">Complete Your Meal</h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <h2 className="text-lg sm:text-xl md:text-2xl font-bold">Complete Your Meal</h2>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
                       Perfect pairings for this recipe
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {mealSuggestions.map(recipe => (
                     <motion.div
                       key={recipe.id}
                       whileHover={{ scale: 1.02, y: -4 }}
                       onClick={() => navigate(`/recipe/${recipe.id}`, { state: { recipe } })}
-                      className="bg-white dark:bg-slate-800 rounded-xl p-4 cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-purple-400 dark:hover:border-purple-600 transition-all"
+                      className="bg-white dark:bg-slate-800 rounded-lg sm:rounded-xl p-3 sm:p-4 cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-purple-400 dark:hover:border-purple-600 transition-all touch-manipulation min-h-[44px]"
                     >
                       <img
                         src={recipeImg(recipe.hero_image_url || recipe.image, recipe.id)}
                         data-original-src={recipe.hero_image_url || recipe.image}
                         alt={recipe.title}
-                        className="w-full aspect-[4/3] object-cover rounded-lg mb-3"
+                        className="w-full aspect-[4/3] object-cover rounded-lg mb-2 sm:mb-3"
                         referrerPolicy="no-referrer"
                         loading="lazy"
                         onError={fallbackOnce}
                       />
-                      <h3 className="font-semibold text-sm line-clamp-2">{recipe.title}</h3>
+                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 break-words">{recipe.title}</h3>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                         {recipe.readyInMinutes} min
                       </p>
@@ -2074,7 +2090,7 @@ export default function RecipePage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
           onClick={e => e.target === e.currentTarget && closeCookMode()}
         >
           <motion.div
@@ -2082,7 +2098,7 @@ export default function RecipePage() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.3 }}
-            className="w-full max-w-3xl mx-auto rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100 border-2 border-emerald-500/30 p-6 sm:p-8 shadow-2xl relative overflow-hidden"
+            className="w-full max-w-3xl mx-auto my-4 sm:my-8 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100 border-2 border-emerald-500/30 p-4 sm:p-6 md:p-8 shadow-2xl relative overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
             {/* Background gradient decoration */}
@@ -2090,13 +2106,13 @@ export default function RecipePage() {
             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
 
             {/* Header */}
-            <div className="relative flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg">
-                  <span className="text-2xl">👨‍🍳</span>
+            <div className="relative flex items-center justify-between mb-4 sm:mb-6 gap-2">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg flex-shrink-0">
+                  <span className="text-xl sm:text-2xl">👨‍🍳</span>
                 </div>
-                <div>
-                  <h3 className="text-2xl font-extrabold bg-gradient-to-r from-emerald-300 to-teal-300 bg-clip-text text-transparent">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-extrabold bg-gradient-to-r from-emerald-300 to-teal-300 bg-clip-text text-transparent truncate">
                     Cook Mode
                   </h3>
                   <p className="text-xs text-slate-400">Step-by-step cooking guide</p>
@@ -2106,7 +2122,7 @@ export default function RecipePage() {
                 whileHover={{ scale: 1.1, rotate: 90 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={closeCookMode}
-                className="w-10 h-10 rounded-xl bg-slate-700/50 hover:bg-red-500/20 border border-slate-600 hover:border-red-500/50 flex items-center justify-center transition-all"
+                className="w-10 h-10 rounded-xl bg-slate-700/50 hover:bg-red-500/20 border border-slate-600 hover:border-red-500/50 flex items-center justify-center transition-all flex-shrink-0 touch-manipulation min-h-[44px]"
                 title="Close Cook Mode"
               >
                 <span className="text-xl">✕</span>
@@ -2114,32 +2130,32 @@ export default function RecipePage() {
             </div>
 
             {/* Step Navigation */}
-            <div className="relative flex items-center justify-between mb-6">
+            <div className="relative flex items-center justify-between mb-4 sm:mb-6 gap-2">
               <motion.button
                 whileHover={{ scale: 1.05, x: -2 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={prevStep}
                 disabled={stepIndex === 0}
-                className="px-4 py-2.5 rounded-xl bg-slate-700/50 hover:bg-emerald-600/20 border-2 border-slate-600 hover:border-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:bg-slate-700/50 disabled:hover:border-slate-600 transition-all flex items-center gap-2 font-semibold"
+                className="px-3 sm:px-4 py-2.5 rounded-lg sm:rounded-xl bg-slate-700/50 hover:bg-emerald-600/20 border-2 border-slate-600 hover:border-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:bg-slate-700/50 disabled:hover:border-slate-600 transition-all flex items-center gap-1.5 sm:gap-2 font-semibold text-sm sm:text-base min-h-[44px] touch-manipulation"
               >
-                <span className="text-lg">←</span>
+                <span className="text-base sm:text-lg">←</span>
                 <span className="hidden sm:inline">Previous</span>
               </motion.button>
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30">
-                <span className="text-sm font-semibold text-emerald-300">Step</span>
-                <span className="font-mono text-lg font-bold text-white">{stepIndex + 1}</span>
-                <span className="text-sm text-slate-400">of</span>
-                <span className="font-mono text-lg font-bold text-white">{steps.length}</span>
+              <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex-shrink-0">
+                <span className="text-xs sm:text-sm font-semibold text-emerald-300">Step</span>
+                <span className="font-mono text-base sm:text-lg font-bold text-white">{stepIndex + 1}</span>
+                <span className="text-xs sm:text-sm text-slate-400">of</span>
+                <span className="font-mono text-base sm:text-lg font-bold text-white">{steps.length}</span>
               </div>
               <motion.button
                 whileHover={{ scale: 1.05, x: 2 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={nextStep}
                 disabled={stepIndex === steps.length - 1}
-                className="px-4 py-2.5 rounded-xl bg-slate-700/50 hover:bg-emerald-600/20 border-2 border-slate-600 hover:border-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:bg-slate-700/50 disabled:hover:border-slate-600 transition-all flex items-center gap-2 font-semibold"
+                className="px-3 sm:px-4 py-2.5 rounded-lg sm:rounded-xl bg-slate-700/50 hover:bg-emerald-600/20 border-2 border-slate-600 hover:border-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:bg-slate-700/50 disabled:hover:border-slate-600 transition-all flex items-center gap-1.5 sm:gap-2 font-semibold text-sm sm:text-base min-h-[44px] touch-manipulation"
               >
                 <span className="hidden sm:inline">Next</span>
-                <span className="text-lg">→</span>
+                <span className="text-base sm:text-lg">→</span>
               </motion.button>
             </div>
 
@@ -2150,36 +2166,36 @@ export default function RecipePage() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
-              className="relative min-h-[200px] text-lg leading-relaxed bg-gradient-to-br from-slate-800/80 to-slate-900/80 rounded-2xl p-6 sm:p-8 border-2 border-emerald-500/20 shadow-xl mb-6"
+              className="relative min-h-[150px] sm:min-h-[200px] text-base sm:text-lg leading-relaxed bg-gradient-to-br from-slate-800/80 to-slate-900/80 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 border-2 border-emerald-500/20 shadow-xl mb-4 sm:mb-6"
             >
-              <div className="absolute top-4 left-4 w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-sm font-bold shadow-lg">
+              <div className="absolute top-3 left-3 sm:top-4 sm:left-4 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-xs sm:text-sm font-bold shadow-lg">
                 {stepIndex + 1}
               </div>
-              <p className="text-slate-100 font-medium pt-4 sm:pt-0 sm:pl-12">{steps[stepIndex]}</p>
+              <p className="text-slate-100 font-medium pt-8 sm:pt-0 sm:pl-12 break-words">{steps[stepIndex]}</p>
             </motion.div>
 
             {/* Timer Section */}
-            <div className="relative bg-gradient-to-br from-emerald-900/30 to-teal-900/30 rounded-2xl p-6 border-2 border-emerald-500/20">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">⏱️</span>
-                  <span className="text-sm font-semibold text-emerald-300">Timer</span>
+            <div className="relative bg-gradient-to-br from-emerald-900/30 to-teal-900/30 rounded-xl sm:rounded-2xl p-4 sm:p-6 border-2 border-emerald-500/20">
+              <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <span className="text-xl sm:text-2xl">⏱️</span>
+                  <span className="text-xs sm:text-sm font-semibold text-emerald-300">Timer</span>
                 </div>
                 <motion.div
                   animate={ticking ? { scale: [1, 1.05, 1] } : {}}
                   transition={{ duration: 1, repeat: ticking ? Infinity : 0 }}
-                  className="font-mono text-3xl sm:text-4xl font-bold tabular-nums bg-gradient-to-r from-emerald-300 to-teal-300 bg-clip-text text-transparent"
+                  className="font-mono text-2xl sm:text-3xl md:text-4xl font-bold tabular-nums bg-gradient-to-r from-emerald-300 to-teal-300 bg-clip-text text-transparent"
                 >
                   {String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:
                   {String(secondsLeft % 60).padStart(2, '0')}
                 </motion.div>
               </div>
-              <div className="flex flex-wrap gap-2 mb-4">
+              <div className="flex flex-wrap gap-2 mb-3 sm:mb-4">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => startTimerMins(5)}
-                  className="px-4 py-2 rounded-xl bg-slate-700/50 hover:bg-emerald-600/30 border-2 border-slate-600 hover:border-emerald-500 font-semibold transition-all"
+                  className="px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-slate-700/50 hover:bg-emerald-600/30 border-2 border-slate-600 hover:border-emerald-500 font-semibold text-sm transition-all min-h-[44px] sm:min-h-0 touch-manipulation"
                 >
                   5m
                 </motion.button>
@@ -2187,7 +2203,7 @@ export default function RecipePage() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => startTimerMins(10)}
-                  className="px-4 py-2 rounded-xl bg-slate-700/50 hover:bg-emerald-600/30 border-2 border-slate-600 hover:border-emerald-500 font-semibold transition-all"
+                  className="px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-slate-700/50 hover:bg-emerald-600/30 border-2 border-slate-600 hover:border-emerald-500 font-semibold text-sm transition-all min-h-[44px] sm:min-h-0 touch-manipulation"
                 >
                   10m
                 </motion.button>
@@ -2195,7 +2211,7 @@ export default function RecipePage() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => startTimerMins(15)}
-                  className="px-4 py-2 rounded-xl bg-slate-700/50 hover:bg-emerald-600/30 border-2 border-slate-600 hover:border-emerald-500 font-semibold transition-all"
+                  className="px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-slate-700/50 hover:bg-emerald-600/30 border-2 border-slate-600 hover:border-emerald-500 font-semibold text-sm transition-all min-h-[44px] sm:min-h-0 touch-manipulation"
                 >
                   15m
                 </motion.button>
@@ -2203,18 +2219,18 @@ export default function RecipePage() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => startTimerMins(30)}
-                  className="px-4 py-2 rounded-xl bg-slate-700/50 hover:bg-emerald-600/30 border-2 border-slate-600 hover:border-emerald-500 font-semibold transition-all"
+                  className="px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-slate-700/50 hover:bg-emerald-600/30 border-2 border-slate-600 hover:border-emerald-500 font-semibold text-sm transition-all min-h-[44px] sm:min-h-0 touch-manipulation"
                 >
                   30m
                 </motion.button>
               </div>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2 sm:gap-3">
                 {!ticking && secondsLeft > 0 ? (
                   <motion.button
                     whileHover={{ scale: 1.05, boxShadow: '0 5px 15px rgba(5, 150, 105, 0.4)' }}
                     whileTap={{ scale: 0.95 }}
                     onClick={resumeTimer}
-                    className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold shadow-lg transition-all flex items-center justify-center gap-2"
+                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm sm:text-base shadow-lg transition-all flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation"
                   >
                     <span>▶</span>
                     <span>Resume</span>
@@ -2224,7 +2240,7 @@ export default function RecipePage() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={pauseTimer}
-                    className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold shadow-lg transition-all flex items-center justify-center gap-2"
+                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold text-sm sm:text-base shadow-lg transition-all flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] touch-manipulation"
                   >
                     <span>⏸</span>
                     <span>Pause</span>
@@ -2235,7 +2251,7 @@ export default function RecipePage() {
                     whileTap={{ scale: 0.95 }}
                     onClick={resumeTimer}
                     disabled={secondsLeft === 0}
-                    className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm sm:text-base shadow-lg transition-all flex items-center justify-center gap-1.5 sm:gap-2 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
                   >
                     <span>▶</span>
                     <span>Start Timer</span>
@@ -2246,7 +2262,7 @@ export default function RecipePage() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={resetTimer}
-                    className="px-6 py-3 rounded-xl bg-slate-700/50 hover:bg-red-600/30 border-2 border-slate-600 hover:border-red-500 font-semibold transition-all"
+                    className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-slate-700/50 hover:bg-red-600/30 border-2 border-slate-600 hover:border-red-500 font-semibold text-sm sm:text-base transition-all min-h-[44px] sm:min-h-0 touch-manipulation"
                   >
                     Reset
                   </motion.button>

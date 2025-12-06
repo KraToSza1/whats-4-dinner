@@ -160,11 +160,11 @@ export default function ShareButton({ title, text, url, recipeId }) {
         onTouchStart={e => {
           e.stopPropagation();
         }}
-        className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs sm:text-sm font-medium touch-manipulation min-h-[32px] sm:min-h-0"
+        className="inline-flex items-center gap-1 sm:gap-1.5 md:gap-2 px-2 sm:px-2.5 md:px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs sm:text-sm font-medium touch-manipulation min-h-[36px] sm:min-h-0 flex-shrink-0"
         title="Share"
         aria-label="Share recipe"
       >
-        <Share2 className="w-4 h-4 flex-shrink-0" />
+        <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
         <span className="hidden sm:inline">Share</span>
       </motion.button>
 

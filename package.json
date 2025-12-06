@@ -17,7 +17,15 @@
     "audit:fix": "npm audit fix",
     "optimize:images": "node scripts/optimize-recipe-images.js",
     "validate:recipes": "node scripts/validate-recipe-data.js",
-    "check:db": "node scripts/check-database-health.js"
+    "check:db": "node scripts/check-database-health.js",
+    "validate:integration": "node scripts/validate-integration.js",
+    "validate:production": "node scripts/validate-production-ready.js",
+    "validate:users": "node scripts/validate-user-flows.js",
+    "validate:all": "node scripts/validate-all.js",
+    "test:e2e": "node scripts/test-e2e-user-journey.js",
+    "test:features": "node scripts/test-comprehensive-features.js",
+    "test:scenarios": "node scripts/test-all-scenarios.js",
+    "test:all": "npm run test:features && npm run test:scenarios"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.80.0",
@@ -56,6 +64,7 @@
     "postcss": "^8.5.6",
     "postcss-nesting": "^13.0.2",
     "prettier": "^3.6.2",
+    "puppeteer": "^24.32.0",
     "sharp": "^0.34.5",
     "supabase": "^2.58.5",
     "tailwindcss": "^4.1.17",

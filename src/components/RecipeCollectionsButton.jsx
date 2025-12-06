@@ -139,17 +139,16 @@ export default function RecipeCollectionsButton({ recipeId }) {
           setShowModal(true);
         }}
         type="button"
-        className="px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-md bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2 min-h-[44px] sm:min-h-0 touch-manipulation flex-shrink-0 z-30 relative"
+        className="px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 md:py-1.5 rounded-md bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-1.5 md:gap-2 min-h-[36px] sm:min-h-0 touch-manipulation flex-shrink-0 z-30 relative"
         title="Save to collection"
         style={{ zIndex: 30 }}
       >
-        <span className="text-base sm:text-lg">📁</span>
+        <span className="text-sm sm:text-base md:text-lg">📁</span>
         <span className="hidden sm:inline">
           {selectedCollections.length > 0
             ? `${selectedCollections.length} Collections`
             : 'Save to Collection'}
         </span>
-        <span className="sm:hidden">Save</span>
       </motion.button>
 
       {typeof window !== 'undefined' &&

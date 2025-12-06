@@ -6,12 +6,14 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
-      // Disable service worker in development to avoid Chrome issues
+      registerType: 'autoUpdate', // Auto-update service worker, install prompt handled by InstallPWA component
+      // Enable service worker in production, disable in dev
       devOptions: {
         enabled: false,
         type: 'module',
       },
+      // Enable service worker in production builds
+      includeAssets: ['logo.svg', 'favicon.ico'],
       workbox: {
         // Increase file size limit for precaching (default is 2MB)
         // Main bundle is ~2.13MB, so we set it to 3MB to allow precaching
@@ -41,16 +43,55 @@ export default defineConfig({
           // REMOVED: Supabase image caching - causes OpaqueResponseBlocking errors
           // Supabase images will load directly without service worker interference
         ],
+        // Ensure service worker is generated
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
       },
       manifest: {
         name: "What's 4 Dinner?",
         short_name: 'W4D',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
+        description: 'Smart recipe finder and meal planning app',
+        theme_color: '#10b981',
+        background_color: '#ffffff',
+        display: 'standalone',
+        orientation: 'portrait-primary',
+        start_url: '/',
+        scope: '/',
         icons: [
-          { src: '/logo.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
-          { src: '/logo.svg', sizes: '192x192', type: 'image/svg+xml' },
-          { src: '/logo.svg', sizes: '512x512', type: 'image/svg+xml' },
+          {
+            src: '/logo.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'any maskable',
+          },
+          {
+            src: '/logo.svg',
+            sizes: '192x192',
+            type: 'image/svg+xml',
+            purpose: 'any',
+          },
+          {
+            src: '/logo.svg',
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            purpose: 'any',
+          },
+        ],
+        categories: ['food', 'lifestyle', 'health'],
+        shortcuts: [
+          {
+            name: 'Search Recipes',
+            short_name: 'Search',
+            description: 'Search for recipes',
+            url: '/?shortcut=search',
+            icons: [{ src: '/logo.svg', sizes: 'any' }],
+          },
+          {
+            name: 'Meal Planner',
+            short_name: 'Plan',
+            description: 'Plan your meals',
+            url: '/meal-planner',
+            icons: [{ src: '/logo.svg', sizes: 'any' }],
+          },
         ],
       },
     }),

@@ -34,9 +34,9 @@ export default function BackToHome({ className = '', onClick, toHome = true, lab
       whileTap={{ scale: 0.98 }}
       className={`
                 group relative
-                inline-flex items-center gap-2
-                px-3 sm:px-4 py-2 sm:py-2.5
-                rounded-xl
+                inline-flex items-center gap-1 sm:gap-1.5 md:gap-2
+                px-2 sm:px-2.5 md:px-3 lg:px-4 py-1.5 sm:py-2 md:py-2.5
+                rounded-lg sm:rounded-xl
                 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent
                 hover:from-emerald-500/20 hover:via-emerald-500/10 hover:to-transparent
                 dark:from-emerald-500/20 dark:via-emerald-500/10 dark:to-transparent
@@ -44,10 +44,11 @@ export default function BackToHome({ className = '', onClick, toHome = true, lab
                 border border-emerald-500/20 hover:border-emerald-500/40
                 dark:border-emerald-400/30 dark:hover:border-emerald-400/50
                 text-emerald-600 dark:text-emerald-400
-                font-semibold text-sm
+                font-semibold text-xs sm:text-sm
                 transition-all duration-300
                 touch-manipulation
                 overflow-hidden
+                min-h-[36px] sm:min-h-0
                 ${className}
             `}
       aria-label={`Navigate ${toHome ? 'back to home' : 'back'}`}
@@ -75,11 +76,11 @@ export default function BackToHome({ className = '', onClick, toHome = true, lab
         }}
         className="relative z-10"
       >
-        <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} />
+        <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" strokeWidth={2.5} />
       </motion.div>
 
-      {/* Text - consistent across all screens */}
-      <span className="relative z-10 font-medium">{buttonLabel}</span>
+      {/* Text - hidden on mobile */}
+      <span className="hidden sm:inline relative z-10 font-medium">{buttonLabel}</span>
 
       {/* Hover effect indicator */}
       <motion.div

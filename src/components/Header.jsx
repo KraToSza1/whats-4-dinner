@@ -129,15 +129,28 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
               <Logo className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-emerald-500" aria-hidden />
             </motion.div>
             <h1 className="text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl font-extrabold tracking-tight text-slate-900 dark:text-white whitespace-nowrap truncate min-w-0">
-              What's{' '}
-              <motion.span
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-                className="text-emerald-500 inline-block"
-              >
-                4
-              </motion.span>{' '}
-              Dinner?
+              <span className="sm:hidden">
+                W
+                <motion.span
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                  className="text-emerald-500 inline-block"
+                >
+                  4
+                </motion.span>
+                D
+              </span>
+              <span className="hidden sm:inline">
+                What's{' '}
+                <motion.span
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                  className="text-emerald-500 inline-block"
+                >
+                  4
+                </motion.span>{' '}
+                Dinner?
+              </span>
             </h1>
           </motion.div>
 

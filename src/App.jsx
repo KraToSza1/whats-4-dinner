@@ -24,6 +24,7 @@ import Filters from './components/Filters.jsx';
 import GroceryDrawer from './components/GroceryDrawer.jsx';
 import DailyRecipe from './components/DailyRecipe.jsx';
 import Pagination from './components/Pagination.jsx';
+import GamificationBubbles from './components/GamificationBubbles.jsx';
 import Favorites from './pages/Favorites.jsx';
 import MealRemindersPage from './pages/MealRemindersPage.jsx';
 import BudgetTrackerPage from './pages/BudgetTrackerPage.jsx';
@@ -38,6 +39,7 @@ import PullToRefresh from './components/PullToRefresh.jsx';
 import BackToTop from './components/BackToTop.jsx';
 import CookingAnimation from './components/CookingAnimation.jsx';
 import CookingMiniGames from './components/CookingMiniGames.jsx';
+import InstallPWA from './components/InstallPWA.jsx';
 import { GroceryListProvider } from './context/GroceryListContext.jsx';
 import { useFilters } from './context/FilterContext.jsx';
 
@@ -56,11 +58,7 @@ import AdBanner, { InlineAd } from './components/AdBanner.jsx';
 import ProModalWrapper from './components/ProModalWrapper.jsx';
 import PremiumFeatureModalWrapper from './components/PremiumFeatureModalWrapper.jsx';
 import { useToast } from './components/Toast.jsx';
-import { AnimatePresence, motion } from 'framer-motion';
-import DailyChallenge from './components/DailyChallenge.jsx';
-import StreakCounter from './components/StreakCounter.jsx';
-import XPBar from './components/XPBar.jsx';
-import { Sparkles, Flame, Trophy } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 
 // "chicken,  rice , , tomato" -> ["chicken","rice","tomato"]
 const toIngredientArray = raw =>
@@ -653,11 +651,21 @@ const App = () => {
 
   // Debounce ref for filter changes
   const filterDebounceRef = React.useRef(null);
+  // Ref to prevent duplicate simultaneous requests
+  const isFetchingRef = React.useRef(false);
 
   // Main search using the unified API wrapper (handles quota fallback)
   // Enhanced with robust error handling, query validation, and smart fallbacks
   const fetchRecipes = useCallback(
     async (raw = '', options = {}) => {
+      // Prevent duplicate simultaneous requests
+      if (isFetchingRef.current) {
+        if (import.meta.env.DEV) {
+          console.warn('⏸️ [FETCH RECIPES] Already fetching, skipping duplicate request');
+        }
+        return;
+      }
+
       const { allowEmpty = false, limitOverride } = options;
 
       // Robust query parsing and validation
@@ -707,6 +715,8 @@ const App = () => {
         return;
       }
 
+      // Set loading state and mark as fetching
+      isFetchingRef.current = true;
       setLoading(true);
       setError(null);
       setLastSearch(raw ?? '');
@@ -724,31 +734,16 @@ const App = () => {
       const fetchStartTime = Date.now();
 
       try {
-        // Read additional filters from localStorage (managed by Filters component)
-        // Use try-catch for each localStorage access to prevent errors
-        let cuisine = '';
-        let difficulty = '';
-        let minProtein = '';
-        let maxCarbs = '';
-        let selectedIntolerances = [];
-        let intolerancesString = '';
-
-        try {
-          cuisine = localStorage.getItem('filters:cuisine') || '';
-          difficulty = localStorage.getItem('filters:difficulty') || '';
-          minProtein = localStorage.getItem('filters:minProtein') || '';
-          maxCarbs = localStorage.getItem('filters:maxCarbs') || '';
-          const intolerancesRaw = localStorage.getItem('filters:selectedIntolerances') || '[]';
-          selectedIntolerances = JSON.parse(intolerancesRaw);
-          if (!Array.isArray(selectedIntolerances)) {
-            selectedIntolerances = [];
-          }
-          intolerancesString =
-            selectedIntolerances.length > 0 ? selectedIntolerances.join(',') : '';
-        } catch (storageError) {
-          console.warn('[fetchRecipes] Error reading filters from localStorage:', storageError);
-          // Continue with empty filters
-        }
+        // Use FilterContext for all filters (consistent source)
+        const cuisine = filters.cuisine || '';
+        const difficulty = filters.difficulty || '';
+        const minProtein = filters.minProtein || '';
+        const maxCarbs = filters.maxCarbs || '';
+        const selectedIntolerances = Array.isArray(filters.selectedIntolerances)
+          ? filters.selectedIntolerances
+          : [];
+        const intolerancesString =
+          selectedIntolerances.length > 0 ? selectedIntolerances.join(',') : '';
 
         // Validate numeric filters (from FilterContext)
         const validatedMaxCalories =
@@ -807,8 +802,9 @@ const App = () => {
         });
 
         // Add timeout to prevent hanging requests (25 seconds - reduced from 30)
+        let timeoutId;
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => {
+          timeoutId = setTimeout(() => {
             const elapsed = Date.now() - fetchStartTime;
             if (import.meta.env.DEV) {
               console.error('⏰ [FETCH RECIPES] TIMEOUT after', elapsed, 'ms');
@@ -821,7 +817,16 @@ const App = () => {
           console.log('🔄 [FETCH RECIPES] Racing search promise against timeout...');
         }
 
-        const searchResult = await Promise.race([searchPromise, timeoutPromise]);
+        let searchResult;
+        try {
+          searchResult = await Promise.race([searchPromise, timeoutPromise]);
+          // Clear timeout if query completed successfully
+          if (timeoutId) clearTimeout(timeoutId);
+        } catch (error) {
+          // Clear timeout on error too
+          if (timeoutId) clearTimeout(timeoutId);
+          throw error;
+        }
 
         const fetchElapsed = Date.now() - fetchStartTime;
 
@@ -834,26 +839,172 @@ const App = () => {
               ? searchResult.length
               : searchResult?.data?.length || 0,
             totalCount: searchResult?.totalCount ?? 'null',
+            searchResultType: typeof searchResult,
+            searchResultKeys:
+              searchResult && typeof searchResult === 'object' ? Object.keys(searchResult) : 'N/A',
           });
         }
 
         // Handle both old format (array) and new format (object with data and totalCount)
-        const supabaseResults = Array.isArray(searchResult)
-          ? searchResult
-          : searchResult?.data || [];
-        const totalCountFromServer = searchResult?.totalCount ?? null;
+        // CRITICAL: Ensure we extract the data correctly
+        let supabaseResults;
+        let totalCountFromServer = null;
 
-        // Removed verbose logging
+        if (Array.isArray(searchResult)) {
+          // Old format: direct array
+          supabaseResults = searchResult;
+        } else if (searchResult && typeof searchResult === 'object') {
+          // New format: object with data and totalCount
+          supabaseResults = searchResult.data || [];
+          totalCountFromServer = searchResult.totalCount ?? null;
+        } else {
+          // Invalid format
+          supabaseResults = [];
+          if (import.meta.env.DEV) {
+            console.error('❌ [FETCH RECIPES] Invalid searchResult format:', {
+              searchResult,
+              type: typeof searchResult,
+              isArray: Array.isArray(searchResult),
+            });
+          }
+        }
+
+        // Ensure supabaseResults is always an array
+        if (!Array.isArray(supabaseResults)) {
+          if (import.meta.env.DEV) {
+            console.error('❌ [FETCH RECIPES] supabaseResults is not an array:', {
+              supabaseResults,
+              type: typeof supabaseResults,
+            });
+          }
+          supabaseResults = [];
+        }
+
+        if (import.meta.env.DEV) {
+          console.log('📊 [FETCH RECIPES] Query result:', {
+            isArray: Array.isArray(searchResult),
+            hasData: !!searchResult?.data,
+            resultsLength: supabaseResults?.length || 0,
+            totalCount: totalCountFromServer,
+            trimmedQuery: trimmedQuery || '(empty)',
+            searchResultType: typeof searchResult,
+            searchResultKeys:
+              searchResult && typeof searchResult === 'object' && !Array.isArray(searchResult)
+                ? Object.keys(searchResult)
+                : 'N/A',
+            firstResult: supabaseResults?.[0]
+              ? { id: supabaseResults[0].id, title: supabaseResults[0].title }
+              : 'none',
+          });
+        }
+
+        // Validate that we actually got results
+        if (!supabaseResults || !Array.isArray(supabaseResults)) {
+          if (import.meta.env.DEV) {
+            console.error('❌ [FETCH RECIPES] Invalid results format:', {
+              searchResult,
+              supabaseResults,
+              type: typeof supabaseResults,
+            });
+          }
+          setRecipes([]);
+          setError('Invalid response from server. Please try again.');
+          setLoading(false);
+          isFetchingRef.current = false;
+          return;
+        }
 
         if (supabaseResults?.length) {
-          setRecipes(supabaseResults);
+          // Apply medical condition filtering AFTER all other filters
+          // This ensures medical conditions work with Smart Filters
+          let filteredResults = supabaseResults;
+
+          try {
+            // Check if user or family has medical conditions
+            // getActiveMedicalConditions() now includes family member conditions
+            const { getActiveMedicalConditions } = await import('./utils/medicalConditions.js');
+            const medicalData = getActiveMedicalConditions();
+
+            // Apply medical filtering if user or family has conditions
+            if (medicalData?.activeConditions && medicalData.activeConditions.length > 0) {
+              const beforeFilter = supabaseResults.length;
+              filteredResults = filterRecipesByMedicalConditions(supabaseResults);
+              const afterFilter = filteredResults.length;
+
+              if (import.meta.env.DEV) {
+                console.warn('🏥 [MEDICAL FILTER] Applied medical condition filtering:', {
+                  originalCount: beforeFilter,
+                  filteredCount: afterFilter,
+                  removed: beforeFilter - afterFilter,
+                  activeConditions: medicalData.activeConditions.length,
+                });
+              }
+
+              // CRITICAL: If medical filtering removed ALL recipes, show a warning but don't fail completely
+              // This can happen if filters are too restrictive - show some recipes anyway
+              if (afterFilter === 0 && beforeFilter > 0) {
+                if (import.meta.env.DEV) {
+                  console.warn('⚠️ [MEDICAL FILTER] Medical conditions filtered out ALL recipes!', {
+                    originalCount: beforeFilter,
+                    activeConditions: medicalData.activeConditions,
+                    action: 'Showing original results to prevent empty state',
+                  });
+                }
+                // Show original results instead of empty state - better UX
+                filteredResults = supabaseResults.slice(0, Math.min(10, supabaseResults.length));
+              }
+            }
+          } catch (medicalError) {
+            // If medical filtering fails, use original results (fail gracefully)
+            if (import.meta.env.DEV) {
+              console.warn('[fetchRecipes] Error applying medical condition filter:', medicalError);
+            }
+            filteredResults = supabaseResults;
+          }
+
+          // CRITICAL: Ensure we actually have recipes to set
+          if (filteredResults && filteredResults.length > 0) {
+            setRecipes(filteredResults);
+
+            if (import.meta.env.DEV) {
+              console.log('✅ [FETCH RECIPES] Set recipes in state:', {
+                count: filteredResults.length,
+                originalCount: supabaseResults.length,
+                medicalFiltered: filteredResults.length !== supabaseResults.length,
+                firstRecipe: filteredResults[0]
+                  ? { id: filteredResults[0].id, title: filteredResults[0].title }
+                  : 'none',
+              });
+            }
+          } else {
+            if (import.meta.env.DEV) {
+              console.error('❌ [FETCH RECIPES] filteredResults is empty after processing!', {
+                supabaseResultsLength: supabaseResults.length,
+                filteredResultsLength: filteredResults?.length || 0,
+                filteredResultsType: typeof filteredResults,
+                isArray: Array.isArray(filteredResults),
+              });
+            }
+            // Fallback: use original results if filtering removed everything
+            if (supabaseResults && supabaseResults.length > 0) {
+              setRecipes(supabaseResults);
+              if (import.meta.env.DEV) {
+                console.warn('⚠️ [FETCH RECIPES] Using original results as fallback');
+              }
+            } else {
+              setRecipes([]);
+            }
+          }
 
           // Use actual total count from server if available, otherwise estimate
+          // Adjust count based on medical filtering
           if (totalCountFromServer !== null && totalCountFromServer !== undefined) {
-            setTotalRecipesCount(totalCountFromServer);
-          } else if (supabaseResults.length < requestedLimit) {
+            // If medical filtering removed recipes, adjust the count proportionally
+            const medicalFilterRatio = filteredResults.length / supabaseResults.length;
+            setTotalRecipesCount(Math.floor(totalCountFromServer * medicalFilterRatio));
+          } else if (filteredResults.length < requestedLimit) {
             // If we got fewer than requested, that's likely all there is
-            const estimatedTotal = offset + supabaseResults.length;
+            const estimatedTotal = offset + filteredResults.length;
             setTotalRecipesCount(estimatedTotal);
           } else {
             // Got full page - assume there are more (conservative estimate)
@@ -878,13 +1029,47 @@ const App = () => {
             }
           }
         } else {
+          // No results - handle differently based on context
+          if (import.meta.env.DEV) {
+            console.warn('⚠️ [FETCH RECIPES] No recipes returned from search:', {
+              trimmedQuery: trimmedQuery || '(empty)',
+              includeIngredients: includeIngredients.length,
+              shouldShowDefaultFeed,
+              allowEmpty,
+              filters: {
+                diet: normalizedDiet || 'none',
+                mealType: normalizedMealType || 'none',
+                maxTime: normalizedMaxTime || 'none',
+              },
+            });
+          }
+
           setRecipes([]);
-          // Provide helpful error message based on search type
-          if (trimmedQuery || includeIngredients.length > 0) {
+
+          // Only show error if it's NOT the initial load with allowEmpty
+          // For initial load, we want to show the empty state gracefully
+          const isInitialLoad =
+            allowEmpty &&
+            !trimmedQuery &&
+            includeIngredients.length === 0 &&
+            !normalizedDiet &&
+            !normalizedMealType;
+
+          if (isInitialLoad) {
+            // Initial load with no filters - don't show error, just empty state
+            setError(null);
+            if (import.meta.env.DEV) {
+              console.log(
+                'ℹ️ [FETCH RECIPES] Initial load returned 0 results - showing empty state'
+              );
+            }
+          } else if (trimmedQuery || includeIngredients.length > 0) {
+            // User searched for something specific
             setError(
               'No recipes found matching your search. Try different keywords, adjust your filters, or browse the featured recipes below.'
             );
           } else {
+            // Filters applied but no results
             setError(
               'No recipes matched your filters. Try adjusting your search criteria or browse the featured recipes below.'
             );
@@ -936,31 +1121,56 @@ const App = () => {
         setRecipes([]);
       } finally {
         setLoading(false);
+        isFetchingRef.current = false; // Reset fetching flag
       }
     },
     [
       filters.diet,
       filters.mealType,
       filters.maxTime,
+      filters.cuisine,
+      filters.difficulty,
+      filters.minProtein,
+      filters.maxCarbs,
+      filters.selectedIntolerances,
       pantry,
       filters.maxCalories,
       filters.healthScore,
-      // Removed recipesPerPage from deps to prevent duplicate fetches when it changes
+      recipesPerPage, // Need this for pagination calculations
+      // Removed from deps: loading (causes infinite loops)
       // handleItemsPerPageChange manually triggers fetchRecipes
     ]
   );
 
-  // Only fetch on mount
+  // Only fetch on mount - ensure recipes load on initial page load
   useEffect(() => {
-    fetchRecipes('', { allowEmpty: true });
+    if (import.meta.env.DEV) {
+      console.log('🚀 [APP] Initial mount - fetching recipes with allowEmpty: true');
+    }
+    // Use a small delay to ensure all context providers are ready
+    const timer = setTimeout(() => {
+      fetchRecipes('', { allowEmpty: true }).catch(err => {
+        if (import.meta.env.DEV) {
+          console.error('❌ [APP] Initial fetch failed:', err);
+        }
+      });
+    }, 100);
+
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Debounced search when filters change (but not on initial mount)
   const isInitialMount = React.useRef(true);
+
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
+      return;
+    }
+
+    // Prevent duplicate fetches
+    if (isFetchingRef.current) {
       return;
     }
 
@@ -972,16 +1182,33 @@ const App = () => {
     // Set new timeout
     filterDebounceRef.current = setTimeout(() => {
       setCurrentPage(1); // Reset to first page when filters change
-      fetchRecipes(lastSearch || '', { allowEmpty: true });
+      isFetchingRef.current = true;
+      fetchRecipes(lastSearch || '', { allowEmpty: true }).finally(() => {
+        isFetchingRef.current = false;
+      });
     }, 500);
+
+    // Cleanup function
+    return () => {
+      if (filterDebounceRef.current) {
+        clearTimeout(filterDebounceRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.diet,
     filters.mealType,
     filters.maxTime,
     pantry,
     filters.maxCalories,
+    filters.minProtein,
+    filters.maxCarbs,
     filters.healthScore,
-    fetchRecipes,
+    filters.cuisine,
+    filters.difficulty,
+    filters.selectedIntolerances,
+    // Removed fetchRecipes from deps to prevent infinite loops
+    // fetchRecipes is stable due to useCallback with proper deps
     lastSearch,
   ]);
 
@@ -1103,7 +1330,10 @@ const App = () => {
                   onRefresh={() => fetchRecipes(lastSearch || '', { allowEmpty: true })}
                 >
                   <main className="mx-auto max-w-7xl px-2 xs:px-3 sm:px-4 md:px-5 lg:px-6 xl:px-8 py-4 xs:py-6 sm:py-8">
-                    {/* Search Form - At the Very Top */}
+                    {/* Gamification Bubbles - Above Search */}
+                    <GamificationBubbles />
+
+                    {/* Search Form */}
                     <div className="mb-6 xs:mb-8 sm:mb-10">
                       <SearchForm onSearch={fetchRecipes} />
                     </div>
@@ -1111,109 +1341,6 @@ const App = () => {
                     {/* Daily Recipe Surprise */}
                     <div className="mb-4 xs:mb-6 sm:mb-8">
                       <DailyRecipe onRecipeSelect={toggleFavorite} />
-                    </div>
-
-                    {/* Modern Dashboard Layout - Hero + Side Cards */}
-                    <div className="mb-4 xs:mb-6 sm:mb-8">
-                      {/* Responsive Layout: Stacked on mobile, side-by-side on desktop */}
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
-                        {/* Left Side: Streak & Progress Cards (Stacked) */}
-                        <div className="lg:col-span-1 space-y-3 xs:space-y-4 sm:space-y-5">
-                          {/* Streak Card */}
-                          <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="group relative overflow-hidden bg-white dark:bg-slate-800 rounded-xl xs:rounded-2xl p-4 xs:p-5 sm:p-6 shadow-lg border-2 border-orange-200 dark:border-orange-800 hover:border-orange-400 dark:hover:border-orange-600 transition-all duration-300"
-                          >
-                            {/* Gradient Accent */}
-                            <div className="absolute top-0 left-0 right-0 h-0.5 xs:h-1 bg-gradient-to-r from-orange-500 via-red-500 to-pink-500"></div>
-
-                            <div className="flex items-start gap-3 xs:gap-4">
-                              <motion.div
-                                animate={{ scale: [1, 1.1, 1] }}
-                                transition={{ duration: 2, repeat: Infinity }}
-                                className="w-10 h-10 xs:w-12 xs:h-12 rounded-lg xs:rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg shrink-0"
-                              >
-                                <Flame className="w-5 h-5 xs:w-6 xs:h-6 text-white" />
-                              </motion.div>
-                              <div className="flex-1 min-w-0">
-                                <h3 className="text-base xs:text-lg font-bold text-slate-900 dark:text-white mb-0.5 xs:mb-1">
-                                  Cooking Streak
-                                </h3>
-                                <p className="text-xs text-slate-600 dark:text-slate-400 mb-2 xs:mb-3">
-                                  Keep the fire burning!
-                                </p>
-                                <StreakCounter size="default" showLongest={false} />
-                              </div>
-                            </div>
-                          </motion.div>
-
-                          {/* Progress Card */}
-                          <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.1 }}
-                            className="group relative overflow-hidden bg-white dark:bg-slate-800 rounded-xl xs:rounded-2xl p-4 xs:p-5 sm:p-6 shadow-lg border-2 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all duration-300"
-                          >
-                            {/* Gradient Accent */}
-                            <div className="absolute top-0 left-0 right-0 h-0.5 xs:h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500"></div>
-
-                            <div className="flex items-start gap-3 xs:gap-4">
-                              <motion.div
-                                animate={{ rotate: [0, 360] }}
-                                transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-                                className="w-10 h-10 xs:w-12 xs:h-12 rounded-lg xs:rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shrink-0"
-                              >
-                                <Sparkles className="w-5 h-5 xs:w-6 xs:h-6 text-white" />
-                              </motion.div>
-                              <div className="flex-1 min-w-0">
-                                <h3 className="text-base xs:text-lg font-bold text-slate-900 dark:text-white mb-0.5 xs:mb-1">
-                                  Your Progress
-                                </h3>
-                                <p className="text-xs text-slate-600 dark:text-slate-400 mb-2 xs:mb-3">
-                                  Level up and earn rewards!
-                                </p>
-                                <XPBar size="small" showLevel={true} showTitle={false} />
-                              </div>
-                            </div>
-                          </motion.div>
-                        </div>
-
-                        {/* Right Side: Challenges Card (Full Height) */}
-                        <motion.div
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.2 }}
-                          className="lg:col-span-2 group relative overflow-hidden bg-white dark:bg-slate-800 rounded-2xl p-5 sm:p-6 shadow-lg border-2 border-purple-200 dark:border-purple-800 hover:border-purple-400 dark:hover:border-purple-600 transition-all duration-300"
-                        >
-                          {/* Gradient Accent */}
-                          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500"></div>
-
-                          <div className="flex items-start gap-4 mb-4">
-                            <motion.div
-                              animate={{ y: [0, -5, 0] }}
-                              transition={{ duration: 2, repeat: Infinity }}
-                              className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shrink-0"
-                            >
-                              <Trophy className="w-6 h-6 text-white" />
-                            </motion.div>
-                            <div className="flex-1 min-w-0">
-                              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
-                                Daily Challenges
-                              </h3>
-                              <p className="text-xs text-slate-600 dark:text-slate-400">
-                                Complete challenges to earn XP!
-                              </p>
-                            </div>
-                          </div>
-
-                          <DailyChallenge
-                            onComplete={_challenge => {
-                              // Challenge completion handled internally
-                            }}
-                          />
-                        </motion.div>
-                      </div>
                     </div>
 
                     {/* Ad Banner (Top) */}
@@ -1236,9 +1363,25 @@ const App = () => {
                     {/* Smart Filters - Now using FilterContext */}
                     <Filters
                       onFiltersChange={useCallback(() => {
-                        // Filters are already persisted to localStorage
-                        // The debounced useEffect will handle the search automatically
-                      }, [])}
+                        // Trigger immediate search when Apply Filters is clicked
+                        // Clear any pending debounced searches
+                        if (filterDebounceRef.current) {
+                          clearTimeout(filterDebounceRef.current);
+                          filterDebounceRef.current = null;
+                        }
+                        // Reset to first page
+                        setCurrentPage(1);
+                        // Trigger search immediately (allowEmpty: true so filters work without search query)
+                        isFetchingRef.current = true;
+                        fetchRecipes(lastSearch || '', { allowEmpty: true })
+                          .catch(err => {
+                            console.error('Error applying filters:', err);
+                            // Error is already handled in fetchRecipes
+                          })
+                          .finally(() => {
+                            isFetchingRef.current = false;
+                          });
+                      }, [fetchRecipes, lastSearch])}
                     />
 
                     {loading && (
@@ -1377,6 +1520,9 @@ const App = () => {
 
           {/* Back to top button */}
           <BackToTop />
+
+          {/* PWA Install Prompt */}
+          <InstallPWA />
 
           {/* Cooking Mini Games */}
           <CookingMiniGames isOpen={miniGamesOpen} onClose={() => setMiniGamesOpen(false)} />

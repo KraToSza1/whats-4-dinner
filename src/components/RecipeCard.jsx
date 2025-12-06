@@ -92,7 +92,9 @@ function RecipeCard({ recipe, onFavorite, isFavorite, index = 0 }) {
       whileTap={{ scale: 0.98 }}
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
-      className="group cursor-pointer rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 shadow-sm hover:shadow-xl transition-all relative"
+      className="group cursor-pointer rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 shadow-sm hover:shadow-xl transition-all relative recipe-card"
+      data-testid="recipe-card"
+      data-recipe-id={id}
       onClick={handleOpen}
       role="button"
       aria-label={`View recipe: ${title}`}

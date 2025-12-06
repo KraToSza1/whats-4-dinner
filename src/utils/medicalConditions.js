@@ -486,15 +486,17 @@ export function initializeMedicalConditions() {
 }
 
 /**
- * Get active medical conditions data
+ * Get active medical conditions data (including family members)
  */
 export function getActiveMedicalConditions() {
   const data = getMedicalConditions();
-  if (!data) return initializeMedicalConditions();
+  const baseData = data || initializeMedicalConditions();
 
   const activeConditions = [];
-  if (data.conditions && Array.isArray(data.conditions)) {
-    data.conditions.forEach(conditionId => {
+
+  // Add user's conditions
+  if (baseData.conditions && Array.isArray(baseData.conditions)) {
+    baseData.conditions.forEach(conditionId => {
       const condition = MEDICAL_CONDITIONS.find(c => c.id === conditionId);
       if (condition) {
         activeConditions.push(condition);
@@ -503,8 +505,8 @@ export function getActiveMedicalConditions() {
   }
 
   // Add custom conditions
-  if (data.customConditions && Array.isArray(data.customConditions)) {
-    data.customConditions.forEach(custom => {
+  if (baseData.customConditions && Array.isArray(baseData.customConditions)) {
+    baseData.customConditions.forEach(custom => {
       activeConditions.push({
         id: custom.id,
         name: custom.name,
@@ -515,8 +517,36 @@ export function getActiveMedicalConditions() {
     });
   }
 
+  // Add family member medical conditions
+  try {
+    const familyData = JSON.parse(localStorage.getItem('family:members') || '[]');
+    if (Array.isArray(familyData) && familyData.length > 0) {
+      const familyConditionIds = new Set();
+      familyData.forEach(member => {
+        if (member?.medicalConditions && Array.isArray(member.medicalConditions)) {
+          member.medicalConditions.forEach(conditionId => {
+            familyConditionIds.add(conditionId);
+          });
+        }
+      });
+
+      // Add family conditions that aren't already in user's conditions
+      familyConditionIds.forEach(conditionId => {
+        // Check if condition already added
+        if (!activeConditions.find(c => c.id === conditionId)) {
+          const condition = MEDICAL_CONDITIONS.find(c => c.id === conditionId);
+          if (condition) {
+            activeConditions.push(condition);
+          }
+        }
+      });
+    }
+  } catch (_error) {
+    // Ignore family data errors - fail gracefully
+  }
+
   return {
-    ...data,
+    ...baseData,
     activeConditions,
   };
 }

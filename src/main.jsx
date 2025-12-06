@@ -27,6 +27,10 @@ if (typeof window !== 'undefined') {
 // Validate environment variables on startup
 validateEnvironment();
 
+// VitePWA automatically registers the service worker in production
+// The plugin injects registration code during build
+// No manual registration needed - VitePWA handles it via registerType: 'prompt'
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <AuthProvider>

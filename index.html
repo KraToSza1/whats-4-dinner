@@ -127,12 +127,13 @@
     </script>
 
     <!-- PWA -->
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#10b981" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="What's 4 Dinner" />
+    <link rel="apple-touch-icon" href="/logo.svg" />
 
     <!-- Paddle.js for checkout handling -->
     <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
@@ -140,7 +141,7 @@
   <body class="bg-slate-50 dark:bg-slate-950">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-    <!-- Service Worker is handled by VitePWA plugin - no manual registration needed -->
+    <!-- Service Worker is handled by VitePWA plugin - it will auto-register in production -->
     <script>
       // Suppress console warnings/errors for known non-critical issues
       const originalWarn = console.warn;
@@ -191,6 +192,10 @@
       };
 
       // Cleanup: Unregister old manual service worker if it exists
+      // Check if we're in dev mode (can't use import.meta in non-module script)
+      const isDev =
+        window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(registrations => {
           registrations.forEach(registration => {
@@ -202,19 +207,16 @@
                 registration.waiting?.scriptURL ||
                 '';
               if (scriptURL.includes('/sw.js')) {
-                if (import.meta.env.DEV) {
+                if (isDev) {
                   console.log('🔄 Unregistering old service worker:', registration.scope);
                 }
                 registration.unregister().then(() => {
-                  if (import.meta.env.DEV) {
+                  if (isDev) {
                     console.log('✅ Old service worker unregistered');
                   }
                   // Only reload in development to avoid disrupting production users
-                  if (
-                    window.location.hostname === 'localhost' ||
-                    window.location.hostname === '127.0.0.1'
-                  ) {
-                    if (import.meta.env.DEV) {
+                  if (isDev) {
+                    if (isDev) {
                       console.log('🔄 Reloading to activate new service worker...');
                     }
                     setTimeout(() => window.location.reload(), 1000);

@@ -56,6 +56,18 @@ export default function DailyRecipe({ onRecipeSelect }) {
           throw new Error('Invalid cached recipe structure');
         }
 
+        // CRITICAL: Only show recipes with complete nutrition
+        // If cached recipe doesn't have has_complete_nutrition flag, clear cache and fetch new one
+        if (parsed.has_complete_nutrition === false || parsed.hasCompleteNutrition === false) {
+          if (import.meta.env.DEV) {
+            console.warn(
+              '⚠️ [DAILY RECIPE] Cached recipe missing complete nutrition, clearing cache:',
+              parsed.id
+            );
+          }
+          throw new Error('Cached recipe missing complete nutrition');
+        }
+
         // Normalize field names for consistency
         if (!parsed.prepMinutes && parsed.prep_minutes !== undefined) {
           parsed.prepMinutes = Number(parsed.prep_minutes) || 0;
@@ -121,43 +133,62 @@ export default function DailyRecipe({ onRecipeSelect }) {
         if (recheckCached && recheckCachedDate === recheckToday && mounted && !ignore) {
           const parsed = JSON.parse(recheckCached);
 
-          // Normalize field names for consistency
-          if (!parsed.prepMinutes && parsed.prep_minutes !== undefined) {
-            parsed.prepMinutes = Number(parsed.prep_minutes) || 0;
-          }
-          if (!parsed.cookMinutes && parsed.cook_minutes !== undefined) {
-            parsed.cookMinutes = Number(parsed.cook_minutes) || 0;
-          }
+          // CRITICAL: Only show recipes with complete nutrition
+          // If cached recipe doesn't have has_complete_nutrition flag, skip cache and fetch new one
+          if (parsed.has_complete_nutrition === false || parsed.hasCompleteNutrition === false) {
+            if (import.meta.env.DEV) {
+              console.warn(
+                '⚠️ [DAILY RECIPE] Recheck: Cached recipe missing complete nutrition, fetching new:',
+                parsed.id
+              );
+            }
+            // Clear bad cache and continue to fetch
+            try {
+              localStorage.removeItem('dailyRecipe');
+              localStorage.removeItem('dailyRecipeDate');
+            } catch (_clearErr) {
+              // Ignore clear errors
+            }
+            // Continue to fetch new recipe below
+          } else {
+            // Normalize field names for consistency
+            if (!parsed.prepMinutes && parsed.prep_minutes !== undefined) {
+              parsed.prepMinutes = Number(parsed.prep_minutes) || 0;
+            }
+            if (!parsed.cookMinutes && parsed.cook_minutes !== undefined) {
+              parsed.cookMinutes = Number(parsed.cook_minutes) || 0;
+            }
 
-          // Ensure numeric values
-          parsed.prepMinutes = Number(parsed.prepMinutes) || 0;
-          parsed.cookMinutes = Number(parsed.cookMinutes) || 0;
+            // Ensure numeric values
+            parsed.prepMinutes = Number(parsed.prepMinutes) || 0;
+            parsed.cookMinutes = Number(parsed.cookMinutes) || 0;
 
-          // Recalculate readyInMinutes to ensure consistency (same as RecipeCard)
-          const prep = parsed.prepMinutes;
-          const cook = parsed.cookMinutes;
-          const calculatedReady = prep + cook;
-          parsed.readyInMinutes = calculatedReady || null;
+            // Recalculate readyInMinutes to ensure consistency (same as RecipeCard)
+            const prep = parsed.prepMinutes;
+            const cook = parsed.cookMinutes;
+            const calculatedReady = prep + cook;
+            parsed.readyInMinutes = calculatedReady || null;
 
-          // Ensure image URLs are correct (same structure as RecipeCard expects)
-          if (!parsed.heroImageUrl && parsed.image) {
-            parsed.heroImageUrl = parsed.image;
-          }
-          if (!parsed.image && parsed.heroImageUrl) {
-            parsed.image = parsed.heroImageUrl;
-          }
-          if (!parsed.heroImageUrl && !parsed.image && parsed.hero_image_url) {
-            parsed.heroImageUrl = parsed.hero_image_url;
-            parsed.image = parsed.hero_image_url;
-          }
+            // Ensure image URLs are correct (same structure as RecipeCard expects)
+            if (!parsed.heroImageUrl && parsed.image) {
+              parsed.heroImageUrl = parsed.image;
+            }
+            if (!parsed.image && parsed.heroImageUrl) {
+              parsed.image = parsed.heroImageUrl;
+            }
+            if (!parsed.heroImageUrl && !parsed.image && parsed.hero_image_url) {
+              parsed.heroImageUrl = parsed.hero_image_url;
+              parsed.image = parsed.hero_image_url;
+            }
 
-          if (!ignore && mounted) {
-            setDailyRecipe(parsed);
-            setLoading(false);
-            hasLoadedTodayRef.current = true;
-            isFetchingRef.current = false;
+            if (!ignore && mounted) {
+              setDailyRecipe(parsed);
+              setLoading(false);
+              hasLoadedTodayRef.current = true;
+              isFetchingRef.current = false;
+            }
+            return;
           }
-          return;
         }
 
         // If we reach here, we need to fetch a new recipe
@@ -167,12 +198,29 @@ export default function DailyRecipe({ onRecipeSelect }) {
         // 3. Cache parsing failed
 
         // Try Supabase first
+        // NOTE: getSupabaseRandomRecipe already filters for has_complete_nutrition: true
         let randomRecipe = null;
         try {
           randomRecipe = await getSupabaseRandomRecipe();
           if (!randomRecipe) {
             if (import.meta.env.DEV) {
-              console.warn('⚠️ [DAILY RECIPE] Supabase returned null');
+              console.warn(
+                '⚠️ [DAILY RECIPE] Supabase returned null (no complete recipes available)'
+              );
+            }
+          } else {
+            // Double-check that the recipe has complete nutrition (safety check)
+            if (
+              randomRecipe.has_complete_nutrition === false ||
+              randomRecipe.hasCompleteNutrition === false
+            ) {
+              if (import.meta.env.DEV) {
+                console.warn(
+                  '⚠️ [DAILY RECIPE] Recipe returned without complete nutrition, skipping:',
+                  randomRecipe.id
+                );
+              }
+              randomRecipe = null; // Skip this recipe
             }
           }
         } catch (supabaseError) {
@@ -184,7 +232,7 @@ export default function DailyRecipe({ onRecipeSelect }) {
 
         if (!randomRecipe) {
           throw new Error(
-            'No Supabase recipes available yet. Add more recipes to unlock the Daily Surprise.'
+            'No complete recipes available yet. Add more recipes with complete nutrition to unlock the Daily Surprise.'
           );
         }
 
@@ -205,6 +253,9 @@ export default function DailyRecipe({ onRecipeSelect }) {
             randomRecipe.heroImageUrl || randomRecipe.image || randomRecipe.hero_image_url || '',
           image:
             randomRecipe.image || randomRecipe.heroImageUrl || randomRecipe.hero_image_url || '',
+          // CRITICAL: Ensure has_complete_nutrition flag is set in cache
+          has_complete_nutrition: true,
+          hasCompleteNutrition: true,
         };
 
         localStorage.setItem('dailyRecipe', JSON.stringify(recipeToCache));

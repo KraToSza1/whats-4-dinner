@@ -245,6 +245,8 @@ function mapSupabaseRecipe(row) {
     diets: row.diets || [],
     author: row.author || 'Community',
     calories: row.calories || null,
+    has_complete_nutrition: row.has_complete_nutrition ?? true, // Preserve flag from database
+    hasCompleteNutrition: row.has_complete_nutrition ?? true, // Also include camelCase version
     source: 'supabase',
   };
 
@@ -699,7 +701,7 @@ export async function getSupabaseRandomRecipe() {
   const { data, error } = await supabase
     .from('recipes')
     .select(
-      'id,title,description,hero_image_url,prep_minutes,cook_minutes,servings,difficulty,cuisine,meal_types,diets,author,calories'
+      'id,title,description,hero_image_url,prep_minutes,cook_minutes,servings,difficulty,cuisine,meal_types,diets,author,calories,has_complete_nutrition'
     )
     .eq('has_complete_nutrition', true) // Only complete nutrition recipes
     .order('created_at', { ascending: true })
@@ -777,10 +779,23 @@ export async function searchSupabaseRecipes({
     // If no search query and no complex filters, use ultra-simple query
     const hasSearchQuery = trimmedQuery && trimmedQuery.length > 0;
     const hasIngredientFilters = filteredIngredients.length > 0;
+    // CRITICAL: "none" means no filter - don't treat it as a complex filter
+    const normalizedDietForCheck = typeof diet === 'string' ? diet.trim().toLowerCase() : '';
+    const normalizedMealTypeForCheck =
+      typeof mealType === 'string' ? mealType.trim().toLowerCase() : '';
+    const normalizedMaxTimeForCheck =
+      typeof maxTime === 'string' ? maxTime.trim().toLowerCase() : '';
+
     const hasComplexFilters =
-      (diet && diet !== 'any diet') ||
-      (mealType && mealType !== 'any meal') ||
-      (maxTime && maxTime !== 'any time') ||
+      (normalizedDietForCheck &&
+        normalizedDietForCheck !== 'any diet' &&
+        normalizedDietForCheck !== 'none') ||
+      (normalizedMealTypeForCheck &&
+        normalizedMealTypeForCheck !== 'any meal' &&
+        normalizedMealTypeForCheck !== 'none') ||
+      (normalizedMaxTimeForCheck &&
+        normalizedMaxTimeForCheck !== 'any time' &&
+        normalizedMaxTimeForCheck !== 'none') ||
       (cuisine && cuisine.length > 0) ||
       (difficulty && difficulty.length > 0);
 
@@ -798,6 +813,7 @@ export async function searchSupabaseRecipes({
             count: 'exact',
           }
         )
+        .eq('has_complete_nutrition', true) // CRITICAL: Only recipes with complete nutrition
         .order('created_at', { ascending: false })
         .range(validatedOffset, validatedOffset + validatedLimit - 1);
 
@@ -884,8 +900,9 @@ export async function searchSupabaseRecipes({
         }
 
         const timeoutMs = 30000;
+        let timeoutId;
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => {
+          timeoutId = setTimeout(() => {
             const elapsed = Date.now() - queryStartTime;
             if (import.meta.env.DEV) {
               console.error('⏰ [SEARCH API] Simple query TIMEOUT after', elapsed, 'ms');
@@ -923,6 +940,8 @@ export async function searchSupabaseRecipes({
             );
           }
         } catch (builderError) {
+          // Clear timeout if builder error occurs
+          if (timeoutId) clearTimeout(timeoutId);
           if (import.meta.env.DEV) {
             console.error('❌ [SEARCH API] Error creating query promise:', builderError);
           }
@@ -946,7 +965,16 @@ export async function searchSupabaseRecipes({
           });
         }
 
-        const result = await Promise.race([queryPromise, timeoutPromise]);
+        let result;
+        try {
+          result = await Promise.race([queryPromise, timeoutPromise]);
+          // Clear timeout if query completed successfully
+          if (timeoutId) clearTimeout(timeoutId);
+        } catch (error) {
+          // Clear timeout on error too
+          if (timeoutId) clearTimeout(timeoutId);
+          throw error;
+        }
         const elapsed = Date.now() - queryStartTime;
 
         if (import.meta.env.DEV) {
@@ -1000,6 +1028,7 @@ export async function searchSupabaseRecipes({
     }
 
     // Build complex query with filters
+    // CRITICAL: Always start with has_complete_nutrition filter for performance
     let builder = supabase
       .from('recipes')
       .select(
@@ -1008,6 +1037,7 @@ export async function searchSupabaseRecipes({
           count: 'exact',
         }
       )
+      .eq('has_complete_nutrition', true) // CRITICAL: Always filter for complete nutrition first
       .order('created_at', { ascending: false }) // Use created_at instead of updated_at (simpler index)
       .range(validatedOffset, validatedOffset + validatedLimit - 1); // Server-side pagination
 
@@ -1069,32 +1099,49 @@ export async function searchSupabaseRecipes({
     }
 
     // Apply filters with robust validation
-    const normalizedDiet = typeof diet === 'string' ? diet.trim() : '';
-    if (normalizedDiet && normalizedDiet.length > 0 && normalizedDiet.length <= 50) {
+    // CRITICAL: Skip filter if value is "none", "any diet", or "any meal" - these mean "no filter"
+    const normalizedDiet = typeof diet === 'string' ? diet.trim().toLowerCase() : '';
+    if (
+      normalizedDiet &&
+      normalizedDiet.length > 0 &&
+      normalizedDiet.length <= 50 &&
+      normalizedDiet !== 'none' &&
+      normalizedDiet !== 'any diet'
+    ) {
       try {
-        builder = builder.contains('diets', [normalizedDiet]);
+        builder = builder.contains('diets', [diet.trim()]); // Use original case for query
       } catch (dietError) {
         console.warn('[searchSupabaseRecipes] Error applying diet filter:', dietError);
       }
     }
 
-    const normalizedMealType = typeof mealType === 'string' ? mealType.trim() : '';
-    if (normalizedMealType && normalizedMealType.length > 0 && normalizedMealType.length <= 50) {
+    const normalizedMealType = typeof mealType === 'string' ? mealType.trim().toLowerCase() : '';
+    if (
+      normalizedMealType &&
+      normalizedMealType.length > 0 &&
+      normalizedMealType.length <= 50 &&
+      normalizedMealType !== 'none' &&
+      normalizedMealType !== 'any meal'
+    ) {
       try {
-        builder = builder.contains('meal_types', [normalizedMealType]);
+        builder = builder.contains('meal_types', [mealType.trim()]); // Use original case for query
       } catch (mealTypeError) {
         console.warn('[searchSupabaseRecipes] Error applying meal type filter:', mealTypeError);
       }
     }
 
+    // Max time filter - note: we filter by total time (prep + cook) client-side
+    // because Supabase doesn't support computed columns in filters
+    // For now, we'll apply a server-side optimization: filter recipes where both
+    // prep and cook are individually <= maxTime (this catches most cases)
+    // Then apply exact total time filter client-side
     const maxTimeNumber = Number(maxTime);
-    if (!Number.isNaN(maxTimeNumber) && maxTimeNumber > 0 && maxTimeNumber <= 10000) {
+    const hasMaxTime = !Number.isNaN(maxTimeNumber) && maxTimeNumber > 0 && maxTimeNumber <= 10000;
+    if (hasMaxTime) {
       try {
-        // Use AND logic with separate filters instead of OR to avoid query complexity
-        builder = builder.or(
-          `prep_minutes.lte.${maxTimeNumber},cook_minutes.lte.${maxTimeNumber}`,
-          { foreignTable: null }
-        );
+        // Server-side optimization: filter recipes where both prep AND cook are <= maxTime
+        // This catches most recipes that will pass the total time filter
+        builder = builder.lte('prep_minutes', maxTimeNumber).lte('cook_minutes', maxTimeNumber);
       } catch (timeError) {
         if (import.meta.env.DEV) {
           console.warn('[searchSupabaseRecipes] Error applying time filter:', timeError);
@@ -1102,27 +1149,43 @@ export async function searchSupabaseRecipes({
       }
     }
 
-    // Cuisine filter
-    const normalizedCuisine = typeof cuisine === 'string' ? cuisine.trim() : '';
-    if (normalizedCuisine && normalizedCuisine.length > 0 && normalizedCuisine.length <= 50) {
+    // Cuisine filter - validate and skip if empty or "none"
+    const normalizedCuisine = typeof cuisine === 'string' ? cuisine.trim().toLowerCase() : '';
+    if (
+      normalizedCuisine &&
+      normalizedCuisine.length > 0 &&
+      normalizedCuisine.length <= 50 &&
+      normalizedCuisine !== 'none' &&
+      normalizedCuisine !== 'any cuisine'
+    ) {
       try {
-        builder = builder.contains('cuisine', [normalizedCuisine]);
+        builder = builder.contains('cuisine', [cuisine.trim()]); // Use original case for query
       } catch (cuisineError) {
-        console.warn('[searchSupabaseRecipes] Error applying cuisine filter:', cuisineError);
+        if (import.meta.env.DEV) {
+          console.warn('[searchSupabaseRecipes] Error applying cuisine filter:', cuisineError);
+        }
       }
     }
 
-    // Difficulty filter
-    const normalizedDifficulty = typeof difficulty === 'string' ? difficulty.trim() : '';
+    // Difficulty filter - validate and skip if empty or "none"
+    const normalizedDifficulty =
+      typeof difficulty === 'string' ? difficulty.trim().toLowerCase() : '';
     if (
       normalizedDifficulty &&
       normalizedDifficulty.length > 0 &&
-      normalizedDifficulty.length <= 20
+      normalizedDifficulty.length <= 20 &&
+      normalizedDifficulty !== 'none' &&
+      normalizedDifficulty !== 'any difficulty'
     ) {
       try {
-        builder = builder.eq('difficulty', normalizedDifficulty);
+        builder = builder.eq('difficulty', difficulty.trim()); // Use original case for query
       } catch (difficultyError) {
-        console.warn('[searchSupabaseRecipes] Error applying difficulty filter:', difficultyError);
+        if (import.meta.env.DEV) {
+          console.warn(
+            '[searchSupabaseRecipes] Error applying difficulty filter:',
+            difficultyError
+          );
+        }
       }
     }
 
@@ -1189,8 +1252,10 @@ export async function searchSupabaseRecipes({
         console.log('⏱️ [SEARCH API] Executing query builder...');
       }
 
+      // Store timeout ID for cleanup
+      let timeoutId;
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
+        timeoutId = setTimeout(() => {
           const elapsed = Date.now() - queryStartTime;
           if (import.meta.env.DEV) {
             console.error('⏰ [SEARCH API] TIMEOUT after', elapsed, 'ms');
@@ -1205,7 +1270,14 @@ export async function searchSupabaseRecipes({
       }
 
       const result = await Promise.race([builder, timeoutPromise]);
+
+      // Clear timeout immediately after result
+      if (timeoutId) clearTimeout(timeoutId);
+
       const elapsed = Date.now() - queryStartTime;
+
+      // Clear timeout immediately after result
+      if (timeoutId) clearTimeout(timeoutId);
 
       if (import.meta.env.DEV) {
         console.log('✅ [SEARCH API] Query completed in', elapsed, 'ms');
@@ -1214,7 +1286,9 @@ export async function searchSupabaseRecipes({
           dataLength: result?.data?.length || 0,
           hasError: !!result?.error,
           errorMessage: result?.error?.message || 'none',
+          errorCode: result?.error?.code || 'none',
           count: result?.count ?? 'null',
+          isArray: Array.isArray(result?.data),
         });
       }
 
@@ -1222,6 +1296,16 @@ export async function searchSupabaseRecipes({
       data = result?.data || null;
       error = result?.error || null;
       count = result?.count ?? null;
+
+      // Validate result structure
+      if (result && !result.data && !result.error) {
+        if (import.meta.env.DEV) {
+          console.warn(
+            '⚠️ [SEARCH API] Result has no data or error - unexpected structure:',
+            result
+          );
+        }
+      }
     } catch (timeoutError) {
       const elapsed = Date.now() - queryStartTime;
 
@@ -1248,6 +1332,7 @@ export async function searchSupabaseRecipes({
             'id,title,description,hero_image_url,prep_minutes,cook_minutes,servings,difficulty,cuisine,meal_types,diets,author,calories,has_complete_nutrition,source',
             { count: 'exact' }
           )
+          .eq('has_complete_nutrition', true) // CRITICAL: Always filter for complete nutrition
           .order('created_at', { ascending: false })
           .range(validatedOffset, validatedOffset + validatedLimit - 1);
 
@@ -1305,18 +1390,71 @@ export async function searchSupabaseRecipes({
     }
 
     if (error) {
+      const errorDetails = {
+        message: error.message || 'Unknown error',
+        code: error.code || 'unknown',
+        details: error.details || null,
+        hint: error.hint || null,
+      };
+
       if (import.meta.env.DEV) {
-        console.error('❌ [SUPABASE ERROR] searchSupabaseRecipes failed:', {
-          error: error.message,
-          code: error.code,
-          details: error.details,
-        });
+        console.error('❌ [SUPABASE ERROR] searchSupabaseRecipes failed:', errorDetails);
+        console.error('❌ [SUPABASE ERROR] Full error object:', error);
       }
-      throw error;
+
+      // Provide user-friendly error messages based on error code
+      if (error.code === 'PGRST116' || error.message?.includes('timeout')) {
+        throw new Error('Search request timed out. Please try again with fewer filters.');
+      } else if (error.code === 'PGRST301' || error.message?.includes('permission')) {
+        throw new Error('Permission denied. Please check your database permissions.');
+      } else if (error.code === 'PGRST202' || error.message?.includes('not found')) {
+        throw new Error('Recipe not found. Please try a different search.');
+      } else if (error.message) {
+        throw new Error(`Search failed: ${error.message}`);
+      } else {
+        throw new Error('Search request failed. Please try again.');
+      }
+    }
+
+    // Validate data before mapping
+    if (!data) {
+      if (import.meta.env.DEV) {
+        console.warn('⚠️ [SEARCH API] No data returned from query');
+      }
+      return {
+        data: [],
+        totalCount: 0,
+      };
+    }
+
+    if (!Array.isArray(data)) {
+      if (import.meta.env.DEV) {
+        console.error('❌ [SEARCH API] Data is not an array:', typeof data, data);
+      }
+      return {
+        data: [],
+        totalCount: 0,
+      };
+    }
+
+    if (import.meta.env.DEV && data.length === 0) {
+      console.warn('⚠️ [SEARCH API] Query returned 0 results');
+      console.warn('⚠️ [SEARCH API] This might indicate:');
+      console.warn('⚠️ [SEARCH API]   1. No recipes match the filters');
+      console.warn('⚠️ [SEARCH API]   2. All recipes have has_complete_nutrition=false');
+      console.warn('⚠️ [SEARCH API]   3. Database is empty');
     }
 
     // Map all recipes - show recipes with or without images
-    let mapped = (data || []).map(mapSupabaseRecipe).filter(Boolean);
+    let mapped = data.map(mapSupabaseRecipe).filter(Boolean);
+
+    if (import.meta.env.DEV) {
+      console.log('✅ [SEARCH API] Mapped recipes:', {
+        rawCount: data.length,
+        mappedCount: mapped.length,
+        filteredOut: data.length - mapped.length,
+      });
+    }
 
     // If we have a text query, score and sort results by relevance with STRICT prioritization
     if (trimmedQuery && mapped.length > 0) {
@@ -1690,33 +1828,68 @@ export async function searchSupabaseRecipes({
     }
 
     // Apply client-side filters that aren't supported by database queries
+
+    // Max time filter - check total time (prep + cook)
+    if (hasMaxTime) {
+      mapped = mapped.filter(r => {
+        // Check readyInMinutes first (if available), otherwise calculate from prep + cook
+        const readyInMinutes = r.readyInMinutes || r.ready_in_minutes;
+        if (readyInMinutes && readyInMinutes > 0) {
+          return readyInMinutes <= maxTimeNumber;
+        }
+        // Fallback: calculate from prep + cook
+        const prep = r.prepMinutes || r.prep_minutes || 0;
+        const cook = r.cookMinutes || r.cook_minutes || 0;
+        const totalTime = prep + cook;
+        return totalTime > 0 && totalTime <= maxTimeNumber;
+      });
+    }
+
+    // Max calories filter
     if (hasMaxCalories) {
       mapped = mapped.filter(r => {
-        const recipeCalories = r.calories || r.nutrition?.calories || 0;
+        // Check calories from multiple possible locations
+        const recipeCalories =
+          r.calories ||
+          r.nutrition?.nutrients?.find(n => n.name === 'Calories')?.amount ||
+          r.nutrition?.calories ||
+          0;
         return recipeCalories > 0 && recipeCalories <= maxCaloriesNumber;
       });
     }
 
     if (hasHealthScore) {
-      // Health score filtering would require health score data in the database
-      // For now, we'll skip this filter or apply it if health score is available
       mapped = mapped.filter(r => {
-        // If health score is not available, include the recipe
-        // This can be enhanced when health score is added to the database
-        return true;
+        // Filter by health score if available
+        const recipeHealthScore = r.healthScore || r.health_score || null;
+        if (recipeHealthScore === null || recipeHealthScore === undefined) {
+          // If health score is not available, exclude the recipe (strict filtering)
+          return false;
+        }
+        return recipeHealthScore >= healthScoreNumber;
       });
     }
 
     if (hasMinProtein) {
       mapped = mapped.filter(r => {
-        const protein = r.nutrition?.protein || r.protein || 0;
+        // Check protein from multiple possible locations
+        const protein =
+          r.protein ||
+          r.nutrition?.nutrients?.find(n => n.name === 'Protein')?.amount ||
+          r.nutrition?.protein ||
+          0;
         return protein >= minProteinNumber;
       });
     }
 
     if (hasMaxCarbs) {
       mapped = mapped.filter(r => {
-        const carbs = r.nutrition?.carbs || r.carbs || 0;
+        // Check carbs from multiple possible locations
+        const carbs =
+          r.carbs ||
+          r.nutrition?.nutrients?.find(n => n.name === 'Carbohydrates')?.amount ||
+          r.nutrition?.carbs ||
+          0;
         return carbs > 0 && carbs <= maxCarbsNumber;
       });
     }
@@ -1729,9 +1902,70 @@ export async function searchSupabaseRecipes({
         .filter(Boolean);
       if (intoleranceList.length > 0) {
         mapped = mapped.filter(r => {
-          // Check if recipe contains any of the intolerances
-          // This would need ingredient data or intolerance tags in the database
-          // For now, we'll include all recipes (can be enhanced later)
+          // Check recipe diets - some diets exclude certain intolerances
+          const recipeDiets = Array.isArray(r.diets) ? r.diets.map(d => d.toLowerCase()) : [];
+
+          // Map intolerances to diet exclusions
+          const intoleranceToDietMap = {
+            dairy: ['vegan', 'dairy-free'],
+            egg: ['vegan'],
+            gluten: ['gluten free', 'gluten-free'],
+            wheat: ['gluten free', 'gluten-free'],
+            peanut: ['peanut-free'],
+            'tree nut': ['nut-free'],
+            seafood: ['pescetarian'], // pescetarian includes seafood, so exclude if seafood intolerant
+            shellfish: ['shellfish-free'],
+            soy: ['soy-free'],
+          };
+
+          // Check if recipe has a diet that excludes any intolerance
+          for (const intolerance of intoleranceList) {
+            const exclusionDiets = intoleranceToDietMap[intolerance] || [];
+            const hasExclusionDiet = exclusionDiets.some(diet =>
+              recipeDiets.some(rd => rd.includes(diet) || diet.includes(rd))
+            );
+
+            // If recipe doesn't have an exclusion diet, check ingredient names if available
+            if (
+              !hasExclusionDiet &&
+              r.extendedIngredients &&
+              Array.isArray(r.extendedIngredients)
+            ) {
+              const ingredientNames = r.extendedIngredients.map(ing =>
+                (ing.name || '').toLowerCase()
+              );
+
+              // Check if any ingredient name contains the intolerance
+              const hasIntoleranceIngredient = ingredientNames.some(name => {
+                // Check for exact match or partial match
+                return (
+                  name.includes(intolerance) ||
+                  (intolerance === 'dairy' &&
+                    (name.includes('milk') ||
+                      name.includes('cheese') ||
+                      name.includes('butter') ||
+                      name.includes('cream'))) ||
+                  (intolerance === 'gluten' &&
+                    (name.includes('wheat') || name.includes('flour') || name.includes('bread'))) ||
+                  (intolerance === 'peanut' && name.includes('peanut')) ||
+                  (intolerance === 'tree nut' &&
+                    (name.includes('almond') ||
+                      name.includes('walnut') ||
+                      name.includes('cashew') ||
+                      name.includes('pecan'))) ||
+                  (intolerance === 'soy' && (name.includes('soy') || name.includes('tofu')))
+                );
+              });
+
+              // If recipe contains an intolerance ingredient, exclude it
+              if (hasIntoleranceIngredient) {
+                return false;
+              }
+            }
+          }
+
+          // If recipe has exclusion diets for all intolerances, include it
+          // Otherwise, if we couldn't determine, include it (to avoid false negatives)
           return true;
         });
       }
