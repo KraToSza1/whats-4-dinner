@@ -42,6 +42,11 @@ import CookingMiniGames from './components/CookingMiniGames.jsx';
 import InstallPWA from './components/InstallPWA.jsx';
 import { GroceryListProvider } from './context/GroceryListContext.jsx';
 import { useFilters } from './context/FilterContext.jsx';
+import {
+  safeLocalStorage,
+  safeJSONParse,
+  safeJSONStringify,
+} from './utils/browserCompatibility.js';
 
 import { searchSupabaseRecipes } from './api/supabaseRecipes.js';
 import { filterRecipesByMedicalConditions } from './utils/medicalConditions.js';
@@ -72,8 +77,8 @@ const App = () => {
   const filters = useFilters(); // Use FilterContext
   const [recipes, setRecipes] = useState([]);
   const [favorites, setFavorites] = useState(() => {
-    const saved = localStorage.getItem('favorites');
-    return saved ? JSON.parse(saved) : [];
+    const saved = safeLocalStorage.getItem('favorites');
+    return saved ? safeJSONParse(saved, []) : [];
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -81,28 +86,28 @@ const App = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [recipesPerPage, setRecipesPerPage] = useState(() => {
     try {
-      const saved = localStorage.getItem('recipesPerPage');
+      const saved = safeLocalStorage.getItem('recipesPerPage');
       return saved ? Math.max(12, Math.min(120, parseInt(saved, 10))) : 24;
     } catch {
       return 24;
     }
   });
-  const [preferenceSummary, setPreferenceSummary] = useState(null);
+  const [_preferenceSummary, setPreferenceSummary] = useState(null);
   const [miniGamesOpen, setMiniGamesOpen] = useState(false);
-  const [pantry, setPantry] = useState(() => {
+  const [pantry, _setPantry] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('filters:pantry') || '[]');
+      return safeJSONParse(safeLocalStorage.getItem('filters:pantry'), []);
     } catch {
       return [];
     }
   }); // ["eggs","tomato"]
 
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+  const [theme, setTheme] = useState(() => safeLocalStorage.getItem('theme') || 'dark');
   const toggleTheme = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'));
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('theme', theme);
+    safeLocalStorage.setItem('theme', theme);
   }, [theme]);
 
   // Listen for mini games open event
@@ -256,7 +261,7 @@ const App = () => {
             // Get plan from stored checkout data
             const getCheckoutData = () => {
               try {
-                const checkoutDataStr = localStorage.getItem('paddle:checkout:data');
+                const checkoutDataStr = safeLocalStorage.getItem('paddle:checkout:data');
                 console.warn('🔍 [PADDLE CHECKOUT] Reading checkout data from localStorage:', {
                   hasData: !!checkoutDataStr,
                   dataLength: checkoutDataStr?.length || 0,
@@ -394,7 +399,7 @@ const App = () => {
                   console.warn('✅ [PADDLE CHECKOUT] Plan change event dispatched');
 
                   // Clean up stored checkout data
-                  localStorage.removeItem('paddle:checkout:data');
+                  safeLocalStorage.removeItem('paddle:checkout:data');
                   console.warn('✅ [PADDLE CHECKOUT] Checkout data cleaned up');
 
                   // Refresh page after a delay
@@ -538,7 +543,7 @@ const App = () => {
     return () => {
       window.removeEventListener('popstate', handlePopStateChange);
     };
-  }, []);
+  }, [toast]);
 
   // Initialize subscription plan on app load
   useEffect(() => {
@@ -548,7 +553,7 @@ const App = () => {
         const plan = await getCurrentPlan();
         // Dispatch event to notify components
         window.dispatchEvent(new CustomEvent('subscriptionPlanChanged', { detail: { plan } }));
-      } catch (error) {
+      } catch (_error) {
         // Plan initialization failed - user will see free plan
       }
     };
@@ -558,7 +563,7 @@ const App = () => {
   // Listen for subscription plan changes (from auth, payments, etc.)
   useEffect(() => {
     const handlePlanChange = async event => {
-      const { plan } = event.detail || {};
+      const { plan: _plan } = event.detail || {};
       // Plan changed - UI will update automatically
       // Force refresh of plan-dependent features
       // Components will re-check limits when they re-render
@@ -572,7 +577,7 @@ const App = () => {
     const paymentResult = checkPaymentSuccess();
     if (paymentResult?.success) {
       // Payment successful - force refresh from Supabase
-      const { plan } = paymentResult;
+      const { plan: _plan } = paymentResult;
       import('./utils/subscription.js').then(async subscriptionUtils => {
         // Clear cache to force fresh fetch from Supabase
         subscriptionUtils.clearPlanCache();
@@ -617,7 +622,7 @@ const App = () => {
   // Persist pantry chips (filters are now managed by FilterContext)
   useEffect(() => {
     try {
-      localStorage.setItem('filters:pantry', JSON.stringify(pantry));
+      safeLocalStorage.setItem('filters:pantry', safeJSONStringify(pantry));
     } catch (error) {
       console.warn('Failed to save pantry to localStorage:', error);
     }
@@ -762,12 +767,18 @@ const App = () => {
         // Execute search with timeout protection
         const page = options.page || 1;
         const offset = options.offset || (page - 1) * recipesPerPage;
-        const requestedLimit = limitOverride || recipesPerPage;
+        
+        // Increase limit when filters are active because client-side filtering removes many results
+        // This ensures we get enough recipes after filtering
+        const hasActiveFilters = filters.hasActiveFilters();
+        const baseLimit = limitOverride || recipesPerPage;
+        // If filters are active, fetch 3-4x more recipes to account for client-side filtering
+        const requestedLimit = hasActiveFilters ? Math.max(baseLimit * 3, 100) : baseLimit;
 
         if (import.meta.env.DEV) {
-          console.log('🔍 [FETCH RECIPES] ============================================');
-          console.log('🔍 [FETCH RECIPES] Starting recipe fetch');
-          console.log('🔍 [FETCH RECIPES] Params:', {
+          console.warn('🔍 [FETCH RECIPES] ============================================');
+          console.warn('🔍 [FETCH RECIPES] Starting recipe fetch');
+          console.warn('🔍 [FETCH RECIPES] Params:', {
             query: trimmedQuery || '(empty)',
             includeIngredients: includeIngredients.length,
             diet: normalizedDiet || 'none',
@@ -781,7 +792,7 @@ const App = () => {
             shouldShowDefaultFeed,
             timestamp: new Date().toISOString(),
           });
-          console.log('🔍 [FETCH RECIPES] ============================================');
+          console.warn('🔍 [FETCH RECIPES] ============================================');
         }
 
         const searchPromise = searchSupabaseRecipes({
@@ -814,7 +825,7 @@ const App = () => {
         });
 
         if (import.meta.env.DEV) {
-          console.log('🔄 [FETCH RECIPES] Racing search promise against timeout...');
+          console.warn('🔄 [FETCH RECIPES] Racing search promise against timeout...');
         }
 
         let searchResult;
@@ -831,8 +842,8 @@ const App = () => {
         const fetchElapsed = Date.now() - fetchStartTime;
 
         if (import.meta.env.DEV) {
-          console.log('✅ [FETCH RECIPES] Search completed in', fetchElapsed, 'ms');
-          console.log('✅ [FETCH RECIPES] Result:', {
+          console.warn('✅ [FETCH RECIPES] Search completed in', fetchElapsed, 'ms');
+          console.warn('✅ [FETCH RECIPES] Result:', {
             isArray: Array.isArray(searchResult),
             hasData: !!searchResult?.data,
             dataLength: Array.isArray(searchResult)
@@ -881,7 +892,7 @@ const App = () => {
         }
 
         if (import.meta.env.DEV) {
-          console.log('📊 [FETCH RECIPES] Query result:', {
+          console.warn('📊 [FETCH RECIPES] Query result:', {
             isArray: Array.isArray(searchResult),
             hasData: !!searchResult?.data,
             resultsLength: supabaseResults?.length || 0,
@@ -967,7 +978,7 @@ const App = () => {
             setRecipes(filteredResults);
 
             if (import.meta.env.DEV) {
-              console.log('✅ [FETCH RECIPES] Set recipes in state:', {
+              console.warn('✅ [FETCH RECIPES] Set recipes in state:', {
                 count: filteredResults.length,
                 originalCount: supabaseResults.length,
                 medicalFiltered: filteredResults.length !== supabaseResults.length,
@@ -1059,7 +1070,7 @@ const App = () => {
             // Initial load with no filters - don't show error, just empty state
             setError(null);
             if (import.meta.env.DEV) {
-              console.log(
+              console.warn(
                 'ℹ️ [FETCH RECIPES] Initial load returned 0 results - showing empty state'
               );
             }
@@ -1145,7 +1156,7 @@ const App = () => {
   // Only fetch on mount - ensure recipes load on initial page load
   useEffect(() => {
     if (import.meta.env.DEV) {
-      console.log('🚀 [APP] Initial mount - fetching recipes with allowEmpty: true');
+      console.warn('🚀 [APP] Initial mount - fetching recipes with allowEmpty: true');
     }
     // Use a small delay to ensure all context providers are ready
     const timer = setTimeout(() => {
@@ -1234,7 +1245,7 @@ const App = () => {
 
       const updated = exists ? favorites.filter(f => f.id !== recipe.id) : [recipe, ...favorites];
       setFavorites(updated);
-      localStorage.setItem('favorites', JSON.stringify(updated));
+      safeLocalStorage.setItem('favorites', safeJSONStringify(updated));
 
       // Track interaction
       if (recipe?.id) {
@@ -1298,7 +1309,7 @@ const App = () => {
   const handleItemsPerPageChange = async newPerPage => {
     // Prevent duplicate fetches by updating state first, then fetching
     setRecipesPerPage(newPerPage);
-    localStorage.setItem('recipesPerPage', newPerPage.toString());
+    safeLocalStorage.setItem('recipesPerPage', newPerPage.toString());
     setCurrentPage(1); // Reset to first page
 
     // Always re-fetch recipes with the new limit to ensure we have enough recipes
@@ -1363,7 +1374,7 @@ const App = () => {
                     {/* Smart Filters - Now using FilterContext */}
                     <Filters
                       onFiltersChange={useCallback(() => {
-                        // Trigger immediate search when Apply Filters is clicked
+                        // Trigger immediate search when Apply Filters is clicked or preset is applied
                         // Clear any pending debounced searches
                         if (filterDebounceRef.current) {
                           clearTimeout(filterDebounceRef.current);
@@ -1372,15 +1383,16 @@ const App = () => {
                         // Reset to first page
                         setCurrentPage(1);
                         // Trigger search immediately (allowEmpty: true so filters work without search query)
-                        isFetchingRef.current = true;
-                        fetchRecipes(lastSearch || '', { allowEmpty: true })
-                          .catch(err => {
-                            console.error('Error applying filters:', err);
-                            // Error is already handled in fetchRecipes
-                          })
-                          .finally(() => {
-                            isFetchingRef.current = false;
-                          });
+                        // Use a delay to ensure filter state has updated in React
+                        setTimeout(() => {
+                          // fetchRecipes will read filters from context directly, so they'll be up-to-date
+                          // fetchRecipes manages isFetchingRef internally, so we don't set it here
+                          fetchRecipes(lastSearch || '', { allowEmpty: true })
+                            .catch(err => {
+                              console.error('Error applying filters:', err);
+                              // Error is already handled in fetchRecipes
+                            });
+                        }, 300);
                       }, [fetchRecipes, lastSearch])}
                     />
 

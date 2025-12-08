@@ -8,6 +8,11 @@ import { recipeImg, fallbackOnce } from '../utils/img.ts';
 import { LoadingFoodAnimation } from './LottieFoodAnimations.jsx';
 import { RotatingFoodLoader } from './FoodLoaders.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import {
+  safeLocalStorage,
+  safeJSONParse,
+  safeJSONStringify,
+} from '../utils/browserCompatibility.js';
 
 export default function DailyRecipe({ onRecipeSelect }) {
   const navigate = useNavigate();
@@ -20,7 +25,7 @@ export default function DailyRecipe({ onRecipeSelect }) {
   // Removed: failedRecipeIds and refreshAttempts - no longer needed since we disabled image error refresh logic
   const [streak, setStreak] = useState(() => {
     try {
-      return parseInt(localStorage.getItem('dailyStreak') || '0', 10);
+      return parseInt(safeLocalStorage.getItem('dailyStreak') || '0', 10);
     } catch {
       return 0;
     }
@@ -38,8 +43,8 @@ export default function DailyRecipe({ onRecipeSelect }) {
     let cachedDate = null;
 
     try {
-      cached = localStorage.getItem('dailyRecipe');
-      cachedDate = localStorage.getItem('dailyRecipeDate');
+      cached = safeLocalStorage.getItem('dailyRecipe');
+      cachedDate = safeLocalStorage.getItem('dailyRecipeDate');
     } catch (err) {
       if (import.meta.env.DEV) {
         console.warn('⚠️ [DAILY RECIPE] Error reading localStorage:', err);
@@ -110,8 +115,8 @@ export default function DailyRecipe({ onRecipeSelect }) {
           console.warn('⚠️ [DAILY RECIPE] Error parsing cached recipe, clearing cache:', err);
         }
         try {
-          localStorage.removeItem('dailyRecipe');
-          localStorage.removeItem('dailyRecipeDate');
+          safeLocalStorage.removeItem('dailyRecipe');
+          safeLocalStorage.removeItem('dailyRecipeDate');
         } catch (_clearErr) {
           // Ignore clear errors
         }
@@ -126,8 +131,8 @@ export default function DailyRecipe({ onRecipeSelect }) {
     const fetchDailyRecipe = async () => {
       try {
         // Triple-check cache wasn't set while we were waiting (shouldn't happen, but safety check)
-        const recheckCached = localStorage.getItem('dailyRecipe');
-        const recheckCachedDate = localStorage.getItem('dailyRecipeDate');
+        const recheckCached = safeLocalStorage.getItem('dailyRecipe');
+        const recheckCachedDate = safeLocalStorage.getItem('dailyRecipeDate');
         const recheckToday = new Date().toDateString();
 
         if (recheckCached && recheckCachedDate === recheckToday && mounted && !ignore) {
@@ -258,8 +263,8 @@ export default function DailyRecipe({ onRecipeSelect }) {
           hasCompleteNutrition: true,
         };
 
-        localStorage.setItem('dailyRecipe', JSON.stringify(recipeToCache));
-        localStorage.setItem('dailyRecipeDate', today);
+        safeLocalStorage.setItem('dailyRecipe', safeJSONStringify(recipeToCache, '{}'));
+        safeLocalStorage.setItem('dailyRecipeDate', today);
 
         if (!ignore && mounted) {
           setDailyRecipe(recipeToCache);
@@ -290,7 +295,7 @@ export default function DailyRecipe({ onRecipeSelect }) {
   useEffect(() => {
     const checkNewDay = () => {
       const today = new Date().toDateString();
-      const cachedDate = localStorage.getItem('dailyRecipeDate');
+      const cachedDate = safeLocalStorage.getItem('dailyRecipeDate');
 
       // Reset the loaded flag if it's a new day
       if (cachedDate !== today) {
@@ -310,7 +315,7 @@ export default function DailyRecipe({ onRecipeSelect }) {
       triggerHaptic('light');
 
       // Track interaction for streak
-      const lastCheck = localStorage.getItem('lastDailyCheck');
+      const lastCheck = safeLocalStorage.getItem('lastDailyCheck');
       const today = new Date().toDateString();
 
       if (lastCheck !== today) {
@@ -322,14 +327,14 @@ export default function DailyRecipe({ onRecipeSelect }) {
           // Continue streak
           const newStreak = streak + 1;
           setStreak(newStreak);
-          localStorage.setItem('dailyStreak', String(newStreak));
+          safeLocalStorage.setItem('dailyStreak', String(newStreak));
         } else {
           // Reset streak
           setStreak(1);
-          localStorage.setItem('dailyStreak', '1');
+          safeLocalStorage.setItem('dailyStreak', '1');
         }
 
-        localStorage.setItem('lastDailyCheck', today);
+        safeLocalStorage.setItem('lastDailyCheck', today);
       }
 
       navigate(`/recipe/${dailyRecipe.id}`, { state: { recipe: dailyRecipe } });

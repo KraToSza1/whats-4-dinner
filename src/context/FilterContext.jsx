@@ -1,4 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import {
+  safeLocalStorage,
+  safeJSONParse,
+  safeJSONStringify,
+} from '../utils/browserCompatibility.js';
 
 const FilterContext = createContext(null);
 
@@ -6,10 +11,10 @@ export function FilterProvider({ children }) {
   // Load initial state from localStorage
   const loadFromStorage = (key, defaultValue) => {
     try {
-      const stored = localStorage.getItem(key);
+      const stored = safeLocalStorage.getItem(key);
       if (stored) {
         if (key.includes('selectedIntolerances')) {
-          return JSON.parse(stored);
+          return safeJSONParse(stored, defaultValue);
         }
         return stored;
       }
@@ -38,17 +43,20 @@ export function FilterProvider({ children }) {
   // Persist to localStorage whenever filters change
   useEffect(() => {
     try {
-      localStorage.setItem('filters:diet', diet);
-      localStorage.setItem('filters:intolerances', intolerances);
-      localStorage.setItem('filters:maxTime', maxTime);
-      localStorage.setItem('filters:mealType', mealType);
-      localStorage.setItem('filters:maxCalories', maxCalories);
-      localStorage.setItem('filters:healthScore', healthScore);
-      localStorage.setItem('filters:cuisine', cuisine);
-      localStorage.setItem('filters:difficulty', difficulty);
-      localStorage.setItem('filters:minProtein', minProtein);
-      localStorage.setItem('filters:maxCarbs', maxCarbs);
-      localStorage.setItem('filters:selectedIntolerances', JSON.stringify(selectedIntolerances));
+      safeLocalStorage.setItem('filters:diet', diet);
+      safeLocalStorage.setItem('filters:intolerances', intolerances);
+      safeLocalStorage.setItem('filters:maxTime', maxTime);
+      safeLocalStorage.setItem('filters:mealType', mealType);
+      safeLocalStorage.setItem('filters:maxCalories', maxCalories);
+      safeLocalStorage.setItem('filters:healthScore', healthScore);
+      safeLocalStorage.setItem('filters:cuisine', cuisine);
+      safeLocalStorage.setItem('filters:difficulty', difficulty);
+      safeLocalStorage.setItem('filters:minProtein', minProtein);
+      safeLocalStorage.setItem('filters:maxCarbs', maxCarbs);
+      safeLocalStorage.setItem(
+        'filters:selectedIntolerances',
+        safeJSONStringify(selectedIntolerances, '[]')
+      );
     } catch (error) {
       console.warn('Failed to save filters to localStorage:', error);
     }

@@ -42,8 +42,8 @@ try {
       })
     );
   } else {
-    const parsed = JSON.parse(stored);
     // Admin session exists
+    JSON.parse(stored);
   }
 } catch (e) {
   console.error('🔑 [ADMIN INIT] ❌ Failed to auto-enable admin:', e);
@@ -57,11 +57,22 @@ try {
  */
 export function isAdmin(user) {
   if (!user?.email) {
+    if (import.meta.env.DEV) {
+      console.warn('🔑 [ADMIN] ❌ No user email provided');
+    }
     return false;
   }
 
   const userEmail = user.email.toLowerCase().trim();
   const isAdminUser = ADMIN_EMAILS.includes(userEmail);
+
+  if (import.meta.env.DEV) {
+    console.warn('🔑 [ADMIN] Checking admin access:', {
+      userEmail,
+      adminEmails: ADMIN_EMAILS,
+      isAdmin: isAdminUser,
+    });
+  }
 
   return isAdminUser;
 }
@@ -118,7 +129,7 @@ export function isAdminModeEnabled() {
           return true;
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // Ignore errors
     }
 

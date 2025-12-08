@@ -25,7 +25,9 @@
     "test:e2e": "node scripts/test-e2e-user-journey.js",
     "test:features": "node scripts/test-comprehensive-features.js",
     "test:scenarios": "node scripts/test-all-scenarios.js",
-    "test:all": "npm run test:features && npm run test:scenarios"
+    "test:everything": "node scripts/test-everything.js",
+    "test:all": "npm run test:everything",
+    "inspect:db": "node scripts/inspect-database.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.80.0",
@@ -36,10 +38,10 @@
     "framer-motion": "^12.23.12",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.555.0",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "react-is": "^19.2.0",
-    "react-router-dom": "^7.8.2",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "react-is": "^19.2.1",
+    "react-router-dom": "^7.10.1",
     "recharts": "^3.4.1",
     "stripe": "^20.0.0"
   },

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+/* eslint-env node */
+/* global process */
 
 /**
  * Comprehensive End-to-End User Journey Test
@@ -44,6 +46,7 @@ const colors = {
 };
 
 function log(message, color = 'reset') {
+  // eslint-disable-next-line no-console
   console.log(`${colors[color]}${message}${colors.reset}`);
 }
 
@@ -134,6 +137,7 @@ async function setupBrowser() {
         !text.includes('Failed to load resource') &&
         !text.includes('NS_BINDING_ABORTED')
       ) {
+        // eslint-disable-next-line no-console
         console.log(`[Browser ${type}]:`, text);
       }
     }
@@ -151,12 +155,12 @@ async function setupBrowser() {
   return { browser, page };
 }
 
-// Helper: Wait for element
-async function waitForElement(page, selector, timeout = TEST_CONFIG.waitForSelectorTimeout) {
+// Helper: Wait for element (unused but kept for potential future use)
+async function _waitForElement(page, selector, timeout = TEST_CONFIG.waitForSelectorTimeout) {
   try {
     await page.waitForSelector(selector, { timeout });
     return true;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }
@@ -206,7 +210,8 @@ async function testHomepage(page) {
       page,
       'input[type="text"], input[placeholder*="search" i], input[placeholder*="ingredient" i]'
     );
-    const hasRecipes = await elementExists(page, '[class*="recipe"], [class*="card"], article');
+    // Check for recipes (unused but kept for potential future validation)
+    await elementExists(page, '[class*="recipe"], [class*="card"], article');
 
     if (hasHeader && hasSearch) {
       logTest('Homepage loads and displays correctly', 'passed');

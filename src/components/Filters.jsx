@@ -1,8 +1,10 @@
 ﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from './Toast.jsx';
 import { hasFeature } from '../utils/subscription.js';
 import { useFilters } from '../context/FilterContext.jsx';
+import { safeLocalStorage, safeJSONParse } from '../utils/browserCompatibility.js';
 import { X, Filter, ChevronDown, Sparkles, Save, RotateCcw } from 'lucide-react';
 
 const DIETS = [
@@ -84,8 +86,8 @@ const FILTER_PRESETS = [
   {
     id: 'low-carb',
     name: '🥑 Low Carb',
-    description: 'Keto-friendly options',
-    filters: { diet: 'keto', maxCarbs: '20' },
+    description: 'Low-carb and keto-friendly options',
+    filters: { diet: 'low-carb', maxCarbs: '20' },
   },
   {
     id: 'family-friendly',
@@ -98,7 +100,7 @@ const FILTER_PRESETS = [
 // Get user's favorite recipes to suggest filters
 function getUserFavoriteFilters() {
   try {
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+    const favorites = safeJSONParse(safeLocalStorage.getItem('favorites'), []);
     const filters = {
       diets: new Set(),
       mealTypes: new Set(),
@@ -187,6 +189,11 @@ export default function Filters({ onFiltersChange, compact = false }) {
   };
 
   const applyPreset = preset => {
+    if (import.meta.env.DEV) {
+      console.warn('🎯 [FILTERS] Applying preset:', preset.name, preset.filters);
+    }
+
+    // Apply all preset filters
     if (preset.filters.diet) filters.setDiet(preset.filters.diet);
     if (preset.filters.maxTime) filters.setMaxTime(preset.filters.maxTime);
     if (preset.filters.healthScore) filters.setHealthScore(preset.filters.healthScore);
@@ -194,13 +201,19 @@ export default function Filters({ onFiltersChange, compact = false }) {
     if (preset.filters.maxCarbs) filters.setMaxCarbs(preset.filters.maxCarbs);
     if (preset.filters.difficulty) filters.setDifficulty(preset.filters.difficulty);
     if (preset.filters.cuisine) filters.setCuisine(preset.filters.cuisine);
-    toast.success(`Applied preset: ${preset.name}`);
-    // Trigger search after applying preset (with small delay to ensure state updates)
+
+    // Removed toast - too annoying
+    // Trigger search after preset filters are applied (longer delay to ensure state updates)
     setTimeout(() => {
       if (onFiltersChange) {
-        onFiltersChange(filters.getActiveFilters());
+        // Get fresh filters from context to ensure they're updated
+        const activeFilters = filters.getActiveFilters();
+        if (import.meta.env.DEV) {
+          console.warn('🔍 [FILTERS] Triggering search with filters:', activeFilters);
+        }
+        onFiltersChange(activeFilters);
       }
-    }, 100);
+    }, 300);
   };
 
   const suggestFilters = () => {
@@ -216,18 +229,24 @@ export default function Filters({ onFiltersChange, compact = false }) {
     if (timeBasedMeal && !filters.mealType) {
       filters.setMealType(timeBasedMeal);
     }
-    toast.success('Applied smart filter suggestions!');
+    // Removed toast - too annoying
     // Trigger search after suggesting filters (with small delay to ensure state updates)
     setTimeout(() => {
       if (onFiltersChange) {
         onFiltersChange(filters.getActiveFilters());
       }
-    }, 100);
+    }, 150);
   };
 
   const reset = () => {
     filters.resetFilters();
-    toast.success('All filters cleared');
+    // Removed toast - too annoying
+    // Trigger search after clearing filters
+    setTimeout(() => {
+      if (onFiltersChange) {
+        onFiltersChange(filters.getActiveFilters());
+      }
+    }, 100);
   };
 
   // Compact mode for smaller displays
@@ -318,10 +337,17 @@ export default function Filters({ onFiltersChange, compact = false }) {
                     onClick={() => {
                       // Trigger immediate search with current filters
                       if (onFiltersChange) {
-                        onFiltersChange(filters.getActiveFilters());
+                        // Get fresh filters from context
+                        const activeFilters = filters.getActiveFilters();
+                        if (import.meta.env.DEV) {
+                          console.warn(
+                            '🔍 [FILTERS] Apply button clicked, filters:',
+                            activeFilters
+                          );
+                        }
+                        onFiltersChange(activeFilters);
                       }
-                      // Also trigger toast feedback
-                      toast.success('Applying filters...', 1000);
+                      // Removed toast - too annoying
                     }}
                     className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-1 min-h-[36px] touch-manipulation"
                     type="button"

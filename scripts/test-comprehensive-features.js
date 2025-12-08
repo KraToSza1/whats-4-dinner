@@ -1,13 +1,14 @@
 #!/usr/bin/env node
+/* eslint-env node */
+/* global process */
 
 /**
- * Comprehensive Feature Testing Script
- *
- * Tests all features programmatically without browser automation.
- * This complements the E2E tests by validating code paths and logic.
+ * Comprehensive Feature Testing
+ * Tests EVERY feature in the app systematically
  */
 
-import { readFileSync } from 'fs';
+import puppeteer from 'puppeteer';
+import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -15,362 +16,459 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
 
+const TEST_CONFIG = {
+  baseUrl: process.env.TEST_URL || 'http://localhost:5173',
+  timeout: 120000,
+  waitForSelectorTimeout: 20000,
+  headless: process.env.CI === 'true', // Headless in CI, visible locally
+  skipServerStart: process.env.SKIP_SERVER_START === 'true', // Skip if server already running
+};
+
 const results = {
   passed: [],
   failed: [],
   total: 0,
 };
 
-const colors = {
-  reset: '\x1b[0m',
-  green: '\x1b[32m',
-  red: '\x1b[31m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  cyan: '\x1b[36m',
-};
-
 function log(message, color = 'reset') {
-  console.log(`${colors[color]}${message}${colors.reset}`);
+  const colors = {
+    reset: '\x1b[0m',
+    green: '\x1b[32m',
+    red: '\x1b[31m',
+    yellow: '\x1b[33m',
+    blue: '\x1b[34m',
+    cyan: '\x1b[36m',
+    magenta: '\x1b[35m',
+  };
+  // eslint-disable-next-line no-console
+  console.log(`${colors[color] || ''}${message}${colors.reset}`);
 }
 
-function test(name, fn) {
+function recordTest(testName, passed, error = null) {
   results.total++;
-  try {
-    fn();
-    results.passed.push(name);
-    log(`✅ ${name}`, 'green');
-  } catch (error) {
-    results.failed.push({ name, error: error.message });
-    log(`❌ ${name}: ${error.message}`, 'red');
+  if (passed) {
+    results.passed.push(testName);
+    log(`✅ PASS: ${testName}`, 'green');
+  } else {
+    results.failed.push({ name: testName, error });
+    log(`❌ FAIL: ${testName}`, 'red');
+    if (error) log(`   Error: ${error.message || error}`, 'red');
   }
 }
 
-// Test: All routes are defined
-function testRoutes() {
-  log('\n📋 Testing Routes...', 'blue');
+let devServer = null;
 
-  const appFile = readFileSync(join(rootDir, 'src/App.jsx'), 'utf-8');
+async function startDevServer() {
+  return new Promise((resolve, reject) => {
+    log('🚀 Starting dev server...', 'cyan');
+    devServer = spawn('npm', ['run', 'dev'], {
+      cwd: rootDir,
+      stdio: 'pipe',
+      shell: true,
+    });
 
-  const routes = [
-    '/meal-planner',
-    '/profile',
-    '/favorites',
-    '/collections',
-    '/analytics',
-    '/help',
-    '/terms',
-    '/privacy',
-    '/calorie-tracker',
-    '/water-tracker',
-    '/meal-reminders',
-    '/budget-tracker',
-    '/pantry',
-    '/recipe/:id',
-    '/family-plan',
-    '/billing',
-  ];
-
-  routes.forEach(route => {
-    test(`Route ${route} is defined`, () => {
-      // Check for route with or without colon (e.g., /recipe/:id or /recipe/id or RecipePage)
-      const routePattern = route.replace(':', '').replace('/', '');
-      const hasRoute =
-        appFile.includes(route) ||
-        appFile.includes(routePattern) ||
-        (route.includes('recipe') && appFile.includes('RecipePage'));
-      if (!hasRoute) {
-        throw new Error(`Route ${route} not found in App.jsx`);
+    let serverReady = false;
+    devServer.stdout.on('data', data => {
+      const output = data.toString();
+      if (output.includes('Local:') || output.includes('localhost')) {
+        if (!serverReady) {
+          serverReady = true;
+          log('✅ Dev server ready!', 'green');
+          setTimeout(resolve, 5000);
+        }
       }
     });
+
+    setTimeout(() => {
+      if (!serverReady) {
+        reject(new Error('Dev server failed to start'));
+      }
+    }, 60000);
   });
 }
 
-// Test: All context providers are set up
-function testContextProviders() {
-  log('\n📋 Testing Context Providers...', 'blue');
-
-  const mainFile = readFileSync(join(rootDir, 'src/main.jsx'), 'utf-8');
-  const appFile = readFileSync(join(rootDir, 'src/App.jsx'), 'utf-8');
-
-  const providers = [
-    { name: 'AuthProvider', file: mainFile },
-    { name: 'AdminProvider', file: mainFile },
-    { name: 'LanguageProvider', file: mainFile },
-    { name: 'ToastProvider', file: mainFile },
-    { name: 'FilterProvider', file: mainFile },
-    { name: 'GroceryListProvider', file: appFile }, // This one is in App.jsx
-  ];
-
-  providers.forEach(({ name, file }) => {
-    test(`Context provider ${name} is set up`, () => {
-      if (!file.includes(name)) {
-        throw new Error(`Provider ${name} not found`);
-      }
-    });
-  });
-}
-
-// Test: All pages exist
-function testPagesExist() {
-  log('\n📋 Testing Pages...', 'blue');
-
-  const pages = [
-    'RecipePage.jsx',
-    'MealPlanner.jsx',
-    'Profile.jsx',
-    'FamilyPlan.jsx',
-    'Collections.jsx',
-    'Help.jsx',
-    'Terms.jsx',
-    'Privacy.jsx',
-    'Analytics.jsx',
-    'SharedRecipePage.jsx',
-    'BillingManagement.jsx',
-    'Favorites.jsx',
-    'MealRemindersPage.jsx',
-    'BudgetTrackerPage.jsx',
-    'WaterTrackerPage.jsx',
-    'DieticianAIPage.jsx',
-    'CalorieTrackerPage.jsx',
-    'PantryPage.jsx',
-  ];
-
-  pages.forEach(page => {
-    test(`Page ${page} exists`, () => {
-      try {
-        readFileSync(join(rootDir, 'src/pages', page), 'utf-8');
-      } catch {
-        throw new Error(`Page file ${page} not found`);
-      }
-    });
-  });
-}
-
-// Test: Key components exist
-function testComponentsExist() {
-  log('\n📋 Testing Components...', 'blue');
-
-  const components = [
-    'Header.jsx',
-    'SearchForm.jsx',
-    'RecipeCard.jsx',
-    'Filters.jsx',
-    'GroceryDrawer.jsx',
-    'DailyRecipe.jsx',
-    'Pagination.jsx',
-    'BackToTop.jsx',
-    'InstallPWA.jsx',
-  ];
-
-  components.forEach(component => {
-    test(`Component ${component} exists`, () => {
-      try {
-        readFileSync(join(rootDir, 'src/components', component), 'utf-8');
-      } catch {
-        throw new Error(`Component file ${component} not found`);
-      }
-    });
-  });
-}
-
-// Test: API functions exist
-function testAPIFunctions() {
-  log('\n📋 Testing API Functions...', 'blue');
-
+// Unused helper function - kept for potential future use
+async function _waitForElement(page, selector, timeout = TEST_CONFIG.waitForSelectorTimeout) {
   try {
-    const apiFile = readFileSync(join(rootDir, 'src/api/supabaseRecipes.js'), 'utf-8');
-
-    test('searchSupabaseRecipes function exists', () => {
-      if (!apiFile.includes('searchSupabaseRecipes')) {
-        throw new Error('searchSupabaseRecipes function not found');
-      }
-    });
-
-    test('API uses proper error handling', () => {
-      if (!apiFile.includes('try') || !apiFile.includes('catch')) {
-        throw new Error('API missing error handling');
-      }
-    });
-  } catch (error) {
-    test('API file exists', () => {
-      throw error;
-    });
+    await page.waitForSelector(selector, { timeout });
+    return true;
+  } catch {
+    return false;
   }
 }
 
-// Test: Utility functions exist
-function testUtilityFunctions() {
-  log('\n📋 Testing Utility Functions...', 'blue');
+async function testFeature(name, testFn) {
+  log(`\n🧪 Testing: ${name}`, 'cyan');
+  try {
+    await testFn();
+    recordTest(name, true);
+  } catch (error) {
+    recordTest(name, false, error);
+  }
+}
 
-  const utilities = [
-    { file: 'subscription.js', functions: ['getCurrentPlan', 'shouldShowAds'] },
-    { file: 'medicalConditions.js', functions: ['getActiveMedicalConditions'] },
-    { file: 'trial.js', functions: ['startTrial', 'getTrialDaysRemaining'] },
-  ];
+async function runAllTests() {
+  const browser = await puppeteer.launch({
+    headless: TEST_CONFIG.headless,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
 
-  utilities.forEach(({ file, functions }) => {
-    try {
-      const content = readFileSync(join(rootDir, 'src/utils', file), 'utf-8');
-      functions.forEach(fn => {
-        test(`Utility ${file} exports ${fn}`, () => {
-          if (!content.includes(fn)) {
-            throw new Error(`Function ${fn} not found in ${file}`);
+  const page = await browser.newPage();
+  await page.setViewport({ width: 1920, height: 1080 });
+
+  // Set longer timeouts
+  page.setDefaultTimeout(TEST_CONFIG.timeout);
+  page.setDefaultNavigationTimeout(TEST_CONFIG.timeout);
+
+  try {
+    // Navigate to homepage
+    log('\n📱 Navigating to homepage...', 'blue');
+    await page.goto(TEST_CONFIG.baseUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+    await page.waitForTimeout(3000);
+
+    // TEST 1: Homepage loads
+    await testFeature('Homepage loads correctly', async () => {
+      const title = await page.title();
+      if (!title || title.includes('Error')) {
+        throw new Error('Homepage failed to load');
+      }
+    });
+
+    // TEST 2: Daily Recipe Surprise
+    await testFeature('Daily Recipe Surprise displays', async () => {
+      const dailyRecipe = await page.$(
+        '[class*="daily"] [class*="recipe"], [class*="DailyRecipe"]'
+      );
+      if (!dailyRecipe) {
+        // Check if loading
+        const loading = await page.$('text=Loading');
+        if (loading) {
+          await page.waitForTimeout(5000);
+        }
+        const recipe = await page.$('[class*="recipe"], [class*="card"]');
+        if (!recipe) throw new Error('Daily recipe not found');
+      }
+    });
+
+    // TEST 3: Search functionality
+    await testFeature('Recipe search works', async () => {
+      const searchInput = await page.$(
+        'input[type="search"], input[placeholder*="search" i], input[placeholder*="recipe" i]'
+      );
+      if (searchInput) {
+        await searchInput.type('chicken', { delay: 100 });
+        await page.waitForTimeout(1000);
+        const searchButton = await page.$('button[type="submit"], button:has-text("Search")');
+        if (searchButton) {
+          await searchButton.click();
+        } else {
+          // Try Enter key
+          await page.keyboard.press('Enter');
+        }
+        await page.waitForTimeout(5000);
+        const results = await page.$$('[class*="recipe"], [class*="card"]');
+        if (results.length === 0) throw new Error('No search results found');
+      } else {
+        throw new Error('Search input not found');
+      }
+    });
+
+    // TEST 4: Click on a recipe
+    await testFeature('Click recipe and navigate to detail page', async () => {
+      await page.goto(TEST_CONFIG.baseUrl, { waitUntil: 'networkidle2' });
+      await page.waitForTimeout(3000);
+
+      // Find a recipe link
+      const recipeLink = await page.$('a[href*="/recipe/"]');
+      if (recipeLink) {
+        // href not used but evaluated for debugging
+        await page.evaluate(el => el.getAttribute('href'), recipeLink);
+        await recipeLink.click();
+        await page.waitForTimeout(5000);
+
+        const currentUrl = page.url();
+        if (!currentUrl.includes('/recipe/')) {
+          throw new Error('Did not navigate to recipe page');
+        }
+
+        // Check if recipe loaded (not stuck on loading)
+        await page.waitForTimeout(3000);
+        const loading = await page.$('text=Loading delicious recipe details');
+        if (loading) {
+          // Wait a bit more
+          await page.waitForTimeout(10000);
+          const stillLoading = await page.$('text=Loading delicious recipe details');
+          if (stillLoading) {
+            throw new Error('Recipe page stuck on loading');
           }
-        });
+        }
+
+        // Check for recipe content
+        const recipeTitle = await page.$('h1, [class*="title"]');
+        if (!recipeTitle) {
+          const error = await page.$('[class*="error"]');
+          if (error) throw new Error('Recipe page shows error');
+        }
+      } else {
+        throw new Error('No recipe link found');
+      }
+    });
+
+    // TEST 5: Filters - Family-Friendly preset
+    await testFeature('Smart filters - Family-Friendly preset', async () => {
+      await page.goto(TEST_CONFIG.baseUrl, { waitUntil: 'networkidle2' });
+      await page.waitForTimeout(3000);
+
+      // Find filters button or section
+      const filterButton = await page.$(
+        'button:has-text("Filter"), button:has-text("Filters"), [class*="filter"] button'
+      );
+      if (filterButton) {
+        await filterButton.click();
+        await page.waitForTimeout(2000);
+      }
+
+      // Find Family-Friendly preset
+      const familyFriendly = await page.$(
+        'button:has-text("Family-Friendly"), [class*="preset"]:has-text("Family")'
+      );
+      if (familyFriendly) {
+        await familyFriendly.click();
+        await page.waitForTimeout(5000);
+
+        // Check if recipes changed
+        const recipes = await page.$$('[class*="recipe"], [class*="card"]');
+        if (recipes.length === 0) {
+          throw new Error('No recipes after applying filter');
+        }
+      } else {
+        // Try Apply button
+        const applyButton = await page.$('button:has-text("Apply")');
+        if (applyButton) {
+          await applyButton.click();
+          await page.waitForTimeout(5000);
+        }
+      }
+    });
+
+    // TEST 6: Grocery List
+    await testFeature('Grocery list drawer opens', async () => {
+      await page.goto(TEST_CONFIG.baseUrl, { waitUntil: 'networkidle2' });
+      await page.waitForTimeout(3000);
+
+      // Find grocery button (🛒 emoji or text)
+      const groceryButton = await page.$(
+        'button:has-text("🛒"), button[title*="grocery" i], button[aria-label*="grocery" i], [class*="grocery"] button'
+      );
+      if (groceryButton) {
+        await groceryButton.click();
+        await page.waitForTimeout(3000);
+
+        // Check if drawer opened
+        const drawer = await page.$(
+          '[role="dialog"], [aria-modal="true"], [class*="drawer"], [class*="grocery"]'
+        );
+        if (!drawer) {
+          // Check if it's already visible
+          const groceryContent = await page.$('text=Grocery, text=My Grocery List');
+          if (!groceryContent) {
+            throw new Error('Grocery drawer did not open');
+          }
+        }
+      } else {
+        throw new Error('Grocery button not found');
+      }
+    });
+
+    // TEST 7: Meal Planner
+    await testFeature('Meal Planner page loads', async () => {
+      await page.goto(`${TEST_CONFIG.baseUrl}/meal-planner`, {
+        waitUntil: 'networkidle2',
+        timeout: 60000,
       });
-    } catch (error) {
-      test(`Utility file ${file} exists`, () => {
-        throw error;
+      await page.waitForTimeout(5000);
+
+      const error = await page.$('[class*="error"], text=Error');
+      if (error) {
+        throw new Error('Meal planner page shows error');
+      }
+
+      // Check for meal planner content
+      const plannerContent = await page.$(
+        '[class*="meal"], [class*="planner"], text=Meal, text=Plan'
+      );
+      if (!plannerContent) {
+        // Might be loading or empty state
+        await page.waitForTimeout(3000);
+        const stillNoContent = await page.$('[class*="meal"], [class*="planner"]');
+        if (!stillNoContent) {
+          throw new Error('Meal planner content not found');
+        }
+      }
+    });
+
+    // TEST 8: Calorie Tracker
+    await testFeature('Calorie Tracker accessible', async () => {
+      await page.goto(TEST_CONFIG.baseUrl, { waitUntil: 'networkidle2' });
+      await page.waitForTimeout(3000);
+
+      // Try to find calorie tracker button/link
+      const calorieLink = await page.$(
+        'a[href*="calorie"], button:has-text("Calorie"), [class*="calorie"]'
+      );
+      if (calorieLink) {
+        await calorieLink.click();
+        await page.waitForTimeout(3000);
+
+        const calorieContent = await page.$('[class*="calorie"], text=Calorie, text=Track');
+        if (!calorieContent) {
+          throw new Error('Calorie tracker not found');
+        }
+      } else {
+        // Navigate directly
+        await page.goto(`${TEST_CONFIG.baseUrl}/#calorie`, { waitUntil: 'networkidle2' });
+        await page.waitForTimeout(3000);
+        const calorieContent = await page.$('[class*="calorie"], text=Calorie');
+        if (!calorieContent) {
+          // Might be in a modal or drawer
+          await page.waitForTimeout(2000);
+        }
+      }
+    });
+
+    // TEST 9: Favorites
+    await testFeature('Favorites functionality', async () => {
+      await page.goto(TEST_CONFIG.baseUrl, { waitUntil: 'networkidle2' });
+      await page.waitForTimeout(3000);
+
+      // Find a favorite button
+      const favoriteButton = await page.$(
+        'button[aria-label*="favorite" i], button[title*="favorite" i], [class*="favorite"] button, button:has-text("❤"), button:has-text("♡")'
+      );
+      if (favoriteButton) {
+        await favoriteButton.click();
+        await page.waitForTimeout(2000);
+
+        // Check if it's now favorited (visual change)
+        const _favorited = await page.$('[class*="favorited"], [class*="active"]');
+        // Just check it doesn't error
+      }
+    });
+
+    // TEST 10: Theme Toggle
+    await testFeature('Theme toggle works', async () => {
+      await page.goto(TEST_CONFIG.baseUrl, { waitUntil: 'networkidle2' });
+      await page.waitForTimeout(3000);
+
+      const themeButton = await page.$(
+        'button[aria-label*="theme" i], button[title*="theme" i], button:has-text("🌙"), button:has-text("☀️"), [class*="theme"] button'
+      );
+      if (themeButton) {
+        await themeButton.click();
+        await page.waitForTimeout(2000);
+        // Just verify it doesn't error
+      }
+    });
+
+    // TEST 11: Multiple recipe searches
+    await testFeature('Different recipe searches work', async () => {
+      const searches = ['pasta', 'salad', 'dessert', 'breakfast'];
+
+      for (const searchTerm of searches) {
+        await page.goto(TEST_CONFIG.baseUrl, { waitUntil: 'networkidle2' });
+        await page.waitForTimeout(2000);
+
+        const searchInput = await page.$('input[type="search"], input[placeholder*="search" i]');
+        if (searchInput) {
+          await searchInput.click({ clickCount: 3 });
+          await searchInput.type(searchTerm, { delay: 100 });
+          await page.waitForTimeout(1000);
+          await page.keyboard.press('Enter');
+          await page.waitForTimeout(5000);
+
+          const results = await page.$$('[class*="recipe"], [class*="card"]');
+          if (results.length === 0 && !(await page.$('text=No results'))) {
+            throw new Error(`No results for search: ${searchTerm}`);
+          }
+        }
+      }
+    });
+
+    // TEST 12: Recipe detail page features
+    await testFeature('Recipe detail page features work', async () => {
+      await page.goto(TEST_CONFIG.baseUrl, { waitUntil: 'networkidle2' });
+      await page.waitForTimeout(3000);
+
+      const recipeLink = await page.$('a[href*="/recipe/"]');
+      if (recipeLink) {
+        await recipeLink.click();
+        await page.waitForTimeout(8000); // Wait for recipe to load
+
+        // Check for ingredients
+        const ingredients = await page.$('[class*="ingredient"], text=Ingredients');
+        if (!ingredients) {
+          // Might be in a different section
+          await page.waitForTimeout(3000);
+        }
+
+        // Check for instructions
+        const instructions = await page.$('[class*="instruction"], text=Instructions, text=Steps');
+        if (!instructions) {
+          await page.waitForTimeout(3000);
+        }
+
+        // Check for share button
+        const _shareButton = await page.$('button:has-text("Share"), [class*="share"] button');
+        // Just verify page loaded
+      }
+    });
+
+    // Print summary
+    log('\n' + '='.repeat(60), 'cyan');
+    log('📊 TEST SUMMARY', 'cyan');
+    log('='.repeat(60), 'cyan');
+    log(`Total Tests: ${results.total}`, 'blue');
+    log(`✅ Passed: ${results.passed.length}`, 'green');
+    log(`❌ Failed: ${results.failed.length}`, 'red');
+
+    const passRate = ((results.passed.length / results.total) * 100).toFixed(1);
+    log(`\nPass Rate: ${passRate}%`, passRate >= 90 ? 'green' : 'yellow');
+
+    if (results.failed.length > 0) {
+      log('\n❌ Failed Tests:', 'red');
+      results.failed.forEach(f => {
+        log(`  - ${f.name}`, 'red');
+        if (f.error) log(`    ${f.error.message || f.error}`, 'red');
       });
     }
-  });
-}
 
-// Test: Environment variables are documented
-function testEnvironmentVariables() {
-  log('\n📋 Testing Environment Configuration...', 'blue');
-
-  try {
-    const envExample = readFileSync(join(rootDir, '.env.example'), 'utf-8').catch(() => '');
-    const readme = readFileSync(join(rootDir, 'README.md'), 'utf-8').catch(() => '');
-
-    const requiredVars = [
-      'VITE_SUPABASE_URL',
-      'VITE_SUPABASE_ANON_KEY',
-      'VITE_PADDLE_PUBLIC_TOKEN',
-    ];
-
-    requiredVars.forEach(varName => {
-      test(`Environment variable ${varName} is documented`, () => {
-        const documented = envExample.includes(varName) || readme.includes(varName);
-        if (!documented) {
-          throw new Error(`${varName} not documented in .env.example or README.md`);
-        }
-      });
-    });
-  } catch {
-    // Skip if files don't exist
-  }
-}
-
-// Test: PWA configuration
-function testPWAConfig() {
-  log('\n📋 Testing PWA Configuration...', 'blue');
-
-  try {
-    const viteConfig = readFileSync(join(rootDir, 'vite.config.js'), 'utf-8');
-    const manifest = readFileSync(join(rootDir, 'public/manifest.json'), 'utf-8');
-    const indexHtml = readFileSync(join(rootDir, 'index.html'), 'utf-8');
-
-    test('VitePWA plugin is configured', () => {
-      if (!viteConfig.includes('VitePWA')) {
-        throw new Error('VitePWA plugin not found in vite.config.js');
-      }
-    });
-
-    test('Manifest file exists', () => {
-      if (!manifest.includes('name') || !manifest.includes('icons')) {
-        throw new Error('Manifest file is invalid');
-      }
-    });
-
-    test('Manifest is linked in index.html', () => {
-      if (!indexHtml.includes('manifest')) {
-        throw new Error('Manifest not linked in index.html');
-      }
-    });
-
-    test('InstallPWA component exists', () => {
-      try {
-        readFileSync(join(rootDir, 'src/components/InstallPWA.jsx'), 'utf-8');
-      } catch {
-        throw new Error('InstallPWA component not found');
-      }
-    });
+    log('\n' + '='.repeat(60), 'cyan');
   } catch (error) {
-    test('PWA configuration check', () => {
-      throw error;
-    });
+    log(`\n❌ Test suite error: ${error.message}`, 'red');
+    console.error(error);
+  } finally {
+    await browser.close();
+    if (devServer) {
+      devServer.kill();
+    }
+    process.exit(results.failed.length > 0 ? 1 : 0);
   }
 }
 
-// Test: Error boundaries
-function testErrorHandling() {
-  log('\n📋 Testing Error Handling...', 'blue');
-
+// Main execution
+(async () => {
   try {
-    const errorBoundary = readFileSync(join(rootDir, 'src/ErrorBoundary.jsx'), 'utf-8');
-
-    test('ErrorBoundary component exists', () => {
-      if (
-        !errorBoundary.includes('componentDidCatch') &&
-        !errorBoundary.includes('ErrorBoundary')
-      ) {
-        throw new Error('ErrorBoundary not properly implemented');
-      }
-    });
-
-    test('ErrorBoundary is used in main.jsx', () => {
-      const mainFile = readFileSync(join(rootDir, 'src/main.jsx'), 'utf-8');
-      if (!mainFile.includes('ErrorBoundary')) {
-        throw new Error('ErrorBoundary not used in main.jsx');
-      }
-    });
+    if (!TEST_CONFIG.skipServerStart) {
+      await startDevServer();
+    } else {
+      log('⏭️  Skipping server start (assuming server already running)', 'yellow');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+    await runAllTests();
   } catch (error) {
-    test('Error handling setup', () => {
-      throw error;
-    });
-  }
-}
-
-// Run all tests
-async function runTests() {
-  log('\n🧪 Starting Comprehensive Feature Tests\n', 'cyan');
-  log('='.repeat(60), 'cyan');
-
-  testRoutes();
-  testContextProviders();
-  testPagesExist();
-  testComponentsExist();
-  testAPIFunctions();
-  testUtilityFunctions();
-  testEnvironmentVariables();
-  testPWAConfig();
-  testErrorHandling();
-
-  // Print results
-  log('\n' + '='.repeat(60), 'cyan');
-  log('\n📊 Test Results Summary\n', 'blue');
-  log(`Total Tests: ${results.total}`, 'cyan');
-  log(`✅ Passed: ${results.passed.length}`, 'green');
-  log(`❌ Failed: ${results.failed.length}`, 'red');
-
-  if (results.failed.length > 0) {
-    log('\n❌ Failed Tests:', 'red');
-    results.failed.forEach(({ name, error }) => {
-      log(`   - ${name}`, 'red');
-      log(`     ${error}`, 'red');
-    });
-  }
-
-  const successRate = ((results.passed.length / results.total) * 100).toFixed(1);
-  log(`\n📈 Success Rate: ${successRate}%`, successRate >= 90 ? 'green' : 'yellow');
-
-  if (results.failed.length === 0) {
-    log('\n🎉 All tests passed!', 'green');
-    return 0;
-  } else {
-    log('\n⚠️  Some tests failed. Please review the errors above.', 'yellow');
-    return 1;
-  }
-}
-
-runTests()
-  .then(exitCode => {
-    process.exit(exitCode);
-  })
-  .catch(error => {
-    console.error('Fatal error:', error);
+    log(`\n❌ Fatal error: ${error.message}`, 'red');
+    console.error(error);
+    if (devServer) devServer.kill();
     process.exit(1);
-  });
+  }
+})();

@@ -1132,22 +1132,11 @@ export async function searchSupabaseRecipes({
 
     // Max time filter - note: we filter by total time (prep + cook) client-side
     // because Supabase doesn't support computed columns in filters
-    // For now, we'll apply a server-side optimization: filter recipes where both
-    // prep and cook are individually <= maxTime (this catches most cases)
-    // Then apply exact total time filter client-side
+    // Skip server-side time filtering entirely - let client-side handle it
+    // This ensures we don't miss recipes where prep+cook <= maxTime but individual times are higher
     const maxTimeNumber = Number(maxTime);
     const hasMaxTime = !Number.isNaN(maxTimeNumber) && maxTimeNumber > 0 && maxTimeNumber <= 10000;
-    if (hasMaxTime) {
-      try {
-        // Server-side optimization: filter recipes where both prep AND cook are <= maxTime
-        // This catches most recipes that will pass the total time filter
-        builder = builder.lte('prep_minutes', maxTimeNumber).lte('cook_minutes', maxTimeNumber);
-      } catch (timeError) {
-        if (import.meta.env.DEV) {
-          console.warn('[searchSupabaseRecipes] Error applying time filter:', timeError);
-        }
-      }
-    }
+    // Note: maxTime filtering is done client-side after fetch (see line ~1838)
 
     // Cuisine filter - validate and skip if empty or "none"
     const normalizedCuisine = typeof cuisine === 'string' ? cuisine.trim().toLowerCase() : '';
@@ -1168,26 +1157,30 @@ export async function searchSupabaseRecipes({
     }
 
     // Difficulty filter - validate and skip if empty or "none"
+    // Try server-side first with case-insensitive approach, then refine client-side
     const normalizedDifficulty =
       typeof difficulty === 'string' ? difficulty.trim().toLowerCase() : '';
-    if (
+    const hasDifficulty =
       normalizedDifficulty &&
       normalizedDifficulty.length > 0 &&
       normalizedDifficulty.length <= 20 &&
       normalizedDifficulty !== 'none' &&
-      normalizedDifficulty !== 'any difficulty'
-    ) {
+      normalizedDifficulty !== 'any difficulty';
+    
+    // Apply server-side difficulty filter if possible (database stores lowercase)
+    // This helps narrow down results before client-side filtering
+    if (hasDifficulty) {
       try {
-        builder = builder.eq('difficulty', difficulty.trim()); // Use original case for query
+        // Database stores lowercase values, so we can filter server-side
+        builder = builder.eq('difficulty', normalizedDifficulty);
       } catch (difficultyError) {
         if (import.meta.env.DEV) {
-          console.warn(
-            '[searchSupabaseRecipes] Error applying difficulty filter:',
-            difficultyError
-          );
+          console.warn('[searchSupabaseRecipes] Error applying difficulty filter:', difficultyError);
         }
+        // Fall back to client-side only if server-side fails
       }
     }
+    // Note: Additional client-side filtering for case-insensitive matching (see line ~1940)
 
     // Max calories filter (client-side filtering will be applied after fetch)
     const maxCaloriesNumber = Number(maxCalories);
@@ -1831,6 +1824,7 @@ export async function searchSupabaseRecipes({
 
     // Max time filter - check total time (prep + cook)
     if (hasMaxTime) {
+      const beforeTimeFilter = mapped.length;
       mapped = mapped.filter(r => {
         // Check readyInMinutes first (if available), otherwise calculate from prep + cook
         const readyInMinutes = r.readyInMinutes || r.ready_in_minutes;
@@ -1841,8 +1835,31 @@ export async function searchSupabaseRecipes({
         const prep = r.prepMinutes || r.prep_minutes || 0;
         const cook = r.cookMinutes || r.cook_minutes || 0;
         const totalTime = prep + cook;
-        return totalTime > 0 && totalTime <= maxTimeNumber;
+        // If total time is 0 or null, include the recipe (don't filter out recipes with missing time data)
+        // Only filter out recipes where total time exceeds maxTime
+        if (totalTime === 0 || totalTime === null) {
+          return true; // Include recipes with missing time data
+        }
+        return totalTime <= maxTimeNumber;
       });
+      if (import.meta.env.DEV && beforeTimeFilter > 0) {
+        // Sample a few recipes to see their time data
+        const sampleRecipes = mapped.slice(0, 3).map(r => ({
+          id: r.id,
+          title: r.title?.substring(0, 30),
+          prepMinutes: r.prepMinutes,
+          cookMinutes: r.cookMinutes,
+          readyInMinutes: r.readyInMinutes,
+          totalTime: (r.prepMinutes || 0) + (r.cookMinutes || 0),
+        }));
+        console.log('⏱️ [FILTER] Max time filter:', {
+          before: beforeTimeFilter,
+          after: mapped.length,
+          maxTime: maxTimeNumber,
+          removed: beforeTimeFilter - mapped.length,
+          sampleRecipes,
+        });
+      }
     }
 
     // Max calories filter
@@ -1859,18 +1876,28 @@ export async function searchSupabaseRecipes({
     }
 
     if (hasHealthScore) {
+      const beforeHealthScoreFilter = mapped.length;
       mapped = mapped.filter(r => {
         // Filter by health score if available
         const recipeHealthScore = r.healthScore || r.health_score || null;
         if (recipeHealthScore === null || recipeHealthScore === undefined) {
-          // If health score is not available, exclude the recipe (strict filtering)
-          return false;
+          // Include recipes without health score (don't filter them out)
+          // This allows more recipes to be shown
+          return true;
         }
         return recipeHealthScore >= healthScoreNumber;
       });
+      if (import.meta.env.DEV && beforeHealthScoreFilter > 0) {
+        console.log('💚 [FILTER] Health score filter:', {
+          before: beforeHealthScoreFilter,
+          after: mapped.length,
+          minHealthScore: healthScoreNumber,
+        });
+      }
     }
 
     if (hasMinProtein) {
+      const beforeProteinFilter = mapped.length;
       mapped = mapped.filter(r => {
         // Check protein from multiple possible locations
         const protein =
@@ -1878,8 +1905,20 @@ export async function searchSupabaseRecipes({
           r.nutrition?.nutrients?.find(n => n.name === 'Protein')?.amount ||
           r.nutrition?.protein ||
           0;
+        // Include recipes with protein >= minProtein OR recipes with missing protein data
+        // This allows more recipes to be shown
+        if (protein === 0 || protein === null || protein === undefined) {
+          return true; // Include recipes with missing protein data
+        }
         return protein >= minProteinNumber;
       });
+      if (import.meta.env.DEV && beforeProteinFilter > 0) {
+        console.log('💪 [FILTER] Min protein filter:', {
+          before: beforeProteinFilter,
+          after: mapped.length,
+          minProtein: minProteinNumber,
+        });
+      }
     }
 
     if (hasMaxCarbs) {
@@ -1892,6 +1931,41 @@ export async function searchSupabaseRecipes({
           0;
         return carbs > 0 && carbs <= maxCarbsNumber;
       });
+    }
+
+    // Difficulty filtering (client-side for case-insensitive matching)
+    // Note: Server-side filter already applied, but we do client-side check for safety
+    if (hasDifficulty) {
+      const beforeDifficultyFilter = mapped.length;
+      mapped = mapped.filter(r => {
+        const recipeDifficulty = (r.difficulty || '').toString().toLowerCase().trim();
+        const matches = recipeDifficulty === normalizedDifficulty;
+        // If difficulty doesn't match but we have server-side filter, log it
+        if (!matches && import.meta.env.DEV) {
+          console.warn('⚠️ [FILTER] Recipe difficulty mismatch:', {
+            recipeId: r.id,
+            recipeDifficulty,
+            expected: normalizedDifficulty,
+          });
+        }
+        return matches;
+      });
+      if (import.meta.env.DEV && beforeDifficultyFilter > 0) {
+        // Sample a few recipes to see their difficulty data
+        const sampleRecipes = mapped.slice(0, 3).map(r => ({
+          id: r.id,
+          title: r.title?.substring(0, 30),
+          difficulty: r.difficulty,
+          difficultyLower: (r.difficulty || '').toString().toLowerCase().trim(),
+        }));
+        console.log('🎯 [FILTER] Difficulty filter:', {
+          before: beforeDifficultyFilter,
+          after: mapped.length,
+          filterValue: normalizedDifficulty,
+          removed: beforeDifficultyFilter - mapped.length,
+          sampleRecipes,
+        });
+      }
     }
 
     // Intolerances filtering (client-side)
@@ -1985,7 +2059,31 @@ export async function searchSupabaseRecipes({
         durationMs: duration,
         firstRecipeId: mapped[0]?.id || null,
         lastRecipeId: mapped[mapped.length - 1]?.id || null,
+        hasMaxTime,
+        hasDifficulty,
+        maxTimeNumber: hasMaxTime ? maxTimeNumber : null,
+        difficultyValue: hasDifficulty ? normalizedDifficulty : null,
       });
+      
+      // Log sample recipes to debug filtering
+      if (mapped.length === 0 && data && data.length > 0) {
+        const samples = data.slice(0, 3).map(r => ({
+          id: r.id,
+          title: r.title?.substring(0, 40),
+          prep_minutes: r.prep_minutes,
+          cook_minutes: r.cook_minutes,
+          difficulty: r.difficulty,
+          totalTime: (r.prep_minutes || 0) + (r.cook_minutes || 0),
+        }));
+        console.warn('⚠️ [SEARCH API] All recipes filtered out!');
+        console.warn('Sample recipes before filtering:', JSON.stringify(samples, null, 2));
+        console.warn('Filter criteria:', {
+          hasMaxTime,
+          maxTimeNumber: hasMaxTime ? maxTimeNumber : null,
+          hasDifficulty,
+          difficultyValue: hasDifficulty ? normalizedDifficulty : null,
+        });
+      }
     }
 
     supabaseLog('searchSupabaseRecipes:complete', {
@@ -2049,8 +2147,9 @@ export async function getSupabaseRecipeById(id) {
     cookMinutes: recipeRow.cook_minutes,
   });
 
-  const [ingredientsRes, stepsRes, nutritionRes, tagsRes, pairingsRes, healthBadgeRes] =
-    await Promise.all([
+  // Fetch related data with timeout protection
+  const fetchRelatedData = async () => {
+    const queries = [
       supabase
         .from('recipe_ingredients')
         .select(
@@ -2082,7 +2181,32 @@ export async function getSupabaseRecipeById(id) {
         .select('recipe_id, score, badge, color')
         .eq('recipe_id', id)
         .maybeSingle(),
-    ]);
+    ];
+
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Related data fetch timeout')), 10000)
+    );
+
+    try {
+      const results = await Promise.race([Promise.all(queries), timeoutPromise]);
+      return results;
+    } catch (_timeoutError) {
+      console.error('⏰ [SUPABASE] Related data fetch timeout:', id);
+      // Return empty results instead of failing completely
+      return [
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: null, error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: null, error: null },
+      ];
+    }
+  };
+
+  const [ingredientsRes, stepsRes, nutritionRes, tagsRes, pairingsRes, healthBadgeRes] =
+    await fetchRelatedData();
 
   const pairingError = pairingsRes?.error;
 

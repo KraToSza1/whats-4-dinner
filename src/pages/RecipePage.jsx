@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
 // Spoonacular removed - using Supabase recipes only
 import { getSupabaseRecipeById } from '../api/supabaseRecipes.js';
 import { recipeImg, fallbackOnce, isUuid } from '../utils/img.ts';
 import { useGroceryList } from '../context/GroceryListContext.jsx';
 import { setMealPlanDay } from './MealPlanner.jsx';
+import {
+  safeLocalStorage,
+  safeSessionStorage,
+  safeJSONParse,
+  safeJSONStringify,
+} from '../utils/browserCompatibility.js';
 import ServingsCalculator from '../components/ServingsCalculator.jsx';
 import ShareButton from '../components/ShareButton.jsx';
 import SmartSwaps from '../components/SmartSwaps.jsx';
@@ -31,7 +36,6 @@ import { getLeftoverIdeasFromRecipe } from '../utils/leftoverIdeas.js';
 import { getSimilarRecipes, getCompleteMealSuggestions } from '../utils/recipeRecommendations.js';
 import { FEATURES } from '../config';
 import { useToast } from '../components/Toast.jsx';
-import { hasFeature } from '../utils/subscription.js';
 import { trackFeatureUsage, FEATURES as FEATURE_CONSTANTS } from '../utils/featureTracking.js';
 import { addRecipeToCalorieTracker } from '../utils/calorieIntegration.js';
 import { IngredientReveal, FoodConfetti } from '../components/animations/FoodParticles.jsx';
@@ -43,7 +47,7 @@ import BackToHome from '../components/BackToHome.jsx';
 import { getRecipeCost } from '../components/BudgetTracker.jsx';
 import { formatCurrency } from '../utils/currency.js';
 import { useAchievements, AchievementUnlock } from '../components/animations/Achievements.jsx';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { EmptyStateAnimation } from '../components/LottieFoodAnimations.jsx';
 import MedicalWarning from '../components/MedicalWarning.jsx';
 
@@ -77,7 +81,9 @@ export default function RecipePage() {
 
   // Debug: Log confettiTrigger changes
   useEffect(() => {
-    console.log('🎉 [RECIPE PAGE] confettiTrigger changed:', confettiTrigger);
+    if (import.meta.env.DEV) {
+      console.warn('🎉 [RECIPE PAGE] confettiTrigger changed:', confettiTrigger);
+    }
   }, [confettiTrigger]);
   const [showCookMode, setShowCookMode] = useState(false);
   const [showMealPrepMode, setShowMealPrepMode] = useState(false);
@@ -93,6 +99,21 @@ export default function RecipePage() {
   const [loading, setLoading] = useState(!preloaded);
   const [error, setError] = useState(null);
 
+  // If we have preloaded recipe, use it immediately and fetch details in background
+  useEffect(() => {
+    if (preloaded && preloaded.id === id) {
+      // We have preloaded data, show it immediately
+      setRecipe(preloaded);
+      setLoading(false);
+      // Still fetch full details in background
+      if (import.meta.env.DEV) {
+        console.warn(
+          '📄 [RECIPE PAGE] Using preloaded recipe, fetching full details in background'
+        );
+      }
+    }
+  }, [preloaded, id]);
+
   // Grocery list context
   const { addMany, setOpen } = useGroceryList();
 
@@ -102,7 +123,7 @@ export default function RecipePage() {
   // Unit system state to trigger re-render
   const [unitSystem, setUnitSystem] = useState(() => {
     try {
-      return localStorage.getItem('unitSystem') || 'metric';
+      return safeLocalStorage.getItem('unitSystem') || 'metric';
     } catch {
       return 'metric';
     }
@@ -113,7 +134,7 @@ export default function RecipePage() {
       const allowed = UNIT_SYSTEMS[system] ? system : 'metric';
       setUnitSystem(allowed);
       try {
-        localStorage.setItem('unitSystem', allowed);
+        safeLocalStorage.setItem('unitSystem', allowed);
       } catch (err) {
         // Silently handle localStorage errors (e.g., quota exceeded, private browsing)
         if (import.meta.env.DEV) {
@@ -134,7 +155,7 @@ export default function RecipePage() {
   const [leftoverIdeas, setLeftoverIdeas] = useState([]);
   const [similarRecipes, setSimilarRecipes] = useState([]);
   const [mealSuggestions, setMealSuggestions] = useState([]);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [_loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   // simple timer tick
   useEffect(() => {
@@ -146,37 +167,72 @@ export default function RecipePage() {
   }, [ticking, secondsLeft]);
 
   useEffect(() => {
+    // Skip if we already have preloaded recipe for this ID
+    if (preloaded && preloaded.id === id) {
+      if (import.meta.env.DEV) {
+        console.warn('📄 [RECIPE PAGE] Skipping fetch - using preloaded recipe');
+      }
+      return;
+    }
+
     let ignore = false;
+    let timeoutId = null;
+
     (async () => {
-      console.log('📄 [RECIPE PAGE] Loading recipe page:', { id, isUuid: isUuid(id) });
+      if (import.meta.env.DEV) {
+        console.warn('📄 [RECIPE PAGE] Loading recipe page:', { id, isUuid: isUuid(id) });
+      }
       setLoading(true);
       setError(null);
+
+      // Set a timeout to prevent infinite loading
+      timeoutId = setTimeout(() => {
+        if (!ignore) {
+          console.error('⏰ [RECIPE PAGE] Recipe fetch timeout after 15 seconds');
+          setError('Recipe load timeout. Please try again.');
+          setLoading(false);
+        }
+      }, 15000);
+
       try {
         let full = null;
 
         if (isUuid(id)) {
-          console.log('🔍 [RECIPE PAGE] Attempting Supabase fetch for UUID:', id);
+          if (import.meta.env.DEV) {
+            console.warn('🔍 [RECIPE PAGE] Attempting Supabase fetch for UUID:', id);
+          }
           try {
-            full = await getSupabaseRecipeById(id);
+            // Add timeout wrapper to prevent hanging
+            const fetchPromise = getSupabaseRecipeById(id);
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Fetch timeout')), 12000)
+            );
+
+            full = await Promise.race([fetchPromise, timeoutPromise]);
+
             if (full) {
               // Debug: Log nutrition data from the loaded recipe
               const caloriesNutrient = full.nutrition?.nutrients?.find(n => n.name === 'Calories');
-              console.log('✅ [RECIPE PAGE] Successfully loaded from Supabase:', {
-                id: full.id,
-                title: full.title,
-                hasImage: !!(full.image || full.heroImageUrl),
-                imageUrl: full.image || full.heroImageUrl || 'MISSING',
-                servings: full.servings,
-                readyInMinutes: full.readyInMinutes,
-                ingredientsCount: full.extendedIngredients?.length || 0,
-                stepsCount: full.analyzedInstructions?.[0]?.steps?.length || 0,
-                hasNutrition: !!full.nutrition,
-                nutritionCalories: caloriesNutrient?.amount,
-                nutritionCaloriesUnit: caloriesNutrient?.unit,
-                hasPairings: full.beveragePairings?.length > 0,
-              });
+              if (import.meta.env.DEV) {
+                console.warn('✅ [RECIPE PAGE] Successfully loaded from Supabase:', {
+                  id: full.id,
+                  title: full.title,
+                  hasImage: !!(full.image || full.heroImageUrl),
+                  imageUrl: full.image || full.heroImageUrl || 'MISSING',
+                  servings: full.servings,
+                  readyInMinutes: full.readyInMinutes,
+                  ingredientsCount: full.extendedIngredients?.length || 0,
+                  stepsCount: full.analyzedInstructions?.[0]?.steps?.length || 0,
+                  hasNutrition: !!full.nutrition,
+                  nutritionCalories: caloriesNutrient?.amount,
+                  nutritionCaloriesUnit: caloriesNutrient?.unit,
+                  hasPairings: full.beveragePairings?.length > 0,
+                });
+              }
             } else {
-              console.warn('⚠️ [RECIPE PAGE] Supabase returned null for:', id);
+              if (import.meta.env.DEV) {
+                console.warn('⚠️ [RECIPE PAGE] Supabase returned null for:', id);
+              }
             }
           } catch (supabaseError) {
             console.error('❌ [RECIPE PAGE] Supabase fetch failed:', {
@@ -184,6 +240,10 @@ export default function RecipePage() {
               error: supabaseError.message,
               stack: supabaseError.stack,
             });
+            // If it's a timeout, show specific error
+            if (supabaseError.message === 'Fetch timeout') {
+              throw new Error('Recipe load timeout. Please try again.');
+            }
           }
         }
 
@@ -194,18 +254,26 @@ export default function RecipePage() {
         }
 
         if (!ignore && full) {
+          // Clear timeout since we got the recipe
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+
           // Debug: Log nutrition before setting recipe state
           const caloriesNutrient = full.nutrition?.nutrients?.find(n => n.name === 'Calories');
-          console.log('✅ [RECIPE PAGE] Setting recipe state:', {
-            id: full.id,
-            title: full.title,
-            source: full.source || 'unknown',
-            hasImage: !!(full.image || full.heroImageUrl),
-            imageUrl: full.image || full.heroImageUrl || 'MISSING',
-            nutritionCalories: caloriesNutrient?.amount,
-            nutritionCaloriesUnit: caloriesNutrient?.unit,
-            note: 'This is what will be stored in recipe state',
-          });
+          if (import.meta.env.DEV) {
+            console.warn('✅ [RECIPE PAGE] Setting recipe state:', {
+              id: full.id,
+              title: full.title,
+              source: full.source || 'unknown',
+              hasImage: !!(full.image || full.heroImageUrl),
+              imageUrl: full.image || full.heroImageUrl || 'MISSING',
+              nutritionCalories: caloriesNutrient?.amount,
+              nutritionCaloriesUnit: caloriesNutrient?.unit,
+              note: 'This is what will be stored in recipe state',
+            });
+          }
 
           // Clean title and instructions before setting recipe
           if (full) {
@@ -227,7 +295,7 @@ export default function RecipePage() {
           }
           // Set initial servings from saved, family members, or recipe default
           try {
-            const saved = localStorage.getItem(`servings:${id}`);
+            const saved = safeLocalStorage.getItem(`servings:${id}`);
             if (saved) {
               setTargetServings(parseInt(saved, 10));
             } else {
@@ -254,19 +322,26 @@ export default function RecipePage() {
         console.error('[RecipePage] Failed to load recipe:', e);
         if (!ignore) setError(e.message || 'Failed to load recipe.');
       } finally {
+        // Clear timeout
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
         if (!ignore) setLoading(false);
       }
     })();
     return () => {
       ignore = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
-  }, [id]);
+  }, [id, preloaded]);
 
   // Save servings preference
   useEffect(() => {
     if (recipe?.id && targetServings !== recipe.servings) {
       try {
-        localStorage.setItem(`servings:${recipe.id}`, String(targetServings));
+        safeLocalStorage.setItem(`servings:${recipe.id}`, String(targetServings));
       } catch (err) {
         // Silently handle localStorage errors (e.g., quota exceeded, private browsing)
         if (import.meta.env.DEV) {
@@ -285,7 +360,7 @@ export default function RecipePage() {
     } else {
       setRecipeCost(null);
     }
-  }, [recipe?.id, recipe?.extendedIngredients]);
+  }, [recipe]);
 
   // Load suggestions
   const loadSuggestions = async recipeData => {
@@ -293,8 +368,8 @@ export default function RecipePage() {
     setLoadingSuggestions(true);
     try {
       // Load leftover ideas
-      const diet = localStorage.getItem('filters:diet') || '';
-      const intolerances = localStorage.getItem('filters:intolerances') || '';
+      const diet = safeLocalStorage.getItem('filters:diet') || '';
+      const intolerances = safeLocalStorage.getItem('filters:intolerances') || '';
       const leftovers = await getLeftoverIdeasFromRecipe(recipeData, diet, intolerances);
       setLeftoverIdeas(Array.isArray(leftovers) ? leftovers.slice(0, 6) : []);
 
@@ -361,14 +436,16 @@ export default function RecipePage() {
     triggerHaptic('success');
     setConfettiTrigger(prev => {
       const newValue = prev + 1;
-      console.log('✅ [RECIPE PAGE] Confetti trigger:', { prev, newValue });
+      if (import.meta.env.DEV) {
+        console.warn('✅ [RECIPE PAGE] Confetti trigger:', { prev, newValue });
+      }
       return newValue;
     });
 
     toast.success('Recipe added to your history! 📝');
 
     // Check achievements
-    const history = JSON.parse(localStorage.getItem('recipeHistory') || '[]');
+    const history = safeJSONParse(safeLocalStorage.getItem('recipeHistory'), []);
     const cookedCount = history.filter(h => h.success).length;
     checkAchievements('recipe_cooked', cookedCount);
   };
@@ -376,10 +453,10 @@ export default function RecipePage() {
   // Track recipe view for achievements
   useEffect(() => {
     if (recipe?.id) {
-      const viewedRecipes = JSON.parse(localStorage.getItem('viewedRecipes') || '[]');
+      const viewedRecipes = safeJSONParse(safeLocalStorage.getItem('viewedRecipes'), []);
       if (!viewedRecipes.includes(recipe.id)) {
         viewedRecipes.push(recipe.id);
-        localStorage.setItem('viewedRecipes', JSON.stringify(viewedRecipes));
+        safeLocalStorage.setItem('viewedRecipes', safeJSONStringify(viewedRecipes, '[]'));
         checkAchievements('recipe_view', viewedRecipes.length);
       }
       // Track feature usage
@@ -399,7 +476,7 @@ export default function RecipePage() {
     // Also check for same-tab changes (less frequently to avoid loops)
     const interval = setInterval(() => {
       try {
-        const current = localStorage.getItem('unitSystem') || 'metric';
+        const current = safeLocalStorage.getItem('unitSystem') || 'metric';
         setUnitSystem(prev => {
           // Only update if actually different
           if (current !== prev) {
@@ -424,15 +501,6 @@ export default function RecipePage() {
   const rawHeroImage = recipe?.hero_image_url || recipe?.image;
   const heroImage = rawHeroImage ? recipeImg(rawHeroImage, recipe?.id) : null;
 
-  const placeholderSVG =
-    'data:image/svg+xml;utf8,' +
-    encodeURIComponent(
-      `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'>
-                <rect width='100%' height='100%' fill='#e2e8f0'/>
-                <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#475569' font-family='sans-serif' font-size='16'>Recipe image</text>
-            </svg>`
-    );
-
   // Scaling logic for ingredients
   const originalServings = recipe?.servings || 4;
   // Protect against division by zero and invalid values
@@ -449,18 +517,18 @@ export default function RecipePage() {
     // Debug logging for scaling issues
     if (import.meta.env.DEV && recipe?.id) {
       const logKey = `scale-ratio-${recipe.id}-${targetServings}`;
-      const lastLogged = sessionStorage.getItem(logKey);
+      const lastLogged = safeSessionStorage.getItem(logKey);
       const currentKey = `${originalServings}-${targetServings}-${ratio.toFixed(3)}`;
 
       if (lastLogged !== currentKey) {
-        console.log('📊 [SCALE RATIO]', {
+        console.warn('📊 [SCALE RATIO]', {
           recipeId: recipe.id,
           originalServings,
           targetServings,
           scaleRatio: ratio.toFixed(3),
           note: 'This ratio multiplies the TOTAL stored value to get scaled value',
         });
-        sessionStorage.setItem(logKey, currentKey);
+        safeSessionStorage.setItem(logKey, currentKey);
       }
     }
 
@@ -508,11 +576,11 @@ export default function RecipePage() {
       // Only log once per nutrient per scaleRatio change to prevent spam
       if (import.meta.env.DEV && scaleRatio !== 1) {
         const logKey = `nutrition-scaling-${name}-${scaleRatio}`;
-        const lastLogged = sessionStorage.getItem(logKey);
+        const lastLogged = safeSessionStorage.getItem(logKey);
         const currentKey = `${baseAmount}-${result}`;
 
         if (lastLogged !== currentKey) {
-          console.log('📊 [NUTRITION SCALING]', {
+          console.warn('📊 [NUTRITION SCALING]', {
             nutrient: name,
             baseAmount,
             scaleRatio: Number(scaleRatio.toFixed(3)),
@@ -520,7 +588,7 @@ export default function RecipePage() {
             originalServings,
             targetServings,
           });
-          sessionStorage.setItem(logKey, currentKey);
+          safeSessionStorage.setItem(logKey, currentKey);
         }
       }
 
@@ -530,14 +598,13 @@ export default function RecipePage() {
   );
 
   // Memoize nutrients array to prevent infinite loops
-  // Serialize nutrients to string for stable comparison - only update if content actually changed
   const nutrientsArray = useMemo(() => {
     const nutrients = recipe?.nutrition?.nutrients || [];
 
     // Debug: Log what's actually in the nutrients array
     const caloriesNutrient = nutrients.find(n => n.name === 'Calories');
     if (caloriesNutrient && import.meta.env.DEV) {
-      console.log('📊 [NUTRITION] Nutrients array memoized', {
+      console.warn('📊 [NUTRITION] Nutrients array memoized', {
         count: nutrients.length,
         recipeId: recipe?.id,
         caloriesAmount: caloriesNutrient.amount,
@@ -547,15 +614,7 @@ export default function RecipePage() {
     }
 
     return nutrients;
-  }, [
-    // Use JSON.stringify to create stable dependency - only changes if content actually changes
-    recipe?.nutrition?.nutrients
-      ? JSON.stringify(
-          recipe.nutrition.nutrients.map(n => ({ name: n.name, amount: n.amount, unit: n.unit }))
-        )
-      : null,
-    recipe?.id,
-  ]);
+  }, [recipe?.id, recipe?.nutrition?.nutrients]);
 
   const getScaledNutrient = useCallback(
     name => {
@@ -573,12 +632,12 @@ export default function RecipePage() {
       // Debug logging for nutrition scaling (only log once per change)
       if (import.meta.env.DEV && name === 'Calories') {
         const logKey = `nutrition-display-${recipe?.id}-${scaleRatio}`;
-        const lastLogged = sessionStorage.getItem(logKey);
+        const lastLogged = safeSessionStorage.getItem(logKey);
         const currentKey = `${entry.amount}-${amount}`;
 
         if (lastLogged !== currentKey) {
           const perServing = originalServings > 0 ? entry.amount / originalServings : entry.amount;
-          console.log('📊 [NUTRITION DISPLAY]', {
+          console.warn('📊 [NUTRITION DISPLAY]', {
             nutrient: name,
             storedTotal: entry.amount,
             originalServings,
@@ -588,7 +647,7 @@ export default function RecipePage() {
             displayedAmount: amount,
             note: 'Stored value is TOTAL for recipe, displayed is scaled for target servings',
           });
-          sessionStorage.setItem(logKey, currentKey);
+          safeSessionStorage.setItem(logKey, currentKey);
         }
       }
 
@@ -604,11 +663,13 @@ export default function RecipePage() {
   );
 
   const macros = useMemo(() => {
-    console.log('📊 [MACROS] Calculating macros', {
-      hasNutrients: nutrientsArray.length > 0,
-      scaleRatio,
-      unitSystem,
-    });
+    if (import.meta.env.DEV) {
+      console.warn('📊 [MACROS] Calculating macros', {
+        hasNutrients: nutrientsArray.length > 0,
+        scaleRatio,
+        unitSystem,
+      });
+    }
 
     const defs = [
       { key: 'Calories', label: 'Calories', max: 800 },
@@ -632,55 +693,60 @@ export default function RecipePage() {
       };
     });
 
-    console.log('📊 [MACROS] Macros calculated', result);
-    return result;
-  }, [getScaledNutrient, unitSystem, scaleRatio]);
-
-  const scaleIngredientText = originalText => {
-    if (!originalText || scaleRatio === 1) return originalText;
-
-    // Validate scaleRatio before processing
-    if (!Number.isFinite(scaleRatio) || scaleRatio <= 0) {
-      console.warn('⚠️ [INGREDIENT SCALING] Invalid scaleRatio:', scaleRatio);
-      return originalText;
+    if (import.meta.env.DEV) {
+      console.warn('📊 [MACROS] Macros calculated', result);
     }
+    return result;
+  }, [getScaledNutrient, unitSystem, scaleRatio, nutrientsArray.length]);
 
-    // Use a single regex that matches numbers with units OR standalone numbers
-    // Process in reverse order (right to left) to avoid offset issues
-    let scaledText = originalText;
+  const scaleIngredientText = useCallback(
+    originalText => {
+      if (!originalText || scaleRatio === 1) return originalText;
 
-    // First: handle numbers with units (most specific - do this first)
-    scaledText = scaledText.replace(
-      /\b(\d+(?:\.\d+)?)\s+(cup|cups|tbsp|tsp|tablespoon|tablespoons|teaspoon|teaspoons|oz|g|kg|lb|lbs|pound|pounds|gram|grams|kilogram|kilograms|ml|milliliter|milliliters|l|liter|liters)\b/gi,
-      (match, num, unit) => {
-        const amount = parseFloat(num);
-        if (!Number.isFinite(amount)) return match;
-        const scaled = Math.round(amount * scaleRatio * 100) / 100;
-        return Number.isFinite(scaled) ? `${scaled} ${unit}` : match;
+      // Validate scaleRatio before processing
+      if (!Number.isFinite(scaleRatio) || scaleRatio <= 0) {
+        console.warn('⚠️ [INGREDIENT SCALING] Invalid scaleRatio:', scaleRatio);
+        return originalText;
       }
-    );
 
-    // Then: handle standalone whole numbers (but only if they're not already part of a decimal)
-    // Use word boundaries and negative lookahead to avoid matching numbers that are part of decimals
-    scaledText = scaledText.replace(
-      /\b(\d+)\b(?!\s*(cup|cups|tbsp|tsp|tablespoon|tablespoons|teaspoon|teaspoons|oz|g|kg|lb|lbs|pound|pounds|gram|grams|kilogram|kilograms|ml|milliliter|milliliters|l|liter|liters))/g,
-      (match, num) => {
-        const amount = parseFloat(num);
-        // Only scale reasonable amounts (1-20) to avoid scaling years, etc.
-        if (Number.isFinite(amount) && amount >= 1 && amount <= 20) {
+      // Use a single regex that matches numbers with units OR standalone numbers
+      // Process in reverse order (right to left) to avoid offset issues
+      let scaledText = originalText;
+
+      // First: handle numbers with units (most specific - do this first)
+      scaledText = scaledText.replace(
+        /\b(\d+(?:\.\d+)?)\s+(cup|cups|tbsp|tsp|tablespoon|tablespoons|teaspoon|teaspoons|oz|g|kg|lb|lbs|pound|pounds|gram|grams|kilogram|kilograms|ml|milliliter|milliliters|l|liter|liters)\b/gi,
+        (match, num, unit) => {
+          const amount = parseFloat(num);
+          if (!Number.isFinite(amount)) return match;
           const scaled = Math.round(amount * scaleRatio * 100) / 100;
-          return Number.isFinite(scaled)
-            ? scaled % 1 === 0
-              ? String(scaled)
-              : scaled.toFixed(2)
-            : match;
+          return Number.isFinite(scaled) ? `${scaled} ${unit}` : match;
         }
-        return match;
-      }
-    );
+      );
 
-    return scaledText;
-  };
+      // Then: handle standalone whole numbers (but only if they're not already part of a decimal)
+      // Use word boundaries and negative lookahead to avoid matching numbers that are part of decimals
+      scaledText = scaledText.replace(
+        /\b(\d+)\b(?!\s*(cup|cups|tbsp|tsp|tablespoon|tablespoons|teaspoon|teaspoons|oz|g|kg|lb|lbs|pound|pounds|gram|grams|kilogram|kilograms|ml|milliliter|milliliters|l|liter|liters))/g,
+        (match, num) => {
+          const amount = parseFloat(num);
+          // Only scale reasonable amounts (1-20) to avoid scaling years, etc.
+          if (Number.isFinite(amount) && amount >= 1 && amount <= 20) {
+            const scaled = Math.round(amount * scaleRatio * 100) / 100;
+            return Number.isFinite(scaled)
+              ? scaled % 1 === 0
+                ? String(scaled)
+                : scaled.toFixed(2)
+              : match;
+          }
+          return match;
+        }
+      );
+
+      return scaledText;
+    },
+    [scaleRatio]
+  );
 
   // State for ingredient swaps
   const [ingredientSwaps, setIngredientSwaps] = useState({});
@@ -694,7 +760,7 @@ export default function RecipePage() {
   }, [id]);
 
   // Handle swap application
-  const handleSwapApplied = useCallback((ingredientIndex, swapName, originalText) => {
+  const handleSwapApplied = useCallback((ingredientIndex, swapName, _originalText) => {
     setIngredientSwaps(prev => {
       if (swapName === null) {
         const newSwaps = { ...prev };
@@ -724,7 +790,7 @@ export default function RecipePage() {
     }
 
     if (import.meta.env.DEV) {
-      console.log('🔢 [INGREDIENT CALC] Starting ingredient calculation:', {
+      console.warn('🔢 [INGREDIENT CALC] Starting ingredient calculation:', {
         recipeId: recipe.id,
         recipeTitle: recipe.title,
         totalIngredients: recipe.extendedIngredients.length,
@@ -738,7 +804,7 @@ export default function RecipePage() {
     return recipe.extendedIngredients.map((ing, index) => {
       // Log raw ingredient data
       if (import.meta.env.DEV) {
-        console.debug(`📦 [INGREDIENT ${index + 1}] Raw ingredient data:`, {
+        console.warn(`📦 [INGREDIENT ${index + 1}] Raw ingredient data:`, {
           id: ing.id,
           name: ing.name,
           originalName: ing.originalName,
@@ -823,7 +889,7 @@ export default function RecipePage() {
 
       // Log parsing results
       if (import.meta.env.DEV) {
-        console.debug(`🔍 [INGREDIENT ${index + 1}] Parsed values:`, {
+        console.warn(`🔍 [INGREDIENT ${index + 1}] Parsed values:`, {
           rawAmount,
           baseAmount,
           scaledAmount,
@@ -853,7 +919,7 @@ export default function RecipePage() {
               : `${displayAmount} ${ingredientName}`;
 
             if (import.meta.env.DEV) {
-              console.debug(`✅ [INGREDIENT ${index + 1}] Final result (no unit):`, {
+              console.warn(`✅ [INGREDIENT ${index + 1}] Final result (no unit):`, {
                 ingredientName,
                 finalDisplayText,
                 reason: 'No unit - showing as whole item',
@@ -877,7 +943,7 @@ export default function RecipePage() {
           : `${ingredientName}${prep ? `, ${prep}` : ''}`;
 
         if (import.meta.env.DEV) {
-          console.debug(`✅ [INGREDIENT ${index + 1}] Final result (no amount/unit):`, {
+          console.warn(`✅ [INGREDIENT ${index + 1}] Final result (no amount/unit):`, {
             ingredientName,
             finalDisplayText,
             reason: 'No amount/unit - showing as seasoning or name only',
@@ -924,7 +990,7 @@ export default function RecipePage() {
       // Log final result
       if (import.meta.env.DEV) {
         const hasIssues = baseAmount === null || !normalizedUnit;
-        const logMethod = hasIssues ? console.warn : console.debug;
+        const logMethod = console.warn;
         logMethod(`✅ [INGREDIENT ${index + 1}] Final result:`, {
           ingredientName,
           baseOriginal,
@@ -964,6 +1030,7 @@ export default function RecipePage() {
     recipe?.title,
     recipe?.servings,
     targetServings,
+    scaleIngredientText,
   ]);
 
   useEffect(() => {
@@ -975,20 +1042,22 @@ export default function RecipePage() {
     const perServing = Object.fromEntries(perServingEntries);
     const multiplier = targetServings / recipe.servings;
 
-    console.debug('[NutritionDebug]', {
-      id: recipe.id,
-      title: recipe.title,
-      baseServings: recipe.servings,
-      targetServings,
-      multiplier: Number.isFinite(multiplier) ? Number(multiplier.toFixed(3)) : null,
-      perServing,
-      scaled: Object.fromEntries(
-        perServingEntries.map(([name, amount]) => [
-          name,
-          Number.isFinite(amount * multiplier) ? Number((amount * multiplier).toFixed(2)) : null,
-        ])
-      ),
-    });
+    if (import.meta.env.DEV) {
+      console.warn('[NutritionDebug]', {
+        id: recipe.id,
+        title: recipe.title,
+        baseServings: recipe.servings,
+        targetServings,
+        multiplier: Number.isFinite(multiplier) ? Number(multiplier.toFixed(3)) : null,
+        perServing,
+        scaled: Object.fromEntries(
+          perServingEntries.map(([name, amount]) => [
+            name,
+            Number.isFinite(amount * multiplier) ? Number((amount * multiplier).toFixed(2)) : null,
+          ])
+        ),
+      });
+    }
   }, [recipe?.nutrition, recipe?.servings, recipe?.id, recipe?.title, targetServings]);
 
   const beveragePairings = useMemo(() => {
@@ -1033,13 +1102,6 @@ export default function RecipePage() {
     return [];
   }, [recipe]);
 
-  const openCookMode = () => {
-    setStepIndex(0);
-    setSecondsLeft(0);
-    setTicking(false);
-    setCookOpen(true);
-    triggerHaptic('light');
-  };
   const closeCookMode = () => {
     setCookOpen(false);
     setTicking(false);
@@ -1056,13 +1118,12 @@ export default function RecipePage() {
     if (!cookOpen) return;
 
     let startX = 0;
-    let startY = 0;
     let swipeDistance = 0;
 
     const handleTouchStart = e => {
       const touch = e.touches[0];
       startX = touch.clientX;
-      startY = touch.clientY;
+      // startY not used in swipe logic
     };
 
     const handleTouchMove = e => {
@@ -1152,7 +1213,9 @@ export default function RecipePage() {
       title={label}
     >
       <span className="text-sm sm:text-lg md:text-xl flex-shrink-0">{icon}</span>
-      <span className="hidden sm:inline text-xs sm:text-sm font-semibold text-emerald-900 dark:text-emerald-200 whitespace-nowrap">{label}:</span>
+      <span className="hidden sm:inline text-xs sm:text-sm font-semibold text-emerald-900 dark:text-emerald-200 whitespace-nowrap">
+        {label}:
+      </span>
       <span className="font-bold text-xs sm:text-sm text-emerald-800 dark:text-emerald-100 truncate min-w-0">
         <span className="sm:hidden">{mobileValue ?? value ?? '—'}</span>
         <span className="hidden sm:inline">{value ?? '—'}</span>
@@ -1173,7 +1236,9 @@ export default function RecipePage() {
       <div className="rounded-lg sm:rounded-xl bg-white/80 dark:bg-slate-800/80 p-3 sm:p-4 border-2 border-emerald-200 dark:border-emerald-800 shadow-md">
         <div className="flex items-center justify-between text-xs sm:text-sm font-semibold text-emerald-900 dark:text-emerald-200 mb-2 gap-2">
           <span className="truncate min-w-0">{label}</span>
-          <span className="text-base sm:text-lg font-bold flex-shrink-0">{display ?? Number(value || 0).toFixed(1)}</span>
+          <span className="text-base sm:text-lg font-bold flex-shrink-0">
+            {display ?? Number(value || 0).toFixed(1)}
+          </span>
         </div>
         <div className="h-2.5 sm:h-3 rounded-full bg-emerald-100 dark:bg-emerald-900/50 overflow-hidden shadow-inner">
           <motion.div
@@ -1257,12 +1322,14 @@ export default function RecipePage() {
     }
   };
 
-  console.log('📄 [RECIPE PAGE] Component render', {
-    recipeId: recipe?.id,
-    confettiTrigger,
-    loading,
-    error: !!error,
-  });
+  if (import.meta.env.DEV) {
+    console.warn('📄 [RECIPE PAGE] Component render', {
+      recipeId: recipe?.id,
+      confettiTrigger,
+      loading,
+      error: !!error,
+    });
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 relative">
@@ -1404,17 +1471,17 @@ export default function RecipePage() {
               mobileValue={recipe.readyInMinutes ? `${recipe.readyInMinutes}` : '—'}
               icon="⏱️"
             />
-            <Stat 
-              label="Servings" 
-              value={recipe.servings} 
+            <Stat
+              label="Servings"
+              value={recipe.servings}
               mobileValue={recipe.servings}
-              icon="🍽️" 
+              icon="🍽️"
             />
-            <Stat 
-              label="Health" 
-              value={recipe.healthScore ?? '—'} 
+            <Stat
+              label="Health"
+              value={recipe.healthScore ?? '—'}
               mobileValue={recipe.healthScore ?? '—'}
-              icon="💚" 
+              icon="💚"
             />
           </div>
 
@@ -1514,8 +1581,8 @@ export default function RecipePage() {
                       • <strong>Per Serving:</strong> Values for 1 serving (set servings to 1)
                     </p>
                     <p>
-                      • <strong>Totals:</strong> Combined values for all servings (shown when servings
-                      &gt; 1)
+                      • <strong>Totals:</strong> Combined values for all servings (shown when
+                      servings &gt; 1)
                     </p>
                     <p className="mt-2 text-emerald-300">
                       💡 Adjust servings above to see different totals!
@@ -1601,7 +1668,11 @@ export default function RecipePage() {
                     }`}
                   >
                     <span className="flex items-center justify-center sm:justify-start gap-1 sm:gap-1.5 md:gap-2 text-xs sm:text-sm font-semibold">
-                      <span role="img" aria-hidden="true" className="text-sm sm:text-base md:text-lg">
+                      <span
+                        role="img"
+                        aria-hidden="true"
+                        className="text-sm sm:text-base md:text-lg"
+                      >
                         {opt.flag}
                       </span>
                       <span className="hidden sm:inline">{opt.label}</span>
@@ -1985,7 +2056,9 @@ export default function RecipePage() {
                         loading="lazy"
                         onError={fallbackOnce}
                       />
-                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 break-words">{recipe.title}</h3>
+                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 break-words">
+                        {recipe.title}
+                      </h3>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                         {recipe.readyInMinutes} min
                       </p>
@@ -2028,7 +2101,9 @@ export default function RecipePage() {
                         loading="lazy"
                         onError={fallbackOnce}
                       />
-                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 break-words">{recipe.title}</h3>
+                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 break-words">
+                        {recipe.title}
+                      </h3>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                         {recipe.readyInMinutes} min
                       </p>
@@ -2071,7 +2146,9 @@ export default function RecipePage() {
                         loading="lazy"
                         onError={fallbackOnce}
                       />
-                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 break-words">{recipe.title}</h3>
+                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 break-words">
+                        {recipe.title}
+                      </h3>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                         {recipe.readyInMinutes} min
                       </p>
@@ -2143,9 +2220,13 @@ export default function RecipePage() {
               </motion.button>
               <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex-shrink-0">
                 <span className="text-xs sm:text-sm font-semibold text-emerald-300">Step</span>
-                <span className="font-mono text-base sm:text-lg font-bold text-white">{stepIndex + 1}</span>
+                <span className="font-mono text-base sm:text-lg font-bold text-white">
+                  {stepIndex + 1}
+                </span>
                 <span className="text-xs sm:text-sm text-slate-400">of</span>
-                <span className="font-mono text-base sm:text-lg font-bold text-white">{steps.length}</span>
+                <span className="font-mono text-base sm:text-lg font-bold text-white">
+                  {steps.length}
+                </span>
               </div>
               <motion.button
                 whileHover={{ scale: 1.05, x: 2 }}
@@ -2171,7 +2252,9 @@ export default function RecipePage() {
               <div className="absolute top-3 left-3 sm:top-4 sm:left-4 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-xs sm:text-sm font-bold shadow-lg">
                 {stepIndex + 1}
               </div>
-              <p className="text-slate-100 font-medium pt-8 sm:pt-0 sm:pl-12 break-words">{steps[stepIndex]}</p>
+              <p className="text-slate-100 font-medium pt-8 sm:pt-0 sm:pl-12 break-words">
+                {steps[stepIndex]}
+              </p>
             </motion.div>
 
             {/* Timer Section */}

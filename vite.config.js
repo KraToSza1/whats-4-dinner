@@ -103,8 +103,16 @@ export default defineConfig({
   },
   build: {
     sourcemap: false, // Disable source maps to reduce warnings
+    target: 'es2015', // Support older browsers (IE11, older Safari, etc.)
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: false, // Keep console for debugging
+      },
+    },
   },
   esbuild: {
     sourcemap: false, // Disable source maps in esbuild
+    target: 'es2015', // Support older browsers
   },
 });

@@ -1,4 +1,7 @@
 // src/main.jsx
+// Import browser compatibility FIRST to ensure polyfills are loaded
+import './utils/browserCompatibility.js';
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';

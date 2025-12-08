@@ -1,0 +1,33 @@
+warning: in the working copy of 'index.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package-lock.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/App.jsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/api/supabaseRecipes.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/BackToHome.jsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/DailyRecipe.jsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Filters.jsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/Header.jsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/RecipeCard.jsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/RecipeCollectionsButton.jsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/RecipeNotes.jsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/components/ShareButton.jsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/main.jsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/RecipePage.jsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'vite.config.js', LF will be replaced by CRLF the next time Git touches it
+index.html
+package-lock.json
+package.json
+src/App.jsx
+src/api/supabaseRecipes.js
+src/components/BackToHome.jsx
+src/components/DailyRecipe.jsx
+src/components/Filters.jsx
+src/components/Header.jsx
+src/components/RecipeCard.jsx
+src/components/RecipeCollectionsButton.jsx
+src/components/RecipeNotes.jsx
+src/components/ShareButton.jsx
+src/main.jsx
+src/pages/RecipePage.jsx
+src/utils/medicalConditions.js
+vite.config.js
