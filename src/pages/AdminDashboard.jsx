@@ -40,6 +40,17 @@ export default function AdminDashboard() {
   // Read recipeId reactively from searchParams - use useMemo to make it reactive
   const recipeIdFromUrl = useMemo(() => searchParams.get('recipeId'), [searchParams]);
   
+  // Force remount counter - increments when recipeId changes
+  const [editorKey, setEditorKey] = useState(0);
+  
+  useEffect(() => {
+    if (recipeIdFromUrl) {
+      // Force remount by changing key
+      setEditorKey(prev => prev + 1);
+      console.error('🔄 [ADMIN DASHBOARD] RecipeId changed, forcing RecipeEditor remount:', recipeIdFromUrl);
+    }
+  }, [recipeIdFromUrl]);
+  
   const [activeTab, setActiveTab] = useState(() => {
     // If recipeId is in URL, switch to recipes tab
     const initialRecipeId = searchParams.get('recipeId');
@@ -480,7 +491,7 @@ export default function AdminDashboard() {
                         </div>
                         <div className="bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border-2 border-blue-200 dark:border-blue-800 shadow-lg overflow-x-auto">
                           <RecipeEditor 
-                            key={`recipe-editor-${recipeIdFromUrl || 'browse'}-${activeTab}`} 
+                            key={`recipe-editor-${recipeIdFromUrl || 'browse'}-${editorKey}`} 
                             recipeId={recipeIdFromUrl || null} 
                           />
                         </div>
