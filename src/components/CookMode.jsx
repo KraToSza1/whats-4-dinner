@@ -10,7 +10,6 @@ import { SuccessCheckAnimation, CookingPotAnimation } from './LottieFoodAnimatio
 export default function CookMode({ steps, recipeTitle, onClose }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState(new Set());
-  const [timer, setTimer] = useState(null);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
@@ -193,32 +192,36 @@ export default function CookMode({ steps, recipeTitle, onClose }) {
 
               {/* Current step */}
               <motion.div
-                className={`relative rounded-lg xs:rounded-xl p-3 xs:p-4 sm:p-6 border-2 transition-all ${
+                className={`relative rounded-xl xs:rounded-2xl p-4 xs:p-5 sm:p-6 border-2 transition-all shadow-lg ${
                   completedSteps.has(currentStep)
-                    ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700'
-                    : 'bg-white dark:bg-slate-800 border-emerald-200 dark:border-emerald-800'
+                    ? 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 border-emerald-400 dark:border-emerald-600'
+                    : 'bg-white dark:bg-slate-800 border-emerald-300 dark:border-emerald-700'
                 }`}
                 whileHover={{ scale: 1.01 }}
               >
                 <div className="flex items-start gap-2 xs:gap-3 sm:gap-4">
                   <motion.button
                     onClick={() => toggleStep(currentStep)}
-                    className={`shrink-0 w-10 h-10 xs:w-12 xs:h-12 rounded-full flex items-center justify-center border-2 transition-all touch-manipulation ${
+                    className={`shrink-0 w-12 h-12 xs:w-14 xs:h-14 rounded-xl flex items-center justify-center border-2 transition-all touch-manipulation shadow-md ${
                       completedSteps.has(currentStep)
-                        ? 'bg-emerald-500 border-emerald-600 text-white'
-                        : 'bg-white dark:bg-slate-800 border-emerald-300 dark:border-emerald-700'
+                        ? 'bg-gradient-to-br from-emerald-500 to-teal-500 border-emerald-600 text-white'
+                        : 'bg-white dark:bg-slate-800 border-emerald-400 dark:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
                     }`}
-                    whileHover={{ scale: 1.1 }}
+                    whileHover={{ scale: 1.1, rotate: 5 }}
                     whileTap={{ scale: 0.9 }}
+                    title={completedSteps.has(currentStep) ? 'Mark as incomplete' : 'Mark as complete'}
                   >
                     {completedSteps.has(currentStep) ? (
-                      <SuccessCheckAnimation size={24} className="xs:w-8 xs:h-8" />
+                      <SuccessCheckAnimation size={28} className="xs:w-10 xs:h-10" />
                     ) : (
-                      <div className="w-4 h-4 xs:w-5 xs:h-5 rounded-full border-2 border-emerald-500" />
+                      <div className="w-5 h-5 xs:w-6 xs:h-6 rounded-lg border-2 border-emerald-500 dark:border-emerald-400" />
                     )}
                   </motion.button>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 xs:gap-2 mb-1.5 xs:mb-2 flex-wrap">
+                    <div className="flex items-center gap-2 xs:gap-3 mb-2 xs:mb-3 flex-wrap">
+                      <span className="inline-flex items-center justify-center w-8 h-8 xs:w-10 xs:h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white font-bold text-base xs:text-lg sm:text-xl shadow-md">
+                        {currentStep + 1}
+                      </span>
                       <span className="text-lg xs:text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                         Step {currentStep + 1}
                       </span>
@@ -226,30 +229,56 @@ export default function CookMode({ steps, recipeTitle, onClose }) {
                         <motion.span
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
-                          className="text-base xs:text-lg sm:text-xl"
+                          className="text-xl xs:text-2xl sm:text-3xl"
                         >
                           ✅
                         </motion.span>
                       )}
                     </div>
-                    <p className="text-sm xs:text-base sm:text-lg text-slate-700 dark:text-slate-200 leading-relaxed break-words">
+                    <p className="text-base xs:text-lg sm:text-xl text-slate-700 dark:text-slate-200 leading-relaxed break-words font-medium">
                       {steps[currentStep]}
                     </p>
 
                     {/* Quick timer buttons */}
-                    <div className="flex flex-wrap gap-1.5 xs:gap-2 mt-3 xs:mt-4">
-                      {[30, 60, 120, 300].map(seconds => (
-                        <motion.button
-                          key={seconds}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => startTimer(seconds)}
-                          className="px-2.5 xs:px-3 py-1.5 xs:py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs xs:text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1 touch-manipulation min-h-[36px] xs:min-h-0"
-                        >
-                          <Clock size={12} className="xs:w-3.5 xs:h-3.5" />
-                          {seconds < 60 ? `${seconds}s` : `${seconds / 60}m`}
-                        </motion.button>
-                      ))}
+                    <div className="mt-4 xs:mt-5 sm:mt-6">
+                      <p className="text-xs xs:text-sm font-semibold text-slate-600 dark:text-slate-400 mb-2 xs:mb-3 flex items-center gap-1.5">
+                        <Clock size={14} className="xs:w-4 xs:h-4 text-emerald-600 dark:text-emerald-400" />
+                        <span>Set Timer:</span>
+                      </p>
+                      <div className="flex flex-wrap gap-2 xs:gap-2.5">
+                        {[30, 60, 120, 300].map(seconds => {
+                          const minutes = Math.floor(seconds / 60);
+                          const remainingSeconds = seconds % 60;
+                          const displayText = seconds < 60 
+                            ? `${seconds}s` 
+                            : remainingSeconds > 0 
+                              ? `${minutes}m ${remainingSeconds}s`
+                              : `${minutes}m`;
+                          return (
+                            <motion.button
+                              key={seconds}
+                              whileHover={{ scale: 1.08, y: -2 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => startTimer(seconds)}
+                              className="group relative px-4 xs:px-5 py-2.5 xs:py-3 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm xs:text-base shadow-lg hover:shadow-xl transition-all flex items-center gap-2 touch-manipulation min-h-[44px] overflow-hidden"
+                            >
+                              <motion.div
+                                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                                animate={{ x: ['-100%', '200%'] }}
+                                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                              />
+                              <motion.div
+                                animate={{ rotate: [0, 360] }}
+                                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                                className="relative z-10"
+                              >
+                                <Clock size={18} className="xs:w-5 xs:h-5" />
+                              </motion.div>
+                              <span className="relative z-10">{displayText}</span>
+                            </motion.button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -264,34 +293,36 @@ export default function CookMode({ steps, recipeTitle, onClose }) {
                   <motion.button
                     key={idx}
                     onClick={() => setCurrentStep(idx)}
-                    className={`w-full text-left p-2.5 xs:p-3 rounded-lg border transition-all touch-manipulation min-h-[44px] xs:min-h-0 ${
+                    className={`w-full text-left p-3 xs:p-4 rounded-xl border-2 transition-all touch-manipulation min-h-[44px] shadow-sm hover:shadow-md ${
                       idx === currentStep
-                        ? 'bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700'
+                        ? 'bg-gradient-to-r from-emerald-100 to-teal-100 dark:from-emerald-900/40 dark:to-teal-900/40 border-emerald-400 dark:border-emerald-600 ring-2 ring-emerald-200 dark:ring-emerald-800'
                         : completedSteps.has(idx)
-                          ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800 opacity-70'
-                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-emerald-300'
+                          ? 'bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-300/50 dark:border-emerald-700/50 opacity-75'
+                          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600'
                     }`}
-                    whileHover={{ x: 2 }}
+                    whileHover={{ x: 3, scale: 1.01 }}
                   >
-                    <div className="flex items-center gap-1.5 xs:gap-2 min-w-0">
+                    <div className="flex items-center gap-2 xs:gap-3 min-w-0">
                       <span
-                        className={`text-xs xs:text-sm font-semibold flex-shrink-0 ${
+                        className={`inline-flex items-center justify-center w-6 h-6 xs:w-7 xs:h-7 rounded-lg text-xs xs:text-sm font-bold flex-shrink-0 ${
                           idx === currentStep
-                            ? 'text-emerald-700 dark:text-emerald-300'
-                            : 'text-slate-600 dark:text-slate-400'
+                            ? 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white'
+                            : completedSteps.has(idx)
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                         }`}
                       >
-                        {idx + 1}.
+                        {idx + 1}
                       </span>
                       <span
-                        className={`text-xs xs:text-sm flex-1 min-w-0 truncate ${completedSteps.has(idx) ? 'line-through' : ''}`}
+                        className={`text-sm xs:text-base flex-1 min-w-0 break-words ${completedSteps.has(idx) ? 'line-through opacity-60' : ''}`}
                       >
-                        {step.length > 50 ? `${step.substring(0, 50)}...` : step}
+                        {step}
                       </span>
                       {completedSteps.has(idx) && (
                         <Check
-                          size={14}
-                          className="xs:w-4 xs:h-4 text-emerald-500 ml-auto flex-shrink-0"
+                          size={18}
+                          className="xs:w-5 xs:h-5 text-emerald-500 dark:text-emerald-400 ml-auto flex-shrink-0"
                         />
                       )}
                     </div>
@@ -303,34 +334,41 @@ export default function CookMode({ steps, recipeTitle, onClose }) {
         </div>
 
         {/* Navigation */}
-        <div className="border-t border-slate-200 dark:border-slate-800 p-3 xs:p-4 flex items-center justify-between gap-2 xs:gap-4">
-          <motion.button
-            whileHover={{ scale: 1.05, x: -2 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={prevStep}
-            disabled={currentStep === 0}
-            className="px-3 xs:px-4 py-2.5 xs:py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 xs:gap-2 text-xs xs:text-sm font-semibold touch-manipulation min-h-[44px] xs:min-h-0"
-          >
-            <ChevronLeft size={18} className="xs:w-5 xs:h-5" />
-            <span className="hidden xs:inline">Previous</span>
-            <span className="xs:hidden">Prev</span>
-          </motion.button>
+        <div className="border-t border-slate-200 dark:border-slate-800 p-3 xs:p-4 bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="flex items-center justify-between gap-2 xs:gap-4">
+            <motion.button
+              whileHover={{ scale: 1.05, x: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={prevStep}
+              disabled={currentStep === 0}
+              className="px-4 xs:px-5 py-2.5 xs:py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm xs:text-base font-bold border-2 border-slate-200 dark:border-slate-700 shadow-md hover:shadow-lg transition-all touch-manipulation min-h-[44px]"
+            >
+              <ChevronLeft size={20} className="xs:w-5 xs:h-5" />
+              <span className="hidden xs:inline">Previous</span>
+              <span className="xs:hidden">Prev</span>
+            </motion.button>
 
-          <span className="text-xs xs:text-sm text-slate-500 dark:text-slate-400 font-medium flex-shrink-0">
-            {currentStep + 1} / {steps.length}
-          </span>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-xs xs:text-sm text-slate-500 dark:text-slate-400 font-medium">
+                Step
+              </span>
+              <span className="text-base xs:text-lg font-bold text-slate-700 dark:text-slate-200">
+                {currentStep + 1} / {steps.length}
+              </span>
+            </div>
 
-          <motion.button
-            whileHover={{ scale: 1.05, x: 2 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={nextStep}
-            disabled={currentStep === steps.length - 1}
-            className="px-3 xs:px-4 py-2.5 xs:py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 xs:gap-2 text-xs xs:text-sm touch-manipulation min-h-[44px] xs:min-h-0"
-          >
-            <span className="hidden xs:inline">Next</span>
-            <span className="xs:hidden">Next</span>
-            <ChevronRight size={18} className="xs:w-5 xs:h-5" />
-          </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05, x: 2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={nextStep}
+              disabled={currentStep === steps.length - 1}
+              className="px-4 xs:px-5 py-2.5 xs:py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm xs:text-base shadow-lg hover:shadow-xl transition-all touch-manipulation min-h-[44px]"
+            >
+              <span className="hidden xs:inline">Next</span>
+              <span className="xs:hidden">Next</span>
+              <ChevronRight size={20} className="xs:w-5 xs:h-5" />
+            </motion.button>
+          </div>
         </div>
       </motion.div>
     </motion.div>

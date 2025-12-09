@@ -121,14 +121,16 @@ export default function WaterTracker() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Droplets className="w-6 h-6 text-blue-500" />
+      {/* Header with Icon */}
+      <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg flex-shrink-0">
+          <Droplets className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-1">
             Water Tracker
           </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
             Stay hydrated! Track your daily water intake
           </p>
         </div>

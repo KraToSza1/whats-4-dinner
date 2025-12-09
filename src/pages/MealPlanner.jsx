@@ -837,11 +837,15 @@ export default function MealPlanner() {
     <div className="mx-auto max-w-6xl px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-10">
       {/* Header with Stats */}
       <div className="mb-4 sm:mb-6 lg:mb-8">
-        <BackToHome className="mb-4" />
-        <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-          <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-            📅 Smart Meal Planner
-          </h1>
+        <div className="flex items-start gap-3 sm:gap-4 mb-3 sm:mb-4">
+          <div className="flex-shrink-0">
+            <BackToHome className="mb-0" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent truncate">
+              📅 Smart Meal Planner
+            </h1>
+          </div>
         </div>
 
         {/* Context Awareness Widget */}

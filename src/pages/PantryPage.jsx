@@ -167,8 +167,15 @@ export default function PantryPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-6 sm:mb-8"
         >
-          <div className="mb-4">
-            <BackToHome toHome={false} label="Back" className="mb-4" />
+          <div className="flex items-start gap-3 sm:gap-4 mb-4">
+            <div className="flex-shrink-0">
+              <BackToHome toHome={false} label="Back" className="mb-0" />
+            </div>
+            <div className="flex-1 min-w-0 sm:hidden">
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">
+                What's in Your Pantry?
+              </h1>
+            </div>
           </div>
           <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 rounded-3xl p-6 sm:p-8 shadow-2xl border-2 border-amber-300 dark:border-amber-700">
             {/* Animated Background Pattern */}
@@ -186,10 +193,10 @@ export default function PantryPage() {
                   <ChefHat className="w-8 h-8 text-white" />
                 </motion.div>
                 <div className="flex-1">
-                  <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-2">
                     What's in Your Pantry?
                   </h1>
-                  <p className="text-amber-100 text-base sm:text-lg">
+                  <p className="text-amber-100 text-sm sm:text-base md:text-lg hidden sm:block">
                     Select ingredients you have on hand and discover amazing recipes
                   </p>
                 </div>

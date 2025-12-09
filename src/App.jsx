@@ -13,6 +13,7 @@ import Collections from './pages/Collections.jsx';
 import Help from './pages/Help.jsx';
 import Terms from './pages/Terms.jsx';
 import Privacy from './pages/Privacy.jsx';
+import Settings from './pages/Settings.jsx';
 import Analytics from './pages/Analytics.jsx';
 import SharedRecipePage from './pages/SharedRecipePage.jsx';
 import BillingManagement from './pages/BillingManagement.jsx';
@@ -52,6 +53,7 @@ import { searchSupabaseRecipes } from './api/supabaseRecipes.js';
 import { filterRecipesByMedicalConditions } from './utils/medicalConditions.js';
 import { getPreferenceSummary } from './utils/preferenceAnalyzer.js';
 import { trackRecipeInteraction } from './utils/analytics.js';
+import { useAdmin } from './context/AdminContext.jsx';
 import {
   shouldShowAds,
   canPerformAction,
@@ -75,6 +77,7 @@ const toIngredientArray = raw =>
 const App = () => {
   const toast = useToast();
   const filters = useFilters(); // Use FilterContext
+  const { isAdmin } = useAdmin(); // Get admin status
   const [recipes, setRecipes] = useState([]);
   const [favorites, setFavorites] = useState(() => {
     const saved = safeLocalStorage.getItem('favorites');
@@ -102,13 +105,7 @@ const App = () => {
     }
   }); // ["eggs","tomato"]
 
-  const [theme, setTheme] = useState(() => safeLocalStorage.getItem('theme') || 'dark');
-  const toggleTheme = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'));
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    safeLocalStorage.setItem('theme', theme);
-  }, [theme]);
+  // Theme is now managed globally by ThemeContext
 
   // Listen for mini games open event
   useEffect(() => {
@@ -666,7 +663,7 @@ const App = () => {
       // Prevent duplicate simultaneous requests
       if (isFetchingRef.current) {
         if (import.meta.env.DEV) {
-          console.warn('⏸️ [FETCH RECIPES] Already fetching, skipping duplicate request');
+          // Already fetching, skipping duplicate request
         }
         return;
       }
@@ -775,8 +772,7 @@ const App = () => {
         // If filters are active, fetch 3-4x more recipes to account for client-side filtering
         const requestedLimit = hasActiveFilters ? Math.max(baseLimit * 3, 100) : baseLimit;
 
-        if (import.meta.env.DEV) {
-          console.warn('🔍 [FETCH RECIPES] ============================================');
+        if (import.meta.env.DEV && import.meta.env.VITE_VERBOSE_LOGS === 'true') {
           console.warn('🔍 [FETCH RECIPES] Starting recipe fetch');
           console.warn('🔍 [FETCH RECIPES] Params:', {
             query: trimmedQuery || '(empty)',
@@ -792,7 +788,6 @@ const App = () => {
             shouldShowDefaultFeed,
             timestamp: new Date().toISOString(),
           });
-          console.warn('🔍 [FETCH RECIPES] ============================================');
         }
 
         const searchPromise = searchSupabaseRecipes({
@@ -810,6 +805,7 @@ const App = () => {
           intolerances: intolerancesString,
           limit: requestedLimit,
           offset: offset, // Add offset for server-side pagination
+          isAdmin: isAdmin, // Pass admin status - admins see all recipes including incomplete ones
         });
 
         // Add timeout to prevent hanging requests (25 seconds - reduced from 30)
@@ -825,7 +821,7 @@ const App = () => {
         });
 
         if (import.meta.env.DEV) {
-          console.warn('🔄 [FETCH RECIPES] Racing search promise against timeout...');
+          // Racing search promise against timeout
         }
 
         let searchResult;
@@ -841,7 +837,7 @@ const App = () => {
 
         const fetchElapsed = Date.now() - fetchStartTime;
 
-        if (import.meta.env.DEV) {
+        if (import.meta.env.DEV && import.meta.env.VITE_VERBOSE_LOGS === 'true') {
           console.warn('✅ [FETCH RECIPES] Search completed in', fetchElapsed, 'ms');
           console.warn('✅ [FETCH RECIPES] Result:', {
             isArray: Array.isArray(searchResult),
@@ -891,7 +887,7 @@ const App = () => {
           supabaseResults = [];
         }
 
-        if (import.meta.env.DEV) {
+        if (import.meta.env.DEV && import.meta.env.VITE_VERBOSE_LOGS === 'true') {
           console.warn('📊 [FETCH RECIPES] Query result:', {
             isArray: Array.isArray(searchResult),
             hasData: !!searchResult?.data,
@@ -977,7 +973,7 @@ const App = () => {
           if (filteredResults && filteredResults.length > 0) {
             setRecipes(filteredResults);
 
-            if (import.meta.env.DEV) {
+            if (import.meta.env.DEV && import.meta.env.VITE_VERBOSE_LOGS === 'true') {
               console.warn('✅ [FETCH RECIPES] Set recipes in state:', {
                 count: filteredResults.length,
                 originalCount: supabaseResults.length,
@@ -1000,7 +996,7 @@ const App = () => {
             if (supabaseResults && supabaseResults.length > 0) {
               setRecipes(supabaseResults);
               if (import.meta.env.DEV) {
-                console.warn('⚠️ [FETCH RECIPES] Using original results as fallback');
+                // Using original results as fallback
               }
             } else {
               setRecipes([]);
@@ -1041,7 +1037,7 @@ const App = () => {
           }
         } else {
           // No results - handle differently based on context
-          if (import.meta.env.DEV) {
+          if (import.meta.env.DEV && import.meta.env.VITE_VERBOSE_LOGS === 'true') {
             console.warn('⚠️ [FETCH RECIPES] No recipes returned from search:', {
               trimmedQuery: trimmedQuery || '(empty)',
               includeIngredients: includeIngredients.length,
@@ -1136,18 +1132,10 @@ const App = () => {
       }
     },
     [
-      filters.diet,
-      filters.mealType,
-      filters.maxTime,
-      filters.cuisine,
-      filters.difficulty,
-      filters.minProtein,
-      filters.maxCarbs,
-      filters.selectedIntolerances,
+      filters, // Include full filters object since we use filters.hasActiveFilters()
       pantry,
-      filters.maxCalories,
-      filters.healthScore,
       recipesPerPage, // Need this for pagination calculations
+      isAdmin, // Need this for admin filtering
       // Removed from deps: loading (causes infinite loops)
       // handleItemsPerPageChange manually triggers fetchRecipes
     ]
@@ -1271,13 +1259,10 @@ const App = () => {
     totalRecipesCount > 0
       ? Math.ceil(totalRecipesCount / recipesPerPage)
       : Math.ceil(recipes.length / recipesPerPage); // Fallback to client-side if count not available
-  const startIndex = (currentPage - 1) * recipesPerPage;
-  const endIndex = startIndex + recipesPerPage;
 
-  // Server-side pagination: recipes should contain just the current page's recipes
-  // But if recipesPerPage changed, we might have more recipes than expected
-  // Slice to ensure we only show the correct number for the current page
-  const paginatedRecipes = recipes.slice(startIndex, endIndex);
+  // Server-side pagination: recipes array already contains just the current page's recipes
+  // No need to slice - the server returns exactly what we need for the current page
+  const paginatedRecipes = recipes;
 
   // Only log in development to reduce console noise
   // Removed verbose logging
@@ -1327,8 +1312,6 @@ const App = () => {
       <GroceryListProvider>
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
           <Header
-            theme={theme}
-            toggleTheme={toggleTheme}
             favorites={favorites}
             setFavorites={setFavorites}
           />
@@ -1424,6 +1407,7 @@ const App = () => {
                           <div className="grid gap-3 xs:gap-4 sm:gap-5 grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                             {paginatedRecipes.map((recipe, idx) => {
                               // For server-side pagination, calculate index based on current page
+                              // This is for analytics/tracking purposes only
                               const recipeIndex = (currentPage - 1) * recipesPerPage + idx;
                               return (
                                 <RecipeCard
@@ -1443,7 +1427,7 @@ const App = () => {
                               currentPage={currentPage}
                               totalPages={totalPages}
                               onPageChange={handlePageChange}
-                              totalItems={recipes.length}
+                              totalItems={totalRecipesCount || recipes.length}
                               itemsPerPage={recipesPerPage}
                               onItemsPerPageChange={handleItemsPerPageChange}
                             />
@@ -1500,6 +1484,7 @@ const App = () => {
             <Route path="/help" element={<Help />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/billing" element={<BillingManagement />} />
             {/* Admin routes - specific routes must come BEFORE /admin */}
             <Route path="/admin/missing-images" element={<MissingImagesPage />} />

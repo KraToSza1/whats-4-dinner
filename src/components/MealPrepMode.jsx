@@ -5,15 +5,33 @@ import { X } from 'lucide-react';
 /**
  * Meal Prep Mode - Shows batch cooking instructions and storage tips
  */
-export default function MealPrepMode({ recipe, servings, onClose }) {
+export default function MealPrepMode({ recipe, servings, originalServings, scaledIngredients = [], onClose }) {
   const [prepDays, setPrepDays] = useState(3);
   const [storageMethod, setStorageMethod] = useState('refrigerator');
 
   if (!recipe) return null;
 
   const totalServings = servings || recipe.servings || 4;
-  const servingsPerDay = Math.ceil(totalServings / prepDays);
-  const storageDays = storageMethod === 'refrigerator' ? 3 : 7;
+  const baseServings = originalServings || recipe.servings || 4;
+  // Calculate exact servings per day (round to 2 decimals for accuracy)
+  const servingsPerDayExact = prepDays > 0 ? totalServings / prepDays : totalServings;
+  const servingsPerDay = Math.round(servingsPerDayExact * 100) / 100; // Round to 2 decimals
+  
+  // Calculate batch multiplier for meal prep
+  const batchMultiplier = totalServings / baseServings;
+  
+  // Calculate accurate container sizes based on servings per day
+  const getContainerSize = (servingsCount) => {
+    const count = Math.round(servingsCount);
+    if (count <= 1) return { size: 'Small (250ml)', servings: '1 serving', exactCount: 1 };
+    if (count <= 2) return { size: 'Medium (500ml)', servings: '2 servings', exactCount: 2 };
+    if (count <= 3) return { size: 'Large (750ml)', servings: '3 servings', exactCount: 3 };
+    if (count <= 4) return { size: 'Extra Large (1L)', servings: '4 servings', exactCount: 4 };
+    return { size: 'Jumbo (1.5L+)', servings: `${count}+ servings`, exactCount: count };
+  };
+  
+  // Get the recommended container for current servings per day
+  const recommendedContainer = getContainerSize(servingsPerDay);
 
   const storageTips = {
     refrigerator: [
@@ -109,15 +127,21 @@ export default function MealPrepMode({ recipe, servings, onClose }) {
               <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 xs:p-4 border border-orange-200 dark:border-orange-800">
                 <div className="grid grid-cols-2 gap-2 xs:gap-3 sm:gap-4 text-xs xs:text-sm">
                   <div>
-                    <span className="text-slate-600 dark:text-slate-400">Total Servings:</span>
+                    <span className="text-slate-600 dark:text-slate-400">Original Recipe:</span>
                     <span className="ml-1 xs:ml-2 font-bold text-slate-900 dark:text-white block xs:inline">
-                      {totalServings}
+                      {baseServings} servings
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-600 dark:text-slate-400">Total Batch:</span>
+                    <span className="ml-1 xs:ml-2 font-bold text-slate-900 dark:text-white block xs:inline">
+                      {totalServings} servings
                     </span>
                   </div>
                   <div>
                     <span className="text-slate-600 dark:text-slate-400">Per Day:</span>
                     <span className="ml-1 xs:ml-2 font-bold text-slate-900 dark:text-white block xs:inline">
-                      {servingsPerDay} servings
+                      {servingsPerDay === Math.round(servingsPerDay) ? servingsPerDay : servingsPerDay.toFixed(2)} {servingsPerDay === 1 ? 'serving' : 'servings'}
                     </span>
                   </div>
                   <div>
@@ -127,12 +151,25 @@ export default function MealPrepMode({ recipe, servings, onClose }) {
                     </span>
                   </div>
                   <div>
+                    <span className="text-slate-600 dark:text-slate-400">Scale Factor:</span>
+                    <span className="ml-1 xs:ml-2 font-bold text-slate-900 dark:text-white block xs:inline">
+                      {batchMultiplier > 1 ? `×${batchMultiplier.toFixed(2)}` : batchMultiplier < 1 ? `×${batchMultiplier.toFixed(2)}` : '×1.00'}
+                    </span>
+                  </div>
+                  <div>
                     <span className="text-slate-600 dark:text-slate-400">Storage:</span>
                     <span className="ml-1 xs:ml-2 font-bold text-slate-900 dark:text-white capitalize block xs:inline">
                       {storageMethod}
                     </span>
                   </div>
                 </div>
+                {batchMultiplier !== 1 && (
+                  <div className="mt-3 pt-3 border-t border-orange-200 dark:border-orange-800">
+                    <p className="text-xs xs:text-sm text-slate-600 dark:text-slate-400">
+                      <span className="font-semibold">📊 Scaling:</span> All ingredients will be scaled {batchMultiplier > 1 ? 'up' : 'down'} by {Math.abs((batchMultiplier - 1) * 100).toFixed(0)}% ({batchMultiplier > 1 ? '×' : '÷'}{batchMultiplier > 1 ? batchMultiplier.toFixed(2) : (1 / batchMultiplier).toFixed(2)})
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -214,34 +251,104 @@ export default function MealPrepMode({ recipe, servings, onClose }) {
             </ul>
           </div>
 
+          {/* Scaled Ingredients List */}
+          {scaledIngredients && scaledIngredients.length > 0 && (
+            <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 rounded-lg xs:rounded-xl p-3 xs:p-4 sm:p-6 border-2 border-amber-200 dark:border-amber-800">
+              <h3 className="text-lg xs:text-xl font-bold mb-3 xs:mb-4 text-slate-900 dark:text-white">
+                📋 Ingredients for {totalServings} Servings
+              </h3>
+              <ul className="space-y-2 xs:space-y-2.5 max-h-60 overflow-y-auto">
+                {scaledIngredients.map((ing, idx) => (
+                  <motion.li
+                    key={idx}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    className="flex items-start gap-2 xs:gap-3 text-xs xs:text-sm text-slate-700 dark:text-slate-300 bg-white/60 dark:bg-slate-800/60 rounded-lg px-2 xs:px-3 py-1.5 xs:py-2"
+                  >
+                    <span className="text-amber-600 dark:text-amber-400 font-bold flex-shrink-0">•</span>
+                    <span className="break-words flex-1">{ing.displayText || ing.originalDisplayText || `${ing.name || 'Ingredient'}`}</span>
+                  </motion.li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Container Size Suggestions */}
           <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-lg xs:rounded-xl p-3 xs:p-4 sm:p-6 border-2 border-emerald-200 dark:border-emerald-800">
             <h3 className="text-lg xs:text-xl font-bold mb-3 xs:mb-4 text-slate-900 dark:text-white">
               📏 Container Size Suggestions
             </h3>
+            <p className="text-xs xs:text-sm text-slate-600 dark:text-slate-400 mb-3">
+              Recommended container sizes for {servingsPerDay === Math.round(servingsPerDay) ? servingsPerDay : servingsPerDay.toFixed(2)} {servingsPerDay === 1 ? 'serving' : 'servings'} per day:
+            </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 xs:gap-3">
               {[
-                { size: 'Small (250ml)', servings: '1 serving' },
-                { size: 'Medium (500ml)', servings: '2 servings' },
-                { size: 'Large (750ml)', servings: '3 servings' },
-                { size: 'Extra Large (1L)', servings: '4+ servings' },
-              ].map((container, idx) => (
-                <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: idx * 0.1 }}
-                  className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-2 xs:p-3 border border-emerald-200 dark:border-emerald-800 text-center"
-                >
-                  <div className="font-semibold text-xs xs:text-sm text-slate-900 dark:text-white break-words">
-                    {container.size}
-                  </div>
-                  <div className="text-[10px] xs:text-xs text-slate-600 dark:text-slate-400 mt-0.5 xs:mt-1">
-                    {container.servings}
-                  </div>
-                </motion.div>
-              ))}
+                getContainerSize(1),
+                getContainerSize(2),
+                getContainerSize(3),
+                getContainerSize(4),
+                recommendedContainer,
+              ].filter((container, idx, arr) => {
+                // Remove duplicates and show unique sizes
+                return idx === arr.findIndex(c => c.size === container.size);
+              }).map((container, idx) => {
+                const isRecommended = container.exactCount === recommendedContainer.exactCount;
+                return (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: idx * 0.1 }}
+                    className={`bg-white/80 dark:bg-slate-800/80 rounded-lg p-2 xs:p-3 border-2 text-center ${
+                      isRecommended
+                        ? 'border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-200 dark:ring-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/20'
+                        : 'border-emerald-200 dark:border-emerald-800'
+                    }`}
+                  >
+                    <div className="font-semibold text-xs xs:text-sm text-slate-900 dark:text-white break-words">
+                      {container.size}
+                    </div>
+                    <div className="text-[10px] xs:text-xs text-slate-600 dark:text-slate-400 mt-0.5 xs:mt-1">
+                      {container.servings}
+                    </div>
+                    {isRecommended && (
+                      <div className="text-[9px] xs:text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
+                        ✓ Recommended
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
             </div>
+          </div>
+
+          {/* Batch Cooking Tips */}
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-lg xs:rounded-xl p-3 xs:p-4 sm:p-6 border-2 border-indigo-200 dark:border-indigo-800">
+            <h3 className="text-lg xs:text-xl font-bold mb-3 xs:mb-4 text-slate-900 dark:text-white">
+              💡 Batch Cooking Tips
+            </h3>
+            <ul className="space-y-1.5 xs:space-y-2">
+              {[
+                `Cook all ${totalServings} servings at once for efficiency`,
+                'Use larger pots and pans to accommodate batch size',
+                'Divide into meal-sized portions immediately after cooking',
+                'Label containers with date and contents',
+                'Cool food quickly before storing (within 2 hours)',
+                'Store in portion-controlled containers for easy grab-and-go',
+              ].map((tip, idx) => (
+                <motion.li
+                  key={idx}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.1 }}
+                  className="flex items-start gap-1.5 xs:gap-2 text-xs xs:text-sm text-slate-700 dark:text-slate-300"
+                >
+                  <span className="text-indigo-600 dark:text-indigo-400 mt-0.5 flex-shrink-0">✓</span>
+                  <span className="break-words">{tip}</span>
+                </motion.li>
+              ))}
+            </ul>
           </div>
         </div>
 

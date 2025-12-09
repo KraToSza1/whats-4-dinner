@@ -5,9 +5,38 @@
     <link rel="icon" href="/logo.svg" />
     <link rel="apple-touch-icon" href="/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Theme initialization - prevents flash of wrong theme -->
+    <script>
+      (function() {
+        try {
+          const theme = localStorage.getItem('theme') || 'dark';
+          const html = document.documentElement;
+          
+          // Remove any existing theme classes
+          html.classList.remove('dark', 'light');
+          
+          // Apply theme
+          if (theme === 'dark') {
+            html.classList.add('dark');
+            html.setAttribute('data-theme', 'dark');
+            html.style.colorScheme = 'dark';
+          } else {
+            html.classList.remove('dark');
+            html.setAttribute('data-theme', 'light');
+            html.style.colorScheme = 'light';
+          }
+        } catch (e) {
+          // Fallback to dark if localStorage fails
+          const html = document.documentElement;
+          html.classList.add('dark');
+          html.setAttribute('data-theme', 'dark');
+          html.style.colorScheme = 'dark';
+        }
+      })();
+    </script>
     <meta
       http-equiv="Content-Security-Policy"
-      content="frame-src 'self' https://*.paddle.com https://buy.paddle.com https://sandbox-checkout.paddle.com https://checkout.paddle.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.paddle.com https://core.spreedly.com https://global.localizecdn.com https://js.stripe.com https://va.vercel-scripts.com https://public.profitwell.com https://buy.paddle.com; script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.paddle.com https://core.spreedly.com https://global.localizecdn.com https://js.stripe.com https://va.vercel-scripts.com https://public.profitwell.com https://buy.paddle.com; connect-src 'self' https://*.paddle.com https://checkout-service.paddle.com https://sandbox-api.paddle.com https://api.paddle.com https://*.supabase.co https://va.vercel-scripts.com https://public.profitwell.com https://api.exchangerate-api.com https://api.exchangerate.host; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in;"
+      content="frame-src 'self' https://*.paddle.com https://buy.paddle.com https://sandbox-checkout.paddle.com https://checkout.paddle.com https://www.youtube.com https://youtube.com https://*.youtube.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.paddle.com https://core.spreedly.com https://global.localizecdn.com https://js.stripe.com https://va.vercel-scripts.com https://public.profitwell.com https://buy.paddle.com; script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.paddle.com https://core.spreedly.com https://global.localizecdn.com https://js.stripe.com https://va.vercel-scripts.com https://public.profitwell.com https://buy.paddle.com; connect-src 'self' https://*.paddle.com https://checkout-service.paddle.com https://sandbox-api.paddle.com https://api.paddle.com https://*.supabase.co https://va.vercel-scripts.com https://public.profitwell.com https://api.exchangerate-api.com https://api.exchangerate.host https://www.youtube.com https://youtube.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in https://i.ytimg.com https://*.ytimg.com;"
     />
 
     <!-- Primary Meta Tags -->
@@ -138,7 +167,7 @@
     <!-- Paddle.js for checkout handling -->
     <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
   </head>
-  <body class="bg-slate-50 dark:bg-slate-950">
+  <body class="bg-amber-50/30 dark:bg-slate-950">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
     <!-- Service Worker is handled by VitePWA plugin - it will auto-register in production -->

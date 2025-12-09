@@ -47,7 +47,8 @@ export function AuthProvider({ children }) {
 
     (async () => {
       const { data, error } = await supabase.auth.getUser();
-      if (error) {
+      // Only log non-expected errors (AuthSessionMissingError is expected when not logged in)
+      if (error && error.name !== 'AuthSessionMissingError') {
         console.error('🔐 [AUTH] getUser error:', error);
       }
       if (mounted) {

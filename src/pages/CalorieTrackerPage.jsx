@@ -37,8 +37,15 @@ export default function CalorieTrackerPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-6 sm:mb-8"
         >
-          <div className="mb-4">
-            <BackToHome toHome={false} label="Back" className="mb-4" />
+          <div className="flex items-start gap-3 sm:gap-4 mb-4">
+            <div className="flex-shrink-0">
+              <BackToHome toHome={false} label="Back" className="mb-0" />
+            </div>
+            <div className="flex-1 min-w-0 sm:hidden">
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">
+                Calorie Tracker
+              </h1>
+            </div>
           </div>
           
           {/* Enhanced Header Card */}
@@ -64,7 +71,7 @@ export default function CalorieTrackerPage() {
                   <Target className="w-8 h-8 text-white" />
                 </motion.div>
                 <div className="flex-1">
-                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-2 text-white drop-shadow-lg">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-2 text-white drop-shadow-lg">
                     Calorie Tracker
                   </h1>
                   <p className="text-blue-100 text-base sm:text-lg">

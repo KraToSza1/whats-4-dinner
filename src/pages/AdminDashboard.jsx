@@ -16,6 +16,7 @@ import FeatureAnalytics from '../components/FeatureAnalytics';
 import MissingImagesViewer from '../components/MissingImagesViewer';
 import AdminIntegrations from '../components/AdminIntegrations';
 import AdminIntegrationChecker from '../components/AdminIntegrationChecker';
+import RecipesNeedingWork from '../components/RecipesNeedingWork';
 import BackToHome from '../components/BackToHome.jsx';
 import {
   Plus,
@@ -258,42 +259,46 @@ export default function AdminDashboard() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-4 sm:mb-6 md:mb-8"
         >
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
-            <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
-              <motion.div
-                animate={{ rotate: [0, 10, -10, 0] }}
-                transition={{ duration: 2, repeat: Infinity, repeatDelay: 5 }}
-                className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-xl sm:rounded-2xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center shadow-2xl shrink-0"
-              >
-                <span className="text-2xl sm:text-4xl md:text-5xl">👑</span>
-              </motion.div>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  Admin Dashboard
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-0.5 sm:mt-1">
-                  <span className="hidden sm:inline">Manage and monitor your app • </span>
-                  Press{' '}
-                  <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-slate-200 dark:bg-slate-700 rounded text-[10px] sm:text-xs font-mono">
-                    Ctrl+K
-                  </kbd>{' '}
-                  for shortcuts
-                </p>
-              </div>
+          <div className="flex items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <div className="flex-shrink-0">
+              <BackToHome label="Back" className="text-xs sm:text-sm mb-0" />
             </div>
-            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowKeyboardShortcuts(true)}
-                className="px-3 sm:px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-semibold flex items-center gap-1.5 sm:gap-2 shadow-md text-xs sm:text-sm touch-manipulation min-h-[44px] flex-1 sm:flex-initial"
-              >
-                <Command className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">Shortcuts</span>
-                <span className="sm:hidden">Keys</span>
-              </motion.button>
-              <div className="flex-1 sm:flex-initial">
-                <BackToHome label="Back" className="text-xs sm:text-sm" />
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
+                  <motion.div
+                    animate={{ rotate: [0, 10, -10, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 5 }}
+                    className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 lg:w-20 lg:h-20 rounded-xl sm:rounded-2xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 flex items-center justify-center shadow-2xl shrink-0"
+                  >
+                    <span className="text-xl sm:text-2xl md:text-4xl lg:text-5xl">👑</span>
+                  </motion.div>
+                  <div className="flex-1 min-w-0">
+                    <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent truncate">
+                      Admin Dashboard
+                    </h1>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-0.5 sm:mt-1 hidden sm:block">
+                      <span className="hidden sm:inline">Manage and monitor your app • </span>
+                      Press{' '}
+                      <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-slate-200 dark:bg-slate-700 rounded text-[10px] sm:text-xs font-mono">
+                        Ctrl+K
+                      </kbd>{' '}
+                      for shortcuts
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowKeyboardShortcuts(true)}
+                    className="px-3 sm:px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-semibold flex items-center gap-1.5 sm:gap-2 shadow-md text-xs sm:text-sm touch-manipulation min-h-[44px] flex-1 sm:flex-initial"
+                  >
+                    <Command className="w-4 h-4 shrink-0" />
+                    <span className="hidden sm:inline">Shortcuts</span>
+                    <span className="sm:hidden">Keys</span>
+                  </motion.button>
+                </div>
               </div>
             </div>
           </div>
@@ -438,25 +443,52 @@ export default function AdminDashboard() {
                   if (filterParam === 'missing-images' || filterParam === 'missing-nutrition') {
                     return <MissingImagesViewer />;
                   }
+                  if (filterParam === 'needing-work') {
+                    return <RecipesNeedingWork />;
+                  }
                   return (
-                    <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border-2 border-blue-300 dark:border-blue-700 shadow-xl">
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4 sm:mb-5 md:mb-6">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 dark:from-blue-500 dark:to-cyan-500 flex items-center justify-center shadow-lg shrink-0">
-                          <span className="text-xl sm:text-2xl">✏️</span>
+                    <>
+                      {/* Recipes Needing Work Section */}
+                      <div className="bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 dark:from-orange-900/20 dark:via-red-900/20 dark:to-pink-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border-2 border-orange-300 dark:border-orange-700 shadow-xl">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                          <div>
+                            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                              Recipes Needing Work
+                            </h2>
+                            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                              View and fix incomplete recipes that regular users can't see
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleTabChange('recipes', 'needing-work')}
+                            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-semibold text-sm"
+                          >
+                            View All
+                          </button>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-white">
-                            Recipe Editor
-                          </h2>
-                          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                            Import ChatGPT JSON, upload images, and manage recipes
-                          </p>
+                        <RecipesNeedingWork />
+                      </div>
+
+                      {/* Recipe Editor Section */}
+                      <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border-2 border-blue-300 dark:border-blue-700 shadow-xl">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4 sm:mb-5 md:mb-6">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 dark:from-blue-500 dark:to-cyan-500 flex items-center justify-center shadow-lg shrink-0">
+                            <span className="text-xl sm:text-2xl">✏️</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-white">
+                              Recipe Editor
+                            </h2>
+                            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                              Import ChatGPT JSON, upload images, and manage recipes
+                            </p>
+                          </div>
+                        </div>
+                        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border-2 border-blue-200 dark:border-blue-800 shadow-lg overflow-x-auto">
+                          <RecipeEditor />
                         </div>
                       </div>
-                      <div className="bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border-2 border-blue-200 dark:border-blue-800 shadow-lg overflow-x-auto">
-                        <RecipeEditor />
-                      </div>
-                    </div>
+                    </>
                   );
                 })()}
               </div>

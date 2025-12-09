@@ -1,30 +1,29 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import RecipeCard from '../components/RecipeCard.jsx';
 import { EmptyStateAnimation } from '../components/LottieFoodAnimations.jsx';
 import BackToHome from '../components/BackToHome.jsx';
-import { Search, Filter, Heart, X, Grid, List, SortAsc, SortDesc } from 'lucide-react';
+import { Search, Filter, Heart, X, Grid, List, SortAsc, SortDesc, AlertTriangle, Trash2 } from 'lucide-react';
 import { useToast } from '../components/Toast.jsx';
 
 export default function Favorites({ favorites, setFavorites, onFavorite }) {
   const navigate = useNavigate();
   const toast = useToast();
-  const [localFavorites, setLocalFavorites] = useState([]);
+  const [localFavorites, setLocalFavorites] = useState(() => {
+    // Load favorites from localStorage if not passed as props
+    try {
+      return JSON.parse(localStorage.getItem('favorites') || '[]');
+    } catch {
+      return [];
+    }
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('date'); // date, name, time
   const [sortOrder, setSortOrder] = useState('desc'); // asc, desc
   const [viewMode, setViewMode] = useState('grid'); // grid, list
-
-  useEffect(() => {
-    // Load favorites from localStorage if not passed as props
-    try {
-      const stored = JSON.parse(localStorage.getItem('favorites') || '[]');
-      setLocalFavorites(stored);
-    } catch {
-      setLocalFavorites([]);
-    }
-  }, []);
+  const [showClearModal, setShowClearModal] = useState(false);
 
   const displayFavorites = favorites || localFavorites;
 
@@ -81,15 +80,18 @@ export default function Favorites({ favorites, setFavorites, onFavorite }) {
   };
 
   const handleClearAll = () => {
-    if (confirm('Clear all favorites? This cannot be undone.')) {
-      const empty = [];
-      setLocalFavorites(empty);
-      localStorage.setItem('favorites', JSON.stringify(empty));
-      if (setFavorites) {
-        setFavorites(empty);
-      }
-      toast.success('All favorites cleared');
+    setShowClearModal(true);
+  };
+
+  const confirmClearAll = () => {
+    const empty = [];
+    setLocalFavorites(empty);
+    localStorage.setItem('favorites', JSON.stringify(empty));
+    if (setFavorites) {
+      setFavorites(empty);
     }
+    toast.success('All favorites cleared');
+    setShowClearModal(false);
   };
 
   return (
@@ -101,37 +103,49 @@ export default function Favorites({ favorites, setFavorites, onFavorite }) {
           animate={{ opacity: 1, y: 0 }}
           className="mb-4 sm:mb-6 md:mb-8"
         >
-          <BackToHome />
-
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mt-4">
-            <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 flex items-center gap-2 sm:gap-3">
-                <motion.span
-                  animate={{ rotate: [0, 10, -10, 0] }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
-                  className="text-amber-400 text-2xl sm:text-3xl md:text-4xl"
-                >
-                  ⭐
-                </motion.span>
-                <span className="text-slate-900 dark:text-white">Saved Favorites</span>
-              </h1>
-              <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-400">
+          <div className="flex items-start gap-3 sm:gap-4 mb-4">
+            <div className="flex-shrink-0">
+              <BackToHome className="mb-0" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between w-full gap-3">
+                <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold flex items-center gap-2 sm:gap-3 truncate">
+                  <motion.span
+                    animate={{ rotate: [0, 10, -10, 0] }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                    className="text-amber-400 text-xl sm:text-2xl md:text-3xl lg:text-4xl flex-shrink-0"
+                  >
+                    ⭐
+                  </motion.span>
+                  <span className="text-slate-900 dark:text-white truncate">Saved Favorites</span>
+                </h1>
+                {displayFavorites.length > 0 && (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleClearAll}
+                    className="px-3 sm:px-4 py-2 bg-red-100 dark:bg-red-900/20 hover:bg-red-200 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 font-semibold rounded-lg transition-colors text-xs sm:text-sm touch-manipulation flex items-center gap-1.5 sm:gap-2 whitespace-nowrap flex-shrink-0"
+                    title="Clear all favorites"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">Clear All</span>
+                  </motion.button>
+                )}
+              </div>
+              <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-400 hidden sm:block mt-2">
                 {displayFavorites.length === 0
                   ? 'No favorites yet. Start saving recipes you love!'
                   : `${displayFavorites.length} ${displayFavorites.length === 1 ? 'recipe' : 'recipes'} saved`}
               </p>
             </div>
-            {displayFavorites.length > 0 && (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleClearAll}
-                className="px-3 sm:px-4 py-2 bg-red-100 dark:bg-red-900/20 hover:bg-red-200 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 font-semibold rounded-lg transition-colors text-sm sm:text-base touch-manipulation flex items-center gap-2 whitespace-nowrap"
-              >
-                <X className="w-4 h-4" />
-                <span>Clear All</span>
-              </motion.button>
-            )}
+          </div>
+
+          <div className="sm:hidden mb-4">
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              {displayFavorites.length === 0
+                ? 'No favorites yet. Start saving recipes you love!'
+                : `${displayFavorites.length} ${displayFavorites.length === 1 ? 'recipe' : 'recipes'} saved`}
+            </p>
           </div>
         </motion.div>
 
@@ -318,6 +332,69 @@ export default function Favorites({ favorites, setFavorites, onFavorite }) {
             </motion.button>
           </motion.div>
         )}
+
+        {/* Clear All Confirmation Modal */}
+        {typeof window !== 'undefined' &&
+          createPortal(
+            <AnimatePresence>
+              {showClearModal && (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setShowClearModal(false)}
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 border-2 border-red-200 dark:border-red-900/50">
+                      <div className="flex items-start gap-4 mb-6">
+                        <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                          <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                            Clear All Favorites?
+                          </h3>
+                          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400">
+                            Are you sure you want to remove all {displayFavorites.length}{' '}
+                            {displayFavorites.length === 1 ? 'favorite recipe' : 'favorite recipes'}? This action
+                            cannot be undone.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-3 sm:gap-3">
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={confirmClearAll}
+                          className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors text-sm sm:text-base touch-manipulation flex items-center justify-center gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Yes, Clear All</span>
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => setShowClearModal(false)}
+                          className="flex-1 px-4 py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-white font-semibold rounded-lg transition-colors text-sm sm:text-base touch-manipulation"
+                        >
+                          Cancel
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>,
+            document.body
+          )}
       </div>
     </div>
   );

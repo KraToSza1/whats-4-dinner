@@ -301,18 +301,22 @@ export default function BillingManagement() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-4 xs:mb-6 sm:mb-8"
         >
-          <BackToHome className="mb-4 xs:mb-5 sm:mb-6" />
-          <div className="flex items-start xs:items-center gap-3 xs:gap-4 mb-3 xs:mb-4">
-            <div className="w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 rounded-xl xs:rounded-2xl bg-linear-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shrink-0">
-              <CreditCard className="w-6 h-6 xs:w-7 xs:h-7 sm:w-8 sm:h-8 text-white" />
+          <div className="flex items-start gap-3 sm:gap-4 mb-3 xs:mb-4">
+            <div className="flex-shrink-0">
+              <BackToHome className="mb-0" />
             </div>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-bold bg-linear-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent leading-tight">
-                Billing & Subscription
-              </h1>
-              <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm xs:text-base">
-                Manage your subscription, payment methods, and billing history
-              </p>
+            <div className="flex items-start xs:items-center gap-3 xs:gap-4 flex-1 min-w-0">
+              <div className="w-10 h-10 xs:w-12 xs:h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-xl xs:rounded-2xl bg-linear-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shrink-0">
+                <CreditCard className="w-5 h-5 xs:w-6 xs:h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold bg-linear-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent leading-tight truncate">
+                  Billing & Subscription
+                </h1>
+                <p className="text-slate-600 dark:text-slate-400 mt-1 text-xs xs:text-sm sm:text-base hidden sm:block">
+                  Manage your subscription, payment methods, and billing history
+                </p>
+              </div>
             </div>
           </div>
         </motion.div>

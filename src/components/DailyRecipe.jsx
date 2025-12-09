@@ -8,6 +8,7 @@ import { recipeImg, fallbackOnce } from '../utils/img.ts';
 import { LoadingFoodAnimation } from './LottieFoodAnimations.jsx';
 import { RotatingFoodLoader } from './FoodLoaders.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { useAdmin } from '../context/AdminContext.jsx';
 import {
   safeLocalStorage,
   safeJSONParse,
@@ -17,6 +18,7 @@ import {
 export default function DailyRecipe({ onRecipeSelect }) {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { isAdmin } = useAdmin(); // Get admin status
   const [dailyRecipe, setDailyRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -203,10 +205,11 @@ export default function DailyRecipe({ onRecipeSelect }) {
         // 3. Cache parsing failed
 
         // Try Supabase first
-        // NOTE: getSupabaseRandomRecipe already filters for has_complete_nutrition: true
+        // NOTE: getSupabaseRandomRecipe filters for has_complete_nutrition: true for regular users
+        // Admins see all recipes (including incomplete ones)
         let randomRecipe = null;
         try {
-          randomRecipe = await getSupabaseRandomRecipe();
+          randomRecipe = await getSupabaseRandomRecipe(isAdmin);
           if (!randomRecipe) {
             if (import.meta.env.DEV) {
               console.warn(

@@ -91,27 +91,28 @@ export default function Collections() {
     setCollections(getCollections());
     setNewCollectionName('');
     setShowCreateModal(false);
-    toast.success(`Collection "${name}" created!`);
+    toast.success(`Journey "${name}" started! 🎉`);
     // Auto-select the new collection
     loadCollectionRecipes(newCollection.id);
   };
 
   const handleRemoveRecipe = recipeId => {
-    if (selectedCollection && confirm('Remove this recipe from the collection?')) {
+    if (selectedCollection && confirm('Remove this recipe from the journey?')) {
       removeRecipeFromCollection(recipeId, selectedCollection);
       setRecipes(recipes.filter(r => r.id !== recipeId));
-      toast.success('Recipe removed from collection');
+      toast.success('Recipe removed from journey');
     }
   };
 
   const handleDeleteCollection = collectionId => {
-    if (confirm('Delete this collection? Recipes will be removed from it.')) {
+    if (confirm('Delete this journey? Recipes will be removed from it.')) {
       deleteCollection(collectionId);
       setCollections(getCollections());
       if (selectedCollection === collectionId) {
         setSelectedCollection(null);
         setRecipes([]);
       }
+      toast.success('Journey deleted');
     }
   };
 
@@ -136,20 +137,28 @@ export default function Collections() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8">
-        <BackToHome />
-
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-6 sm:mb-8"
         >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
-                Recipe Collections
+          <div className="flex items-start gap-3 sm:gap-4 mb-4">
+            <div className="flex-shrink-0">
+              <BackToHome className="mb-0" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-2 truncate">
+                Recipe Journey
               </h1>
-              <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400">
-                Organize your recipes into collections • {totalRecipes} total recipes
+              <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-400 hidden sm:block">
+                Organize and track your culinary adventures • {totalRecipes} recipes saved
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="sm:hidden">
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Organize and track your culinary adventures • {totalRecipes} recipes saved
               </p>
             </div>
             <motion.button
@@ -159,7 +168,7 @@ export default function Collections() {
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium flex items-center gap-2 touch-manipulation text-sm sm:text-base"
             >
               <Plus className="w-4 h-4" />
-              <span>New Collection</span>
+              <span>New Journey</span>
             </motion.button>
           </div>
         </motion.div>
@@ -169,7 +178,7 @@ export default function Collections() {
           <div className="lg:col-span-1">
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-3 sm:p-4">
               <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <h2 className="text-base sm:text-lg font-bold">Your Collections</h2>
+                <h2 className="text-base sm:text-lg font-bold">Your Journeys</h2>
                 <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                   {collections.length}
                 </span>
@@ -178,8 +187,8 @@ export default function Collections() {
                 {collections.length === 0 ? (
                   <div className="text-center py-8 text-sm text-slate-500 dark:text-slate-400">
                     <FolderPlus className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p>No collections yet</p>
-                    <p className="text-xs mt-1">Create one to get started!</p>
+                    <p>No journeys yet</p>
+                    <p className="text-xs mt-1">Start your recipe journey today!</p>
                   </div>
                 ) : (
                   collections.map(collection => {
@@ -218,7 +227,7 @@ export default function Collections() {
                                 handleDeleteCollection(collection.id);
                               }}
                               className="text-red-500 hover:text-red-700 text-sm flex-shrink-0 p-1 touch-manipulation"
-                              title="Delete collection"
+                              title="Delete journey"
                             >
                               <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </button>
@@ -292,7 +301,7 @@ export default function Collections() {
                         <div className="text-5xl sm:text-6xl mb-4">📁</div>
                         <h3 className="text-lg sm:text-xl font-bold mb-2">No recipes yet</h3>
                         <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                          Add recipes to this collection from recipe pages
+                          Add recipes to this journey from recipe pages
                         </p>
                         <button
                           onClick={() => navigate('/')}
@@ -328,16 +337,16 @@ export default function Collections() {
             ) : (
               <div className="text-center py-12 sm:py-16 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
                 <div className="text-5xl sm:text-6xl mb-4">📁</div>
-                <h3 className="text-lg sm:text-xl font-bold mb-2">Select a collection</h3>
+                <h3 className="text-lg sm:text-xl font-bold mb-2">Select a journey</h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                  Choose a collection from the sidebar to view recipes
+                  Choose a journey from the sidebar to view recipes
                 </p>
                 {collections.length === 0 && (
                   <button
                     onClick={() => setShowCreateModal(true)}
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium touch-manipulation mt-2"
                   >
-                    Create Your First Collection
+                    Start Your First Journey
                   </button>
                 )}
               </div>
@@ -364,16 +373,16 @@ export default function Collections() {
                 className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full p-4 sm:p-6"
                 onClick={e => e.stopPropagation()}
               >
-                <h3 className="text-lg sm:text-xl font-bold mb-4">Create New Collection</h3>
+                <h3 className="text-lg sm:text-xl font-bold mb-4">Start New Journey</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">Collection Name</label>
+                    <label className="block text-sm font-medium mb-2">Journey Name</label>
                     <input
                       type="text"
                       value={newCollectionName}
                       onChange={e => setNewCollectionName(e.target.value)}
                       onKeyPress={e => e.key === 'Enter' && handleCreateCollection()}
-                      placeholder="e.g., Weeknight Dinners"
+                      placeholder="e.g., Weeknight Dinners, Holiday Recipes"
                       className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 touch-manipulation"
                       autoFocus
                     />

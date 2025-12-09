@@ -44,8 +44,6 @@ import MealPrepMode from '../components/MealPrepMode.jsx';
 import NutritionLabel from '../components/NutritionLabel.jsx';
 import CookingSkills from '../components/CookingSkills.jsx';
 import BackToHome from '../components/BackToHome.jsx';
-import { getRecipeCost } from '../components/BudgetTracker.jsx';
-import { formatCurrency } from '../utils/currency.js';
 import { useAchievements, AchievementUnlock } from '../components/animations/Achievements.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EmptyStateAnimation } from '../components/LottieFoodAnimations.jsx';
@@ -89,7 +87,6 @@ export default function RecipePage() {
   const [showMealPrepMode, setShowMealPrepMode] = useState(false);
   const [showNutritionLabel, setShowNutritionLabel] = useState(false);
   const [showCookingSkills, setShowCookingSkills] = useState(false);
-  const [recipeCost, setRecipeCost] = useState(null);
   const { checkAchievements, currentUnlock, setCurrentUnlock } = useAchievements();
 
   // Use card data for instant paint, but always fetch full details
@@ -99,16 +96,20 @@ export default function RecipePage() {
   const [loading, setLoading] = useState(!preloaded);
   const [error, setError] = useState(null);
 
-  // If we have preloaded recipe, use it immediately and fetch details in background
+  // If we have preloaded recipe, use it immediately for instant display
+  // The main useEffect below will fetch full details (ingredients, steps, etc.)
   useEffect(() => {
     if (preloaded && preloaded.id === id) {
-      // We have preloaded data, show it immediately
+      // We have preloaded data, show it immediately for instant paint
       setRecipe(preloaded);
       setLoading(false);
-      // Still fetch full details in background
       if (import.meta.env.DEV) {
         console.warn(
-          '📄 [RECIPE PAGE] Using preloaded recipe, fetching full details in background'
+          '📄 [RECIPE PAGE] Using preloaded recipe for instant display, will fetch full details...',
+          {
+            hasExtendedIngredients: !!(preloaded.extendedIngredients?.length),
+            extendedIngredientsCount: preloaded.extendedIngredients?.length || 0
+          }
         );
       }
     }
@@ -167,22 +168,27 @@ export default function RecipePage() {
   }, [ticking, secondsLeft]);
 
   useEffect(() => {
-    // Skip if we already have preloaded recipe for this ID
-    if (preloaded && preloaded.id === id) {
-      if (import.meta.env.DEV) {
-        console.warn('📄 [RECIPE PAGE] Skipping fetch - using preloaded recipe');
-      }
-      return;
-    }
-
+    // CRITICAL FIX: Always fetch full recipe details, even if preloaded
+    // Preloaded recipes from RecipeCard don't include extendedIngredients, steps, etc.
+    // We MUST fetch the full recipe to get all data including ingredients
+    
     let ignore = false;
     let timeoutId = null;
 
     (async () => {
       if (import.meta.env.DEV) {
-        console.warn('📄 [RECIPE PAGE] Loading recipe page:', { id, isUuid: isUuid(id) });
+        console.warn('📄 [RECIPE PAGE] Loading recipe page:', { 
+          id, 
+          isUuid: isUuid(id),
+          hasPreloaded: !!preloaded,
+          preloadedHasIngredients: !!(preloaded?.extendedIngredients?.length)
+        });
       }
-      setLoading(true);
+      
+      // Only show loading if we don't have preloaded data
+      if (!preloaded || preloaded.id !== id) {
+        setLoading(true);
+      }
       setError(null);
 
       // Set a timeout to prevent infinite loading
@@ -227,6 +233,20 @@ export default function RecipePage() {
                   nutritionCalories: caloriesNutrient?.amount,
                   nutritionCaloriesUnit: caloriesNutrient?.unit,
                   hasPairings: full.beveragePairings?.length > 0,
+                  // CRITICAL: Check if extendedIngredients exists
+                  extendedIngredientsExists: !!full.extendedIngredients,
+                  extendedIngredientsIsArray: Array.isArray(full.extendedIngredients),
+                  extendedIngredientsSample: full.extendedIngredients?.slice(0, 2) || 'NONE',
+                });
+              }
+
+              // CRITICAL: Warn if recipe has no ingredients
+              if (!full.extendedIngredients || full.extendedIngredients.length === 0) {
+                console.warn('⚠️ [RECIPE PAGE] ⚠️⚠️⚠️ RECIPE HAS NO INGREDIENTS! ⚠️⚠️⚠️', {
+                  recipeId: full.id,
+                  recipeTitle: full.title,
+                  action: 'This recipe needs ingredients added in the admin dashboard',
+                  note: 'Go to /admin → Recipes tab → Find this recipe → Add ingredients',
                 });
               }
             } else {
@@ -352,15 +372,6 @@ export default function RecipePage() {
   }, [targetServings, recipe?.id, recipe?.servings]);
 
   // Calculate recipe cost when recipe changes
-  useEffect(() => {
-    if (recipe?.extendedIngredients) {
-      getRecipeCost(recipe)
-        .then(setRecipeCost)
-        .catch(() => setRecipeCost(null));
-    } else {
-      setRecipeCost(null);
-    }
-  }, [recipe]);
 
   // Load suggestions
   const loadSuggestions = async recipeData => {
@@ -1208,47 +1219,102 @@ export default function RecipePage() {
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-      className="flex items-center gap-1 sm:gap-1.5 md:gap-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 md:py-2.5 rounded-md sm:rounded-lg md:rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 border-2 border-emerald-200 dark:border-emerald-800 shadow-md backdrop-blur-sm min-w-0 flex-shrink"
+      transition={{ duration: 0.3, type: 'spring' }}
+      whileHover={{ scale: 1.05, y: -2 }}
+      className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-white/90 dark:bg-slate-800/90 border border-emerald-200/50 dark:border-emerald-800/50 shadow-md hover:shadow-lg backdrop-blur-sm min-w-0 flex-shrink transition-all duration-300"
       title={label}
     >
-      <span className="text-sm sm:text-lg md:text-xl flex-shrink-0">{icon}</span>
-      <span className="hidden sm:inline text-xs sm:text-sm font-semibold text-emerald-900 dark:text-emerald-200 whitespace-nowrap">
-        {label}:
-      </span>
-      <span className="font-bold text-xs sm:text-sm text-emerald-800 dark:text-emerald-100 truncate min-w-0">
-        <span className="sm:hidden">{mobileValue ?? value ?? '—'}</span>
-        <span className="hidden sm:inline">{value ?? '—'}</span>
-      </span>
+      <span className="text-base sm:text-lg md:text-xl flex-shrink-0">{icon}</span>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-1.5 min-w-0">
+        <span className="hidden sm:inline text-xs font-semibold text-emerald-700 dark:text-emerald-300 whitespace-nowrap">
+          {label}:
+        </span>
+        <span className="font-bold text-xs sm:text-sm md:text-base text-emerald-800 dark:text-emerald-100 truncate min-w-0">
+          <span className="sm:hidden">{mobileValue ?? value ?? '—'}</span>
+          <span className="hidden sm:inline">{value ?? '—'}</span>
+        </span>
+      </div>
     </motion.div>
   );
 
   const MacroBar = ({ label, value, max, display }) => {
     const pct = max ? Math.max(0, Math.min(100, Math.round((value / max) * 100))) : 0;
     const colors = {
-      Calories: 'from-orange-500 to-red-500',
-      Protein: 'from-blue-500 to-cyan-500',
-      Carbs: 'from-yellow-500 to-amber-500',
-      Fat: 'from-purple-500 to-pink-500',
+      Calories: {
+        gradient: 'from-orange-500 via-red-500 to-pink-500',
+        bg: 'bg-orange-50 dark:bg-orange-900/20',
+        border: 'border-orange-200/50 dark:border-orange-800/50',
+        text: 'text-orange-700 dark:text-orange-300',
+        shadow: 'shadow-orange-500/10',
+      },
+      Protein: {
+        gradient: 'from-blue-500 via-cyan-500 to-teal-500',
+        bg: 'bg-blue-50 dark:bg-blue-900/20',
+        border: 'border-blue-200/50 dark:border-blue-800/50',
+        text: 'text-blue-700 dark:text-blue-300',
+        shadow: 'shadow-blue-500/10',
+      },
+      Carbs: {
+        gradient: 'from-yellow-500 via-amber-500 to-orange-500',
+        bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+        border: 'border-yellow-200/50 dark:border-yellow-800/50',
+        text: 'text-yellow-700 dark:text-yellow-300',
+        shadow: 'shadow-yellow-500/10',
+      },
+      Fat: {
+        gradient: 'from-purple-500 via-pink-500 to-rose-500',
+        bg: 'bg-purple-50 dark:bg-purple-900/20',
+        border: 'border-purple-200/50 dark:border-purple-800/50',
+        text: 'text-purple-700 dark:text-purple-300',
+        shadow: 'shadow-purple-500/10',
+      },
     };
-    const colorClass = colors[label] || 'from-emerald-500 to-teal-500';
+    const colorScheme = colors[label] || {
+      gradient: 'from-emerald-500 to-teal-500',
+      bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+      border: 'border-emerald-200/50 dark:border-emerald-800/50',
+      text: 'text-emerald-700 dark:text-emerald-300',
+      shadow: 'shadow-emerald-500/10',
+    };
     return (
-      <div className="rounded-lg sm:rounded-xl bg-white/80 dark:bg-slate-800/80 p-3 sm:p-4 border-2 border-emerald-200 dark:border-emerald-800 shadow-md">
-        <div className="flex items-center justify-between text-xs sm:text-sm font-semibold text-emerald-900 dark:text-emerald-200 mb-2 gap-2">
-          <span className="truncate min-w-0">{label}</span>
-          <span className="text-base sm:text-lg font-bold flex-shrink-0">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        whileHover={{ scale: 1.03, y: -2 }}
+        className={`rounded-lg sm:rounded-xl ${colorScheme.bg} p-4 sm:p-5 md:p-6 lg:p-7 border ${colorScheme.border} shadow-md hover:shadow-lg transition-all duration-300 backdrop-blur-sm`}
+      >
+        <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
+          <span className={`text-xs sm:text-sm font-semibold ${colorScheme.text} truncate min-w-0`}>
+            {label}
+          </span>
+          <span className={`text-lg sm:text-xl md:text-2xl font-bold ${colorScheme.text} flex-shrink-0`}>
             {display ?? Number(value || 0).toFixed(1)}
           </span>
         </div>
-        <div className="h-2.5 sm:h-3 rounded-full bg-emerald-100 dark:bg-emerald-900/50 overflow-hidden shadow-inner">
+        <div className="h-2 sm:h-2.5 md:h-3 bg-white/50 dark:bg-slate-800/50 rounded-full overflow-hidden shadow-inner">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${pct}%` }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-            className={`h-full bg-gradient-to-r ${colorClass} shadow-sm`}
-          />
+            transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
+            className={`h-full bg-gradient-to-r ${colorScheme.gradient} rounded-full shadow-md relative overflow-hidden`}
+          >
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+              animate={{
+                x: ['-100%', '200%'],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: 'linear',
+              }}
+            />
+          </motion.div>
         </div>
-      </div>
+        <div className="mt-2 text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">
+          {pct}% of daily
+        </div>
+      </motion.div>
     );
   };
 
@@ -1325,14 +1391,22 @@ export default function RecipePage() {
   if (import.meta.env.DEV) {
     console.warn('📄 [RECIPE PAGE] Component render', {
       recipeId: recipe?.id,
+      recipeTitle: recipe?.title,
       confettiTrigger,
       loading,
+      hasRecipe: !!recipe,
+      hasExtendedIngredients: !!recipe?.extendedIngredients,
+      extendedIngredientsType: typeof recipe?.extendedIngredients,
+      extendedIngredientsIsArray: Array.isArray(recipe?.extendedIngredients),
+      extendedIngredientsCount: recipe?.extendedIngredients?.length ?? 0,
+      scaledIngredientsCount: scaledIngredients.length,
+      extendedIngredientsSample: recipe?.extendedIngredients?.slice(0, 2) || 'NOT SET',
       error: !!error,
     });
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 relative">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-100 relative">
       <FoodConfetti trigger={confettiTrigger} />
       <AnimatePresence>
         {showCookMode && steps.length > 0 && (
@@ -1346,6 +1420,8 @@ export default function RecipePage() {
           <MealPrepMode
             recipe={recipe}
             servings={targetServings}
+            originalServings={originalServings}
+            scaledIngredients={scaledIngredients}
             onClose={() => setShowMealPrepMode(false)}
           />
         )}
@@ -1362,8 +1438,8 @@ export default function RecipePage() {
         )}
       </AnimatePresence>
       {/* Top bar */}
-      <div className="sticky top-0 z-20 bg-white/70 dark:bg-slate-900/70 backdrop-blur border-b border-slate-200 dark:border-slate-800">
-        <div className="mx-auto max-w-4xl px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-3">
+      <div className="sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/50 dark:border-slate-800/50 shadow-sm">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between gap-3 sm:gap-4">
           <BackToHome toHome={false} label="Back" />
 
           <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-nowrap justify-end flex-1 min-w-0 overflow-x-auto scrollbar-hide">
@@ -1448,12 +1524,12 @@ export default function RecipePage() {
             <div className="absolute inset-0 bg-gradient-to-r from-teal-900/8 to-cyan-900/8 pointer-events-none" />
           </>
         )}
-        <div className="mx-auto max-w-4xl px-3 sm:px-4 lg:px-6 py-6 sm:py-8 md:py-10 lg:py-12 relative">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12 md:py-16 lg:py-20 relative">
           <motion.h1
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35 }}
-            className="text-center text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight px-2 sm:px-4 md:px-6 lg:px-8 break-words hyphens-auto bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-700 dark:from-emerald-300 dark:via-teal-300 dark:to-cyan-300 bg-clip-text text-transparent drop-shadow-lg mb-3 sm:mb-4 md:mb-6 select-none"
+            className="text-center text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold tracking-tight px-2 sm:px-4 md:px-6 break-words hyphens-auto bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-700 dark:from-emerald-300 dark:via-teal-300 dark:to-cyan-300 bg-clip-text text-transparent drop-shadow-lg mb-3 sm:mb-4 md:mb-5 select-none"
             style={{
               wordBreak: 'break-word',
               overflowWrap: 'break-word',
@@ -1464,7 +1540,7 @@ export default function RecipePage() {
             {title}
           </motion.h1>
 
-          <div className="mt-4 sm:mt-6 flex flex-nowrap sm:flex-wrap gap-1.5 sm:gap-2 md:gap-3 justify-center px-2 sm:px-4">
+          <div className="mt-6 sm:mt-8 md:mt-10 flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5 px-2 sm:px-4">
             <Stat
               label="Ready"
               value={recipe.readyInMinutes ? `${recipe.readyInMinutes} mins` : '—'}
@@ -1535,12 +1611,17 @@ export default function RecipePage() {
                 whileHover={{ scale: 1.05, boxShadow: '0 10px 25px rgba(255, 140, 0, 0.4)' }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowMealPrepMode(true)}
-                className="flex-1 sm:flex-none px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold text-xs sm:text-sm md:text-base shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-1 sm:gap-1.5 md:gap-2 touch-manipulation min-h-[44px]"
-                title="Open Meal Prep Mode for batch cooking"
+                className="flex-1 sm:flex-none px-4 sm:px-5 md:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 hover:from-orange-600 hover:via-orange-700 hover:to-red-600 text-white font-bold text-xs sm:text-sm md:text-base shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-1.5 sm:gap-2 touch-manipulation min-h-[44px] group relative overflow-hidden"
+                title="Open Meal Prep Mode for batch cooking and meal planning"
               >
-                <span className="text-base sm:text-lg md:text-xl">🍱</span>
-                <span className="hidden sm:inline">Meal Prep Mode</span>
-                <span className="sm:hidden">Prep</span>
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                  animate={{ x: ['-100%', '200%'] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                />
+                <span className="text-base sm:text-lg md:text-xl relative z-10">🍱</span>
+                <span className="hidden sm:inline relative z-10">Meal Prep Mode</span>
+                <span className="sm:hidden relative z-10">Prep</span>
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: '0 10px 25px rgba(139, 92, 246, 0.4)' }}
@@ -1559,137 +1640,93 @@ export default function RecipePage() {
       </section>
 
       {/* Body */}
-      <div className="mx-auto max-w-4xl px-3 sm:px-4 md:px-5 lg:px-6 py-4 sm:py-6 md:py-8 lg:py-10 space-y-4 sm:space-y-6 md:space-y-8 lg:space-y-10">
+      <div className="mx-auto max-w-3xl px-2 sm:px-3 py-4 sm:py-6 md:py-8 space-y-4 sm:space-y-6 md:space-y-8">
         {/* Macros */}
-        <section className="bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-5 gap-3 sm:gap-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-center sm:text-left bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-300 dark:to-teal-300 bg-clip-text text-transparent break-words">
-                🍽️ Nutritional Info
-              </h2>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="group relative">
-                  <span
-                    className="text-lg cursor-help"
-                    title="Nutrition values scale automatically based on serving size"
+        <section className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 lg:p-8 border border-slate-200/50 dark:border-slate-800/50 shadow-lg max-w-4xl md:max-w-5xl lg:max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="flex flex-col items-center mb-4 sm:mb-5 gap-4">
+            <h2 className="text-base sm:text-lg md:text-xl font-bold text-center bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-300 dark:to-teal-300 bg-clip-text text-transparent">
+              🍽️ Nutritional Info
+            </h2>
+            
+            {/* Full Label and Measurement Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full">
+              {recipe?.nutrition?.nutrients && recipe.nutrition.nutrients.length > 0 && (
+                <motion.button
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowNutritionLabel(true)}
+                  className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-bold text-sm sm:text-base shadow-lg hover:shadow-xl transition-all flex items-center gap-2 group relative overflow-hidden"
+                  title="View full FDA-style nutrition label"
+                >
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                    animate={{ x: ['-100%', '200%'] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                  />
+                  <span className="text-lg sm:text-xl relative z-10">📊</span>
+                  <span className="relative z-10">Full Nutrition Label</span>
+                  <motion.span
+                    className="relative z-10"
+                    animate={{ x: [0, 4, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
                   >
-                    ℹ️
-                  </span>
-                  <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 dark:bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                    <p className="font-semibold mb-1">Understanding Nutrition Values:</p>
-                    <p className="mb-2">
-                      • <strong>Per Serving:</strong> Values for 1 serving (set servings to 1)
-                    </p>
-                    <p>
-                      • <strong>Totals:</strong> Combined values for all servings (shown when
-                      servings &gt; 1)
-                    </p>
-                    <p className="mt-2 text-emerald-300">
-                      💡 Adjust servings above to see different totals!
-                    </p>
-                  </div>
-                </div>
-                {recipe?.nutrition?.nutrients && recipe.nutrition.nutrients.length > 0 && (
-                  <motion.button
-                    whileHover={{ scale: 1.08, y: -2 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => {
-                      // Full nutrition label is now FREE for everyone!
-                      setShowNutritionLabel(true);
-                    }}
-                    className="group relative px-2.5 sm:px-4 md:px-5 py-2.5 sm:py-2.5 md:py-3 rounded-md sm:rounded-lg md:rounded-xl bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-bold text-[10px] sm:text-xs md:text-sm shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-1 sm:gap-1.5 md:gap-2 overflow-hidden aspect-square sm:aspect-auto w-10 sm:w-auto min-h-[40px] sm:min-h-[44px] md:min-h-0 touch-manipulation"
-                    title="View full FDA-style nutrition label"
-                  >
-                    {/* Animated background shimmer */}
-                    <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                      animate={{
-                        x: ['-100%', '200%'],
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        ease: 'linear',
-                      }}
-                    />
-                    <motion.span
-                      animate={{ rotate: [0, 10, -10, 0] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                      className="text-base sm:text-base md:text-lg relative z-10"
-                    >
-                      📊
-                    </motion.span>
-                    <span className="hidden sm:inline relative z-10">Full Nutrition Label</span>
-                    <motion.span
-                      className="hidden sm:inline relative z-10"
-                      animate={{ opacity: [1, 0.5, 1] }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                    >
-                      →
-                    </motion.span>
-                  </motion.button>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:gap-4">
-            <div className="text-center sm:text-left">
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
-                Pick a measurement system to keep nutrition and ingredients in sync.
-              </p>
-              <div className="mt-2 space-y-1">
-                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                  📊 Showing totals for {targetServings}{' '}
-                  {targetServings === 1 ? 'serving' : 'servings'} ·{' '}
-                  {UNIT_SYSTEMS[unitSystem]?.name || unitSystem.toUpperCase()}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 italic">
-                  {targetServings === 1
-                    ? 'These values are for 1 serving. Adjust servings above to see totals for more servings.'
-                    : `These values are the total for all ${targetServings} servings combined. To see per-serving values, set servings to 1.`}
-                </p>
-              </div>
-            </div>
-            <div className="rounded-xl sm:rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-white/80 dark:bg-slate-900/40 p-1 flex flex-row gap-1 sm:gap-2 items-stretch">
-              {MEASUREMENT_OPTIONS.map(opt => {
-                const isActive = unitSystem === opt.key;
-                return (
-                  <motion.button
-                    key={opt.key}
-                    type="button"
-                    whileHover={{ scale: isActive ? 1 : 1.02 }}
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => handleUnitPreferenceChange(opt.key)}
-                    aria-pressed={isActive}
-                    className={`flex-1 rounded-lg sm:rounded-xl px-2 sm:px-3 md:px-4 py-2 sm:py-2 text-center sm:text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 min-h-[44px] touch-manipulation ${
-                      isActive
-                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/30'
-                        : 'text-slate-700 dark:text-slate-200 hover:bg-emerald-50/80 dark:hover:bg-emerald-900/40'
-                    }`}
-                  >
-                    <span className="flex items-center justify-center sm:justify-start gap-1 sm:gap-1.5 md:gap-2 text-xs sm:text-sm font-semibold">
-                      <span
-                        role="img"
-                        aria-hidden="true"
-                        className="text-sm sm:text-base md:text-lg"
-                      >
-                        {opt.flag}
-                      </span>
-                      <span className="hidden sm:inline">{opt.label}</span>
-                    </span>
-                    <span
-                      className={`hidden sm:block text-[10px] sm:text-[11px] mt-0.5 ${
-                        isActive ? 'text-emerald-100/90' : 'text-slate-500 dark:text-slate-400'
+                    →
+                  </motion.span>
+                </motion.button>
+              )}
+              
+              {/* Measurement System Selector */}
+              <div className="flex items-center gap-2 sm:gap-2.5 bg-slate-100 dark:bg-slate-800 p-1.5 sm:p-2 rounded-xl">
+                {MEASUREMENT_OPTIONS.map((opt) => {
+                  const isActive = unitSystem === opt.key;
+                  return (
+                    <motion.button
+                      key={opt.key}
+                      type="button"
+                      whileHover={{ scale: isActive ? 1 : 1.08, y: isActive ? 0 : -2 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleUnitPreferenceChange(opt.key)}
+                      aria-pressed={isActive}
+                      className={`group relative rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-center transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 touch-manipulation overflow-hidden min-w-[60px] sm:min-w-[70px] ${
+                        isActive
+                          ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/40 scale-105'
+                          : 'bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
                       }`}
+                      title={`${opt.label} - ${opt.hint}`}
                     >
-                      {opt.hint}
-                    </span>
-                  </motion.button>
-                );
-              })}
+                      {isActive && (
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                          animate={{ x: ['-100%', '200%'] }}
+                          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                        />
+                      )}
+                      <div className="relative z-10 flex flex-col items-center gap-1">
+                        <span className={`text-lg sm:text-xl transition-transform ${isActive ? 'scale-110' : ''}`}>
+                          {opt.flag}
+                        </span>
+                        <span className={`font-bold text-xs sm:text-sm transition-colors ${
+                          isActive ? 'text-white' : 'text-slate-700 dark:text-slate-300'
+                        }`}>
+                          {opt.label}
+                        </span>
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+            
+            <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 text-center">
+              <span className="font-medium">📊 {targetServings} {targetServings === 1 ? 'serving' : 'servings'}</span>
+              <span className="mx-2">·</span>
+              <span>{UNIT_SYSTEMS[unitSystem]?.name || unitSystem.toUpperCase()}</span>
             </div>
           </div>
-          <div className="mx-auto max-w-3xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+
+          {/* Macro Cards - 2x2 Grid */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-5 lg:gap-6 max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
             {macros.map(m => (
               <MacroBar
                 key={m.key}
@@ -1714,20 +1751,24 @@ export default function RecipePage() {
         )}
 
         {beveragePairings.length > 0 && (
-          <section className="bg-gradient-to-br from-rose-50/70 to-amber-50/70 dark:from-rose-900/20 dark:to-amber-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border-2 border-rose-200 dark:border-rose-800 shadow-lg">
-            <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-              <span className="text-2xl sm:text-3xl">
+          <section className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-10 border border-slate-200/50 dark:border-slate-800/50 shadow-xl shadow-rose-500/5 dark:shadow-rose-500/10">
+                <div className="flex items-center justify-center gap-3 sm:gap-4 mb-6 sm:mb-8">
+              <motion.span 
+                className="text-3xl sm:text-4xl md:text-5xl"
+                animate={{ rotate: [0, 10, -10, 0] }}
+                transition={{ duration: 2, repeat: Infinity, repeatDelay: 5 }}
+              >
                 {beveragePairings.some(p => p.type === 'beer')
                   ? '🍺'
                   : beveragePairings.some(p => p.type === 'cocktail')
                     ? '🍸'
                     : '🍷'}
-              </span>
-              <h2 className="text-lg sm:text-xl md:text-2xl font-extrabold bg-gradient-to-r from-rose-600 via-amber-500 to-orange-500 dark:from-rose-300 dark:via-amber-300 dark:to-orange-300 bg-clip-text text-transparent">
+              </motion.span>
+              <h2 className="text-base sm:text-lg md:text-xl font-bold text-center bg-gradient-to-r from-rose-600 via-amber-500 to-orange-500 dark:from-rose-300 dark:via-amber-300 dark:to-orange-300 bg-clip-text text-transparent">
                 Suggested Pairings
               </h2>
             </div>
-            <p className="text-xs sm:text-sm text-center text-slate-600 dark:text-slate-300 mb-4 sm:mb-6">
+            <p className="text-xs sm:text-sm text-center text-slate-600 dark:text-slate-300 mb-4 sm:mb-5">
               Enjoy this recipe with a curated beverage pairing.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
@@ -1736,8 +1777,9 @@ export default function RecipePage() {
                   key={pair.id}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="rounded-lg sm:rounded-xl border-2 border-rose-200 dark:border-rose-800 bg-white/85 dark:bg-slate-900/70 p-3 sm:p-4 shadow-md backdrop-blur-sm"
+                  transition={{ duration: 0.3, type: 'spring' }}
+                  whileHover={{ scale: 1.02, y: -4 }}
+                  className="rounded-lg sm:rounded-xl border border-rose-200/50 dark:border-rose-800/50 bg-white/90 dark:bg-slate-900/70 p-4 sm:p-5 shadow-md hover:shadow-lg backdrop-blur-sm transition-all duration-300"
                 >
                   <div className="flex items-center justify-between mb-2 gap-2">
                     <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
@@ -1801,55 +1843,55 @@ export default function RecipePage() {
         )}
 
         {/* Ingredients checklist + Grocery */}
-        <section className="bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-5 lg:p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-5 gap-3 sm:gap-2">
-            <div className="w-full sm:w-auto flex-1 min-w-0">
-              <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-center sm:text-left bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-300 dark:to-teal-300 bg-clip-text text-transparent break-words">
+        <section className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border border-slate-200/50 dark:border-slate-800/50 shadow-lg overflow-hidden">
+          <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-5">
+            {/* Header */}
+            <div className="flex flex-col items-center gap-2">
+              <h2 className="text-base sm:text-lg md:text-xl font-bold text-center bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-300 dark:to-teal-300 bg-clip-text text-transparent break-words">
                 🧂 Ingredients
               </h2>
-              {recipeCost && (
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 break-words">
-                  💰 Estimated cost: {formatCurrency(recipeCost.total)} total (
-                  {formatCurrency(recipeCost.perServing)} per serving)
-                </p>
-              )}
             </div>
-            <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
+            
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-2 sm:gap-2.5">
               <motion.button
-                whileHover={{ scale: 1.05, boxShadow: '0 5px 15px rgba(34, 197, 94, 0.3)' }}
-                whileTap={{ scale: 0.95 }}
-                className="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg border-2 border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 font-semibold text-xs sm:text-sm shadow-md hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all touch-manipulation min-h-[44px] flex items-center justify-center gap-1.5 sm:gap-2"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg border border-emerald-300/50 dark:border-emerald-700/50 bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 font-medium text-xs sm:text-sm shadow-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:shadow-md transition-all touch-manipulation flex items-center justify-center gap-1.5"
                 onClick={() => setOpen(true)}
                 title="Open grocery list"
               >
-                <span className="text-base sm:text-lg">🛒</span>
-                <span>Open List</span>
+                <span className="text-sm sm:text-base">🛒</span>
+                <span className="hidden sm:inline">Open List</span>
+                <span className="sm:hidden">List</span>
               </motion.button>
               <motion.button
-                whileHover={{ scale: 1.05, boxShadow: '0 5px 15px rgba(5, 150, 105, 0.4)' }}
-                whileTap={{ scale: 0.95 }}
-                className="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs sm:text-sm shadow-lg hover:shadow-xl transition-all touch-manipulation min-h-[44px] flex items-center justify-center gap-1.5 sm:gap-2"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all touch-manipulation flex items-center justify-center gap-1.5"
                 onClick={addAllToGrocery}
                 title="Add all ingredients to grocery list"
               >
-                <span className="text-base sm:text-lg">➕</span>
-                <span>Add All to List</span>
+                <span className="text-sm sm:text-base">➕</span>
+                <span className="hidden sm:inline">Add All</span>
+                <span className="sm:hidden">Add</span>
               </motion.button>
               <motion.button
-                whileHover={{ scale: 1.05, boxShadow: '0 5px 15px rgba(245, 158, 11, 0.4)' }}
-                whileTap={{ scale: 0.95 }}
-                className="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold text-xs sm:text-sm shadow-lg hover:shadow-xl transition-all touch-manipulation min-h-[44px] flex items-center justify-center gap-1.5 sm:gap-2"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-semibold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all touch-manipulation flex items-center justify-center gap-1.5"
                 onClick={addAllToPantry}
                 title="Add all ingredients to your pantry"
               >
-                <span className="text-base sm:text-lg">🥘</span>
-                <span>Add to Pantry</span>
+                <span className="text-sm sm:text-base">🥘</span>
+                <span className="hidden sm:inline">Pantry</span>
+                <span className="sm:hidden">Pantry</span>
               </motion.button>
               {nutrient('Calories') && (
                 <motion.button
-                  whileHover={{ scale: 1.05, boxShadow: '0 5px 15px rgba(139, 92, 246, 0.4)' }}
-                  whileTap={{ scale: 0.95 }}
-                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold text-xs sm:text-sm shadow-lg hover:shadow-xl transition-all touch-manipulation min-h-[44px] flex items-center justify-center gap-1.5 sm:gap-2"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all touch-manipulation flex items-center justify-center gap-1.5"
                   onClick={() => {
                     // Try multiple methods to get calories
                     let calories = Math.round(nutrient('Calories') || 0);
@@ -1897,14 +1939,15 @@ export default function RecipePage() {
                   }}
                   title="Add to calorie tracker"
                 >
-                  <span className="text-base sm:text-lg">📊</span>
-                  <span>Add to Tracker</span>
+                  <span className="text-sm sm:text-base">📊</span>
+                  <span className="hidden sm:inline">Tracker</span>
+                  <span className="sm:hidden">Track</span>
                 </motion.button>
               )}
             </div>
           </div>
 
-          <ul className="mx-auto max-w-3xl grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+          <ul className="mx-auto max-w-4xl grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
             {scaledIngredients.length ? (
               scaledIngredients.map((ing, idx) => {
                 const uid = `${ing.id ?? 'noid'}-${idx}`;
@@ -1912,20 +1955,21 @@ export default function RecipePage() {
                 return (
                   <IngredientReveal key={uid} index={idx} isChecked={isChecked}>
                     <motion.li
-                      className={`flex items-start gap-3 rounded-xl px-4 py-3 border-2 transition-all shadow-sm group ${
+                      className={`flex items-center gap-2.5 sm:gap-3 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 border transition-all duration-200 group ${
                         isChecked
-                          ? 'bg-gradient-to-r from-emerald-100 to-teal-100 dark:from-emerald-900/40 dark:to-teal-900/40 border-emerald-300 dark:border-emerald-700'
-                          : 'bg-white dark:bg-slate-800 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-md'
+                          ? 'bg-gradient-to-r from-emerald-50/80 to-teal-50/80 dark:from-emerald-900/20 dark:to-teal-900/20 border-emerald-300/60 dark:border-emerald-700/60'
+                          : 'bg-white dark:bg-slate-800/50 border-slate-200/60 dark:border-slate-700/60 hover:border-emerald-400/60 dark:hover:border-emerald-600/60 hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10'
                       }`}
-                      whileHover={{ scale: 1.02, x: 4 }}
+                      whileHover={{ scale: 1.01, y: -1 }}
+                      transition={{ type: 'spring', stiffness: 400 }}
                     >
                       <motion.div
                         whileTap={{ scale: 0.9 }}
                         whileHover={{ scale: 1.1 }}
-                        className={`mt-1 h-5 w-5 cursor-pointer flex items-center justify-center rounded border-2 transition-all ${
+                        className={`h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 cursor-pointer flex items-center justify-center rounded-md border-2 transition-all ${
                           isChecked
-                            ? 'bg-emerald-500 dark:bg-emerald-600 border-emerald-500 dark:border-emerald-600'
-                            : 'bg-transparent border-slate-400 dark:border-slate-600 hover:border-emerald-400 dark:hover:border-emerald-600'
+                            ? 'bg-gradient-to-br from-emerald-500 to-teal-500 dark:from-emerald-600 dark:to-teal-600 border-emerald-500 dark:border-emerald-600 shadow-sm'
+                            : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 hover:border-emerald-400 dark:hover:border-emerald-500'
                         }`}
                         onClick={() => toggleChecked(uid)}
                         role="checkbox"
@@ -1943,7 +1987,7 @@ export default function RecipePage() {
                             initial={{ scale: 0, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                            className="w-3 h-3 text-white"
+                            className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -1957,17 +2001,17 @@ export default function RecipePage() {
                           </motion.svg>
                         )}
                       </motion.div>
-                      <div className="flex-1 flex items-start justify-between gap-2 min-w-0">
+                      <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
                         <motion.span
-                          className={`text-sm sm:text-base break-words ${isChecked ? 'line-through opacity-70' : ''}`}
+                          className={`flex-1 min-w-0 text-sm sm:text-base break-words hyphens-auto font-medium leading-snug ${isChecked ? 'line-through opacity-50' : 'text-slate-700 dark:text-slate-200'}`}
                           animate={
                             isChecked
                               ? {
-                                  scale: [1, 0.95, 1],
+                                  scale: [1, 0.98, 1],
                                 }
                               : {}
                           }
-                          transition={{ duration: 0.3 }}
+                          transition={{ duration: 0.2 }}
                         >
                           {ing.displayText}
                         </motion.span>
@@ -1986,8 +2030,20 @@ export default function RecipePage() {
                 );
               })
             ) : (
-              <li className="text-slate-500 text-center py-8">
-                <EmptyStateAnimation message="No ingredient list available for this recipe." />
+              <li className="col-span-full text-slate-500 dark:text-slate-400 text-center py-8 px-4">
+                <div className="flex flex-col items-center gap-4">
+                  <EmptyStateAnimation message="No ingredient list available for this recipe." />
+                  {recipe?.id && (
+                    <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border-2 border-amber-200 dark:border-amber-800 max-w-md">
+                      <p className="text-sm font-semibold text-amber-900 dark:text-amber-200 mb-2">
+                        ⚠️ This recipe needs ingredients added
+                      </p>
+                      <p className="text-xs text-amber-700 dark:text-amber-300">
+                        Admins can add ingredients via the Recipe Editor in the admin dashboard.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </li>
             )}
           </ul>
@@ -1995,23 +2051,28 @@ export default function RecipePage() {
 
         {/* Steps */}
         {steps.length > 0 && (
-          <section className="print:break-inside-avoid bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-5 lg:p-6 border-2 border-emerald-200 dark:border-emerald-800 shadow-lg">
-            <h2 className="text-lg sm:text-xl md:text-2xl font-extrabold mb-3 sm:mb-4 md:mb-5 text-center bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-300 dark:to-teal-300 bg-clip-text text-transparent">
+          <section className="print:break-inside-avoid bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border border-slate-200/50 dark:border-slate-800/50 shadow-lg">
+            <h2 className="text-base sm:text-lg md:text-xl font-bold mb-4 sm:mb-5 text-center bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-700 dark:from-emerald-300 dark:via-teal-300 dark:to-cyan-300 bg-clip-text text-transparent">
               📋 Instructions
             </h2>
-            <ol className="mx-auto max-w-3xl space-y-2 sm:space-y-3 md:space-y-4">
+            <ol className="mx-auto max-w-3xl space-y-3 sm:space-y-4">
               {steps.map((s, i) => (
                 <motion.li
                   key={i}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className="flex gap-2 sm:gap-3 md:gap-4 items-start bg-white/80 dark:bg-slate-800/80 rounded-lg sm:rounded-xl p-3 sm:p-4 border-2 border-emerald-200 dark:border-emerald-800 shadow-md"
+                  transition={{ delay: i * 0.1, type: 'spring', stiffness: 100 }}
+                  whileHover={{ x: 2, scale: 1.01 }}
+                  className="group flex gap-3 sm:gap-4 items-start bg-gradient-to-br from-white to-slate-50/50 dark:from-slate-800/80 dark:to-slate-900/50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-slate-200/50 dark:border-slate-700/50 shadow-sm hover:shadow-md transition-all duration-300"
                 >
-                  <span className="shrink-0 mt-0.5 sm:mt-1 inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs sm:text-sm font-bold shadow-lg">
+                  <motion.span 
+                    className="shrink-0 mt-0.5 sm:mt-1 inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg sm:rounded-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 text-white text-xs sm:text-sm font-bold shadow-md ring-1 ring-emerald-200/50 dark:ring-emerald-800/50"
+                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    transition={{ type: 'spring', stiffness: 400 }}
+                  >
                     {i + 1}
-                  </span>
-                  <p className="flex-1 min-w-0 leading-relaxed text-sm sm:text-base text-slate-700 dark:text-slate-200 font-medium break-words">
+                  </motion.span>
+                  <p className="flex-1 min-w-0 leading-relaxed text-sm sm:text-base md:text-lg text-slate-700 dark:text-slate-200 font-medium break-words pt-0.5 sm:pt-1">
                     {s}
                   </p>
                 </motion.li>
@@ -2028,40 +2089,48 @@ export default function RecipePage() {
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 lg:p-8 border border-amber-200 dark:border-amber-800"
+                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-10 border border-slate-200/50 dark:border-slate-800/50 shadow-xl shadow-amber-500/5 dark:shadow-amber-500/10"
               >
-                <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5 md:mb-6">
-                  <span className="text-2xl sm:text-3xl">♻️</span>
-                  <div>
-                    <h2 className="text-lg sm:text-xl md:text-2xl font-bold">Leftover Ideas</h2>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                      What to make with leftover ingredients from this recipe
-                    </p>
+                <div className="flex flex-col items-center gap-2 sm:gap-3 mb-4 sm:mb-5 md:mb-6">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <span className="text-xl sm:text-2xl">♻️</span>
+                    <h2 className="text-base sm:text-lg md:text-xl font-bold text-center">Leftover Ideas</h2>
                   </div>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 text-center">
+                    What to make with leftover ingredients from this recipe
+                  </p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 md:gap-6">
                   {leftoverIdeas.map(recipe => (
                     <motion.div
                       key={recipe.id}
-                      whileHover={{ scale: 1.02, y: -4 }}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      whileHover={{ scale: 1.05, y: -6 }}
                       onClick={() => navigate(`/recipe/${recipe.id}`, { state: { recipe } })}
-                      className="bg-white dark:bg-slate-800 rounded-lg sm:rounded-xl p-3 sm:p-4 cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-amber-400 dark:hover:border-amber-600 transition-all touch-manipulation min-h-[44px]"
+                      className="bg-white/90 dark:bg-slate-800/90 rounded-xl sm:rounded-2xl overflow-hidden cursor-pointer border border-slate-200/50 dark:border-slate-700/50 hover:border-amber-400/50 dark:hover:border-amber-600/50 hover:shadow-xl transition-all duration-300 touch-manipulation group"
                     >
-                      <img
-                        src={recipeImg(recipe.hero_image_url || recipe.image, recipe.id)}
-                        data-original-src={recipe.hero_image_url || recipe.image}
-                        alt={recipe.title}
-                        className="w-full aspect-[4/3] object-cover rounded-lg mb-2 sm:mb-3"
-                        referrerPolicy="no-referrer"
-                        loading="lazy"
-                        onError={fallbackOnce}
-                      />
-                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 break-words">
-                        {recipe.title}
-                      </h3>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                        {recipe.readyInMinutes} min
-                      </p>
+                      <div className="relative overflow-hidden">
+                        <img
+                          src={recipeImg(recipe.hero_image_url || recipe.image, recipe.id)}
+                          data-original-src={recipe.hero_image_url || recipe.image}
+                          alt={recipe.title}
+                          className="w-full aspect-[4/3] object-cover group-hover:scale-110 transition-transform duration-500"
+                          referrerPolicy="no-referrer"
+                          loading="lazy"
+                          onError={fallbackOnce}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      </div>
+                      <div className="p-4 sm:p-5">
+                        <h3 className="font-bold text-sm sm:text-base line-clamp-2 break-words text-slate-800 dark:text-slate-100 group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors">
+                          {recipe.title}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-2 flex items-center gap-1.5">
+                          <span>⏱️</span>
+                          {recipe.readyInMinutes} min
+                        </p>
+                      </div>
                     </motion.div>
                   ))}
                 </div>
@@ -2073,40 +2142,48 @@ export default function RecipePage() {
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 lg:p-8 border border-blue-200 dark:border-blue-800"
+                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-10 border border-slate-200/50 dark:border-slate-800/50 shadow-xl shadow-blue-500/5 dark:shadow-blue-500/10"
               >
-                <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5 md:mb-6">
-                  <span className="text-2xl sm:text-3xl">🔍</span>
-                  <div>
-                    <h2 className="text-lg sm:text-xl md:text-2xl font-bold">Similar Recipes</h2>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                      Recipes you might also like
-                    </p>
+                <div className="flex flex-col items-center gap-2 sm:gap-3 mb-4 sm:mb-5 md:mb-6">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <span className="text-xl sm:text-2xl">🔍</span>
+                    <h2 className="text-base sm:text-lg md:text-xl font-bold text-center">Similar Recipes</h2>
                   </div>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 text-center">
+                    Recipes you might also like
+                  </p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 md:gap-6">
                   {similarRecipes.map(recipe => (
                     <motion.div
                       key={recipe.id}
-                      whileHover={{ scale: 1.02, y: -4 }}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      whileHover={{ scale: 1.05, y: -6 }}
                       onClick={() => navigate(`/recipe/${recipe.id}`, { state: { recipe } })}
-                      className="bg-white dark:bg-slate-800 rounded-lg sm:rounded-xl p-3 sm:p-4 cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all touch-manipulation min-h-[44px]"
+                      className="bg-white/90 dark:bg-slate-800/90 rounded-xl sm:rounded-2xl overflow-hidden cursor-pointer border border-slate-200/50 dark:border-slate-700/50 hover:border-blue-400/50 dark:hover:border-blue-600/50 hover:shadow-xl transition-all duration-300 touch-manipulation group"
                     >
-                      <img
-                        src={recipeImg(recipe.hero_image_url || recipe.image, recipe.id)}
-                        data-original-src={recipe.hero_image_url || recipe.image}
-                        alt={recipe.title}
-                        className="w-full aspect-[4/3] object-cover rounded-lg mb-2 sm:mb-3"
-                        referrerPolicy="no-referrer"
-                        loading="lazy"
-                        onError={fallbackOnce}
-                      />
-                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 break-words">
-                        {recipe.title}
-                      </h3>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                        {recipe.readyInMinutes} min
-                      </p>
+                      <div className="relative overflow-hidden">
+                        <img
+                          src={recipeImg(recipe.hero_image_url || recipe.image, recipe.id)}
+                          data-original-src={recipe.hero_image_url || recipe.image}
+                          alt={recipe.title}
+                          className="w-full aspect-[4/3] object-cover group-hover:scale-110 transition-transform duration-500"
+                          referrerPolicy="no-referrer"
+                          loading="lazy"
+                          onError={fallbackOnce}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      </div>
+                      <div className="p-4 sm:p-5">
+                        <h3 className="font-bold text-sm sm:text-base line-clamp-2 break-words text-slate-800 dark:text-slate-100 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
+                          {recipe.title}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-2 flex items-center gap-1.5">
+                          <span>⏱️</span>
+                          {recipe.readyInMinutes} min
+                        </p>
+                      </div>
                     </motion.div>
                   ))}
                 </div>
@@ -2118,40 +2195,48 @@ export default function RecipePage() {
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 lg:p-8 border border-purple-200 dark:border-purple-800"
+                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-10 border border-slate-200/50 dark:border-slate-800/50 shadow-xl shadow-purple-500/5 dark:shadow-purple-500/10"
               >
-                <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5 md:mb-6">
-                  <span className="text-2xl sm:text-3xl">🍽️</span>
-                  <div>
-                    <h2 className="text-lg sm:text-xl md:text-2xl font-bold">Complete Your Meal</h2>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                      Perfect pairings for this recipe
-                    </p>
+                <div className="flex flex-col items-center gap-2 sm:gap-3 mb-4 sm:mb-5 md:mb-6">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <span className="text-xl sm:text-2xl">🍽️</span>
+                    <h2 className="text-base sm:text-lg md:text-xl font-bold text-center">Complete Your Meal</h2>
                   </div>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 text-center">
+                    Perfect pairings for this recipe
+                  </p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 md:gap-6">
                   {mealSuggestions.map(recipe => (
                     <motion.div
                       key={recipe.id}
-                      whileHover={{ scale: 1.02, y: -4 }}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      whileHover={{ scale: 1.05, y: -6 }}
                       onClick={() => navigate(`/recipe/${recipe.id}`, { state: { recipe } })}
-                      className="bg-white dark:bg-slate-800 rounded-lg sm:rounded-xl p-3 sm:p-4 cursor-pointer border border-slate-200 dark:border-slate-700 hover:border-purple-400 dark:hover:border-purple-600 transition-all touch-manipulation min-h-[44px]"
+                      className="bg-white/90 dark:bg-slate-800/90 rounded-xl sm:rounded-2xl overflow-hidden cursor-pointer border border-slate-200/50 dark:border-slate-700/50 hover:border-purple-400/50 dark:hover:border-purple-600/50 hover:shadow-xl transition-all duration-300 touch-manipulation group"
                     >
-                      <img
-                        src={recipeImg(recipe.hero_image_url || recipe.image, recipe.id)}
-                        data-original-src={recipe.hero_image_url || recipe.image}
-                        alt={recipe.title}
-                        className="w-full aspect-[4/3] object-cover rounded-lg mb-2 sm:mb-3"
-                        referrerPolicy="no-referrer"
-                        loading="lazy"
-                        onError={fallbackOnce}
-                      />
-                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 break-words">
-                        {recipe.title}
-                      </h3>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                        {recipe.readyInMinutes} min
-                      </p>
+                      <div className="relative overflow-hidden">
+                        <img
+                          src={recipeImg(recipe.hero_image_url || recipe.image, recipe.id)}
+                          data-original-src={recipe.hero_image_url || recipe.image}
+                          alt={recipe.title}
+                          className="w-full aspect-[4/3] object-cover group-hover:scale-110 transition-transform duration-500"
+                          referrerPolicy="no-referrer"
+                          loading="lazy"
+                          onError={fallbackOnce}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      </div>
+                      <div className="p-4 sm:p-5">
+                        <h3 className="font-bold text-sm sm:text-base line-clamp-2 break-words text-slate-800 dark:text-slate-100 group-hover:text-purple-700 dark:group-hover:text-purple-400 transition-colors">
+                          {recipe.title}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-2 flex items-center gap-1.5">
+                          <span>⏱️</span>
+                          {recipe.readyInMinutes} min
+                        </p>
+                      </div>
                     </motion.div>
                   ))}
                 </div>

@@ -35,8 +35,15 @@ export default function DieticianAIPage() {
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-50 via-purple-50/20 to-indigo-50/20 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div className="page-shell py-3 xs:py-4 sm:py-6 md:py-8 px-3 xs:px-4 sm:px-6">
-        <BackToHome toHome={false} label="Back" />
-        <div className="mt-4 xs:mt-5 sm:mt-6">
+        <div className="flex items-start gap-3 sm:gap-4 mb-4 xs:mb-5 sm:mb-6">
+          <div className="flex-shrink-0">
+            <BackToHome toHome={false} label="Back" className="mb-0" />
+          </div>
+          <div className="flex-1 min-w-0 sm:hidden">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">Dietician AI</h1>
+          </div>
+        </div>
+        <div className="mt-0">
           <DieticianAI />
         </div>
       </div>

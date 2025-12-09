@@ -12,12 +12,14 @@ import { useToast } from './Toast.jsx';
 import { useAdmin } from '../context/AdminContext';
 import { isAdmin } from '../utils/admin';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { useTheme } from '../context/ThemeContext.jsx';
 import InstallButton from './InstallButton.jsx';
 
-export default function Header({ theme, toggleTheme, favorites, setFavorites }) {
+export default function Header({ favorites, setFavorites }) {
   const toast = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { open: groceryOpen, setOpen: setGroceryOpen, items: groceryItems } = useGroceryList();
   const { adminModeEnabled } = useAdmin();
   const { t } = useLanguage();
@@ -215,6 +217,65 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                   </motion.span>
                 )}
               </AnimatePresence>
+            </motion.button>
+
+            {/* Theme Toggle Button */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                console.error('🔥🔥🔥 [HEADER] Theme button CLICKED!', {
+                  currentTheme: theme,
+                  toggleThemeType: typeof toggleTheme,
+                  timestamp: new Date().toISOString(),
+                  stack: new Error().stack
+                });
+                try {
+                  toggleTheme();
+                  console.error('🔥🔥🔥 [HEADER] toggleTheme() executed successfully', {
+                    timestamp: new Date().toISOString()
+                  });
+                } catch (error) {
+                  console.error('❌❌❌ [HEADER] toggleTheme() THREW ERROR!', {
+                    error,
+                    timestamp: new Date().toISOString(),
+                    stack: new Error().stack
+                  });
+                }
+              }}
+              className="relative px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 md:py-1.5 rounded-md border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 touch-manipulation flex-shrink-0 transition-all duration-300"
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              <motion.div
+                key={theme}
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                exit={{ scale: 0, rotate: 180 }}
+                transition={{ duration: 0.3, type: 'spring', stiffness: 200 }}
+                className="relative w-5 h-5 sm:w-6 sm:h-6"
+              >
+                {theme === 'dark' ? (
+                  <svg
+                    className="w-full h-full text-yellow-500"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="w-full h-full text-blue-600 dark:text-blue-400"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                  </svg>
+                )}
+              </motion.div>
             </motion.button>
 
             {/* Menu Button */}
@@ -574,7 +635,7 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                               d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
                             />
                           </svg>
-                          <span className="font-medium">Collections</span>
+                          <span className="font-medium">Recipe Journey</span>
                         </button>
 
                         <button
@@ -695,50 +756,15 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                         <button
                           onClick={() => {
                             setShowMenu(false);
-                            toggleTheme();
-                          }}
-                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm sm:text-base hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg flex items-center gap-2 sm:gap-3 justify-between transition-colors mb-1 touch-manipulation"
-                        >
-                          <div className="flex items-center gap-3">
-                            {theme === 'dark' ? (
-                              <svg
-                                className="w-5 h-5 text-yellow-500"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            ) : (
-                              <svg
-                                className="w-5 h-5 text-blue-600 dark:text-blue-400"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                              </svg>
-                            )}
-                            <span className="font-medium">
-                              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-                            </span>
-                          </div>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setShowMenu(false);
-                            navigate('/profile');
+                            navigate('/settings');
                           }}
                           className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm sm:text-base hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg flex items-center gap-2 sm:gap-3 transition-colors mb-1 touch-manipulation"
                         >
                           <svg
                             className="w-5 h-5 text-slate-600 dark:text-slate-400"
                             fill="none"
-                            stroke="currentColor"
                             viewBox="0 0 24 24"
+                            stroke="currentColor"
                           >
                             <path
                               strokeLinecap="round"
@@ -755,10 +781,41 @@ export default function Header({ theme, toggleTheme, favorites, setFavorites }) 
                           </svg>
                           <span className="font-medium">Settings</span>
                         </button>
+
+                        {user && (
+                          <button
+                            onClick={() => {
+                              setShowMenu(false);
+                              navigate('/profile');
+                            }}
+                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm sm:text-base hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg flex items-center gap-2 sm:gap-3 transition-colors mb-1 touch-manipulation"
+                          >
+                            <svg
+                              className="w-5 h-5 text-slate-600 dark:text-slate-400"
+                              fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                          </svg>
+                          <span className="font-medium">Profile & Settings</span>
+                        </button>
+                        )}
                       </div>
 
                       {/* Help & Support Section */}
-                      <div className="border-t border-slate-200 dark:border-slate-700 my-2" />
+                      <div className="border-t border-slate-200 dark:border-slate-700 my-2"></div>
                       <div className="px-3 py-2">
                         <div className="text-[10px] sm:text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2 sm:px-3 mb-2">
                           Help & Support

@@ -161,6 +161,77 @@ const FAQ_ITEMS = [
         q: 'How does meal swapping work?',
         a: "In the Meal Planner, click the swap icon on any meal card. The app will suggest alternative recipes based on meal type, ingredients, and your dietary preferences. Great for when you want variety or don't have certain ingredients!",
       },
+      {
+        q: 'What is Meal Prep Mode?',
+        a: "Meal Prep Mode helps you plan batch cooking for multiple days. Select how many servings you need and for how many days, and the app calculates exact portions, suggests container sizes, provides storage tips, and gives reheating instructions. Perfect for weekly meal prep!",
+      },
+      {
+        q: 'How does Cook Mode work?',
+        a: "Cook Mode provides step-by-step cooking instructions with timers. Click the 'Cook Mode' button on any recipe page to enter guided cooking. You can set timers for each step, mark steps as complete, and see your progress. Great for hands-free cooking!",
+      },
+      {
+        q: 'What is the Calorie Tracker?',
+        a: "The Calorie Tracker helps you log meals and track your daily calorie intake. Add recipes or custom meals, set daily goals, and view your progress over time. It calculates your BMR (Basal Metabolic Rate) and provides insights into your eating patterns.",
+      },
+      {
+        q: 'How do I use Cooking Skills?',
+        a: "Cooking Skills provides video tutorials for cooking techniques from beginner to advanced. Click the 'Cooking Skills' button to access embedded video tutorials on knife skills, sautéing, roasting, and more. All videos play in-app so you stay on the app!",
+      },
+      {
+        q: 'What are Smart Swaps?',
+        a: "Smart Swaps suggest ingredient substitutions based on dietary restrictions, allergies, or preferences. On recipe pages, click 'Smart Swaps' to see alternative ingredients. Perfect for making recipes vegan, gluten-free, or adapting to what you have!",
+      },
+      {
+        q: 'How do Recipe Notes work?',
+        a: "Recipe Notes let you add personal notes, modifications, or tips to any recipe. Click 'Add Note' on a recipe page to save your thoughts. Notes are saved locally and help you remember your favorite tweaks!",
+      },
+      {
+        q: 'Can I share recipes?',
+        a: "Yes! Click the 'Share' button on any recipe page to generate a shareable link. You can share recipes via social media, email, or copy the link. Shared recipes open in a special view for easy viewing.",
+      },
+      {
+        q: 'What is the Daily Recipe?',
+        a: "The Daily Recipe is a surprise recipe that changes every day. It's a great way to discover new dishes! The recipe is cached so you can view it offline, and it refreshes daily.",
+      },
+      {
+        q: 'How does the Nutrition Tracker work?',
+        a: "The Nutrition Tracker shows detailed nutritional information for recipes including macros (protein, carbs, fats), vitamins, minerals, and more. You can switch between metric and imperial units, view full nutrition labels, and track your daily intake.",
+      },
+    ],
+  },
+  {
+    category: 'Subscriptions & Billing',
+    icon: Gift,
+    color: 'pink',
+    questions: [
+      {
+        q: 'What subscription plans are available?',
+        a: "We offer Free, Supporter, Unlimited, and Family plans. Free includes basic features. Supporter removes ads. Unlimited adds advanced features like unlimited meal plans and analytics. Family includes everything plus family management features.",
+      },
+      {
+        q: 'How do I subscribe?',
+        a: "Click the menu (☰) and select 'Upgrade' or click any upgrade prompt. Choose your plan and payment method (Stripe, Paddle, or Paystack). Your subscription activates immediately after payment.",
+      },
+      {
+        q: 'How do I cancel my subscription?',
+        a: "Go to your Profile page, then 'Billing Management'. Click 'Cancel Subscription'. You'll retain access until the end of your current billing period. No refunds for partial periods.",
+      },
+      {
+        q: 'What payment methods do you accept?',
+        a: "We accept credit cards, debit cards, and PayPal through Stripe, Paddle, and Paystack. Payment methods vary by region. All payments are processed securely by our payment partners.",
+      },
+      {
+        q: 'Can I get a refund?',
+        a: "We offer refunds within 14 days of purchase or renewal, provided you haven't exceeded reasonable usage. Request refunds through your Profile settings or contact support.",
+      },
+      {
+        q: 'Do subscriptions auto-renew?',
+        a: "Yes, subscriptions automatically renew at the end of each billing period unless cancelled. We'll email you before renewal. You can cancel anytime - cancellation takes effect at the end of your current period.",
+      },
+      {
+        q: 'What happens if payment fails?',
+        a: "We'll attempt to charge your payment method multiple times. If payment continues to fail, your subscription will be suspended and you'll lose access to premium features. Update your payment method to restore access.",
+      },
     ],
   },
   {
@@ -187,6 +258,18 @@ const FAQ_ITEMS = [
       {
         q: 'Is my data private and secure?',
         a: 'Yes! We use industry-standard encryption and secure authentication. Your data is stored locally in your browser by default, and only synced to our secure servers when you sign in. We never share your personal information.',
+      },
+      {
+        q: 'How do I manage my subscription?',
+        a: "Go to your Profile page and click 'Billing Management'. Here you can view your current plan, payment history, update payment methods, cancel subscriptions, and manage billing settings.",
+      },
+      {
+        q: 'What are Analytics?',
+        a: "Analytics (available on Unlimited and Family plans) shows your cooking statistics, favorite cuisines, most-used ingredients, meal planning patterns, and nutrition trends. Great for understanding your cooking habits!",
+      },
+      {
+        q: 'How do I change my password?',
+        a: "If you signed in with email, you can reset your password through Supabase's authentication system. If you signed in with Google, your password is managed by Google. Go to Profile > Account Settings for options.",
       },
     ],
   },
@@ -218,6 +301,26 @@ const FAQ_ITEMS = [
       {
         q: "Grocery list isn't updating",
         a: "Make sure you're clicking 'Add all to List' on recipe pages. The grocery drawer should open from the bottom. If items aren't appearing, try refreshing the page. Check that you haven't accidentally filtered or cleared the list.",
+      },
+      {
+        q: "Videos aren't playing in Cooking Skills",
+        a: "Make sure your browser allows embedded content and check your internet connection. Some videos may be unavailable if they've been removed from YouTube. Try refreshing the page or check if your browser blocks iframes.",
+      },
+      {
+        q: "Cook Mode timer isn't working",
+        a: "Make sure your browser allows notifications for timers. Check browser settings and ensure the app has permission. Timers work best in modern browsers (Chrome, Firefox, Safari, Edge).",
+      },
+      {
+        q: "Subscription isn't activating",
+        a: "Payment processing can take a few moments. Try refreshing the page (Ctrl+R or Cmd+R). If your subscription still isn't active after 5 minutes, check your email for confirmation and contact support through your Profile settings.",
+      },
+      {
+        q: "Nutrition information is missing",
+        a: "Some recipes may not have complete nutrition data. We're constantly updating our database. If you see incomplete nutrition, the recipe may still be in progress. Admins can see all recipes, while regular users only see complete ones.",
+      },
+      {
+        q: "Can't find a recipe I saw before",
+        a: "Regular users only see recipes with complete data (ingredients, steps, nutrition). If a recipe is missing information, it won't appear in search results. Admins can see all recipes. Try different search terms or check your favorites.",
       },
     ],
   },
@@ -271,8 +374,20 @@ export default function Help() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8 sm:mb-10 md:mb-12"
         >
-          <BackToHome className="mb-4 sm:mb-6" />
-          <div className="text-center mb-6 sm:mb-8">
+          <div className="flex items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <div className="flex-shrink-0">
+              <BackToHome className="mb-0" />
+            </div>
+            <div className="flex items-center gap-3 flex-1 min-w-0 sm:hidden">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0">
+                <HelpCircle className="w-5 h-5 text-white" />
+              </div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent truncate">
+                Help & Support
+              </h1>
+            </div>
+          </div>
+          <div className="text-center mb-6 sm:mb-8 hidden sm:block">
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}

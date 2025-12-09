@@ -624,10 +624,14 @@ export default function FamilyPlan() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <BackToHome className="mb-4" />
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex-1">
-              {editingFamilyName ? (
+          <div className="flex items-start gap-3 sm:gap-4 mb-4">
+            <div className="flex-shrink-0">
+              <BackToHome className="mb-0" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex-1 min-w-0">
+                  {editingFamilyName ? (
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -642,7 +646,7 @@ export default function FamilyPlan() {
                         setEditingFamilyName(false);
                       }
                     }}
-                    className="text-3xl font-bold bg-transparent border-b-2 border-emerald-500 focus:outline-none focus:border-emerald-600 dark:text-white"
+                    className="text-xl sm:text-3xl font-bold bg-transparent border-b-2 border-emerald-500 focus:outline-none focus:border-emerald-600 dark:text-white"
                     placeholder="Enter family name..."
                     autoFocus
                   />
@@ -667,7 +671,7 @@ export default function FamilyPlan() {
                 </div>
               ) : (
                 <div className="flex items-center gap-2 group">
-                  <h1 className="text-3xl font-bold mb-2">{familyName || 'Family Plan'}</h1>
+                  <h1 className="text-xl sm:text-3xl font-bold mb-2 truncate">{familyName || 'Family Plan'}</h1>
                   <button
                     onClick={() => {
                       setTempFamilyName(familyName);
@@ -680,9 +684,11 @@ export default function FamilyPlan() {
                   </button>
                 </div>
               )}
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-xs sm:text-base text-slate-600 dark:text-slate-400 hidden sm:block">
                 Manage family members, allergies, medical conditions, and meal tracking
               </p>
+                </div>
+              </div>
             </div>
             <motion.button
               whileHover={{ scale: 1.05 }}

@@ -239,7 +239,10 @@ export async function getCurrentPlan() {
 
     if (userError) {
       if (import.meta.env.DEV) {
-        console.error('❌ [SUBSCRIPTION] Error getting user:', userError);
+        // Only log non-expected errors (AuthSessionMissingError is expected when not logged in)
+        if (userError && userError.name !== 'AuthSessionMissingError') {
+          console.error('❌ [SUBSCRIPTION] Error getting user:', userError);
+        }
       }
     }
 

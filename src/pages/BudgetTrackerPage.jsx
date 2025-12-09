@@ -46,11 +46,17 @@ export default function BudgetTrackerPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-6"
         >
-          <BackToHome className="mb-4" />
-          <h1 className="text-4xl font-bold mb-2">Budget Tracker & Analytics</h1>
-          <p className="text-slate-600 dark:text-slate-400">
-            Comprehensive budget tracking, spending analysis, and cost insights for your meals!
-          </p>
+          <div className="flex items-start gap-3 sm:gap-4 mb-4">
+            <div className="flex-shrink-0">
+              <BackToHome className="mb-0" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-2 truncate">Budget Tracker & Analytics</h1>
+              <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-400 hidden sm:block">
+                Comprehensive budget tracking, spending analysis, and cost insights for your meals!
+              </p>
+            </div>
+          </div>
         </motion.div>
 
         <BudgetTracker />

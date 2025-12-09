@@ -1,6 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
+  // In Tailwind v4, darkMode is configured via CSS @theme or defaults to 'class'
+  // Explicitly set it here for compatibility
+  darkMode: ['class', '[data-theme="dark"]'],
   theme: {
     extend: {
       screens: {
@@ -32,6 +35,5 @@ export default {
       },
     },
   },
-  darkMode: 'class',
   plugins: [],
 };

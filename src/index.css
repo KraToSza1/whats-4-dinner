@@ -1,6 +1,10 @@
 /* src/index.css */
 @import 'tailwindcss';
 
+/* ------------ Tailwind v4 Dark Mode Configuration ------------ */
+/* Define dark mode variant for Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ------------ Tailwind v4 Theme Configuration ------------ */
 @theme {
   /* Custom breakpoints */
@@ -40,11 +44,54 @@
   }
 
   body {
-    @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+    @apply bg-amber-50/30 text-slate-800 dark:bg-slate-950 dark:text-slate-100;
   }
 
-  /* soft pattern backdrop */
-  body::before {
+  /* Force dark mode to work - comprehensive rules for Tailwind v4 */
+  /* Support both .dark class and [data-theme="dark"] attribute */
+  html.dark,
+  html[data-theme="dark"] {
+    color-scheme: dark;
+  }
+  
+  html:not(.dark):not([data-theme="dark"]) {
+    color-scheme: light;
+  }
+
+  html.dark body,
+  html[data-theme="dark"] body {
+    background-color: rgb(2 6 23) !important; /* slate-950 */
+    color: rgb(241 245 249) !important; /* slate-100 */
+  }
+
+  /* Enhanced light mode - warmer, softer colors for easier viewing */
+  html:not(.dark):not([data-theme="dark"]) body {
+    background-color: rgb(255 251 235) !important; /* warm cream/amber-50 */
+    color: rgb(51 65 85) !important; /* softer slate-700 instead of harsh slate-900 */
+  }
+
+  /* Ensure dark mode classes work by providing explicit context */
+  html.dark,
+  html[data-theme="dark"] {
+    /* Force browser to recognize dark mode */
+    color-scheme: dark;
+  }
+
+  /* soft pattern backdrop - warmer for light mode */
+  html:not(.dark):not([data-theme="dark"]) body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(251, 191, 36, 0.08), transparent 50%),
+      radial-gradient(800px 400px at 10% 110%, rgba(16, 185, 129, 0.06), transparent 50%),
+      linear-gradient(transparent, transparent);
+    opacity: 0.5;
+    z-index: -1;
+  }
+  html.dark body::before,
+  html[data-theme="dark"] body::before {
     content: '';
     position: fixed;
     inset: 0;
@@ -57,17 +104,28 @@
     z-index: -1;
   }
 
-  /* nice scrollbars */
+  /* nice scrollbars - softer for light mode */
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgb(71 85 105 / 0.6) transparent;
+  }
+  html:not(.dark):not([data-theme="dark"]) * {
+    scrollbar-color: rgb(217 119 6 / 0.3) transparent; /* warmer amber for light mode */
+  }
+  html.dark *,
+  html[data-theme="dark"] * {
+    scrollbar-color: rgb(71 85 105 / 0.6) transparent; /* original for dark mode */
   }
   *::-webkit-scrollbar {
     height: 8px;
     width: 8px;
   }
-  *::-webkit-scrollbar-thumb {
-    background: rgb(71 85 105 / 0.6);
+  html:not(.dark):not([data-theme="dark"]) *::-webkit-scrollbar-thumb {
+    background: rgb(217 119 6 / 0.3); /* warmer amber for light mode */
+    border-radius: 9999px;
+  }
+  html.dark *::-webkit-scrollbar-thumb,
+  html[data-theme="dark"] *::-webkit-scrollbar-thumb {
+    background: rgb(71 85 105 / 0.6); /* original for dark mode */
     border-radius: 9999px;
   }
   *::-webkit-scrollbar-track {
@@ -169,21 +227,21 @@
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors bg-emerald-600 text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400/60;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors border border-slate-300 dark:border-slate-700 hover:bg-slate-100/80 dark:hover:bg-slate-800/60;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors border border-amber-200/60 dark:border-slate-700 hover:bg-amber-50/50 dark:hover:bg-slate-800/60;
   }
   .btn-danger {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors bg-rose-600 text-white hover:bg-rose-700;
   }
   .btn-muted {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-300/70 dark:hover:bg-slate-700/70;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors bg-amber-100/50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-amber-200/50 dark:hover:bg-slate-700/70;
   }
 
   /* Inputs */
   .input {
-    @apply w-full rounded-xl bg-white dark:bg-slate-800 ring-1 ring-black/10 dark:ring-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400/70;
+    @apply w-full rounded-xl bg-white/90 dark:bg-slate-800 ring-1 ring-amber-200/50 dark:ring-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400/70;
   }
   .select {
-    @apply w-full rounded-xl bg-white dark:bg-slate-800 ring-1 ring-black/10 dark:ring-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400/70 pr-8;
+    @apply w-full rounded-xl bg-white/90 dark:bg-slate-800 ring-1 ring-amber-200/50 dark:ring-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400/70 pr-8;
   }
   .field {
     @apply flex flex-col gap-1 text-sm;
@@ -191,10 +249,10 @@
 
   /* Surfaces / cards */
   .surface {
-    @apply rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-800/70 shadow-sm;
+    @apply rounded-xl bg-white/90 dark:bg-slate-900/60 border border-amber-200/40 dark:border-slate-800/70 shadow-sm;
   }
   .card {
-    @apply rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-800/70 shadow-sm overflow-hidden;
+    @apply rounded-xl bg-white/90 dark:bg-slate-900/60 border border-amber-200/40 dark:border-slate-800/70 shadow-sm overflow-hidden;
   }
   .card-hover {
     @apply transition hover:shadow-lg hover:-translate-y-0.5;
@@ -202,10 +260,10 @@
 
   /* Badges & chips */
   .badge {
-    @apply inline-flex items-center rounded-full text-xs px-2 py-0.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300;
+    @apply inline-flex items-center rounded-full text-xs px-2 py-0.5 bg-amber-100/60 dark:bg-slate-800 text-slate-700 dark:text-slate-300;
   }
   .chip {
-    @apply inline-flex items-center rounded-full text-sm px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700;
+    @apply inline-flex items-center rounded-full text-sm px-3 py-1 bg-amber-50/70 dark:bg-slate-800 border border-amber-200/50 dark:border-slate-700;
   }
   .chip-active {
     @apply bg-emerald-50 border-emerald-300 text-emerald-700;

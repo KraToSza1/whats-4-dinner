@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 
@@ -7,9 +7,9 @@ const ToastContext = createContext(null);
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
-  const addToast = useCallback((message, type = 'info', duration = 4000) => {
+  const addToast = useCallback((message, type = 'info', duration = 4000, action = null) => {
     const id = Date.now() + Math.random();
-    const toast = { id, message, type, duration };
+    const toast = { id, message, type, duration, action };
     setToasts(prev => [...prev, toast]);
 
     if (duration > 0) {
@@ -26,18 +26,21 @@ export function ToastProvider({ children }) {
   }, []);
 
   const success = useCallback(
-    (message, duration) => addToast(message, 'success', duration),
+    (message, duration, action) => addToast(message, 'success', duration, action),
     [addToast]
   );
   const error = useCallback(
-    (message, duration) => addToast(message, 'error', duration),
+    (message, duration, action) => addToast(message, 'error', duration, action),
     [addToast]
   );
   const warning = useCallback(
-    (message, duration) => addToast(message, 'warning', duration),
+    (message, duration, action) => addToast(message, 'warning', duration, action),
     [addToast]
   );
-  const info = useCallback((message, duration) => addToast(message, 'info', duration), [addToast]);
+  const info = useCallback(
+    (message, duration, action) => addToast(message, 'info', duration, action),
+    [addToast]
+  );
 
   return (
     <ToastContext.Provider value={{ success, error, warning, info, addToast, removeToast }}>
@@ -64,11 +67,12 @@ export function useToast() {
 function ToastContainer({ toasts, removeToast }) {
   return (
     <div
-      className="fixed bottom-4 left-4 right-4 xs:bottom-auto xs:top-4 xs:left-auto xs:right-4 z-[9999] flex flex-col gap-2 xs:gap-3 max-w-md xs:max-w-lg w-full xs:w-auto pointer-events-none px-2 xs:px-0"
+      className="fixed bottom-0 left-0 right-0 sm:bottom-auto sm:top-4 sm:left-auto sm:right-4 z-[9999] flex flex-col-reverse sm:flex-col gap-2 sm:gap-3 max-w-full sm:max-w-md md:max-w-lg w-full sm:w-auto pointer-events-none px-2 sm:px-0 pb-safe sm:pb-0"
+      style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
       aria-live="polite"
       aria-label="Notifications"
     >
-      <AnimatePresence>
+      <AnimatePresence mode="popLayout">
         {toasts.map(toast => (
           <Toast key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
         ))}
@@ -78,7 +82,7 @@ function ToastContainer({ toasts, removeToast }) {
 }
 
 function Toast({ toast, onClose }) {
-  const { message, type } = toast;
+  const { message, type, action } = toast;
 
   const icons = {
     success: CheckCircle,
@@ -106,32 +110,70 @@ function Toast({ toast, onClose }) {
 
   const Icon = icons[type] || Info;
 
+  // Handle click/touch to dismiss
+  const handleClick = (e) => {
+    // Don't dismiss if clicking action button or close button
+    if (e.target.closest('button')) {
+      return;
+    }
+    onClose();
+  };
+
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } }}
-      className={`${colors[type]} border-2 rounded-xl xs:rounded-2xl shadow-2xl p-3 xs:p-4 pointer-events-auto flex items-start gap-2.5 xs:gap-3 w-full xs:min-w-[320px] xs:max-w-md backdrop-blur-sm`}
+      initial={{ opacity: 0, y: 20, scale: 0.95, x: 0 }}
+      animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
+      exit={{ 
+        opacity: 0, 
+        scale: 0.95, 
+        y: 20,
+        x: 300,
+        transition: { duration: 0.2 } 
+      }}
+      onClick={handleClick}
+      className={`${colors[type]} border-2 rounded-xl sm:rounded-2xl shadow-2xl p-3 sm:p-4 pointer-events-auto flex flex-col sm:flex-row items-start gap-2.5 sm:gap-3 w-full sm:min-w-[320px] sm:max-w-md backdrop-blur-sm cursor-pointer active:scale-[0.98] transition-transform touch-manipulation`}
       role="alert"
       aria-live={type === 'error' ? 'assertive' : 'polite'}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
     >
-      <div
-        className={`w-8 h-8 xs:w-10 xs:h-10 rounded-lg xs:rounded-xl flex items-center justify-center shrink-0 ${iconColors[type]} bg-white/50 dark:bg-black/20`}
-      >
-        <Icon className={`w-4 h-4 xs:w-5 xs:h-5`} aria-hidden="true" />
-      </div>
-      <div className="flex-1 min-w-0 pt-0.5 xs:pt-1">
-        <div className="text-sm xs:text-base font-semibold xs:font-bold break-words whitespace-pre-line leading-relaxed">
-          {message}
+      <div className="flex items-start gap-2.5 sm:gap-3 w-full sm:w-auto">
+        <div
+          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${iconColors[type]} bg-white/50 dark:bg-black/20`}
+        >
+          <Icon className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
         </div>
+        <div className="flex-1 min-w-0 pt-0.5 sm:pt-1">
+          <div className="text-sm sm:text-base font-semibold sm:font-bold break-words whitespace-pre-line leading-relaxed">
+            {message}
+          </div>
+          {action && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                action.onClick();
+                if (action.dismissOnClick !== false) {
+                  onClose();
+                }
+              }}
+              className="mt-2 sm:mt-3 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg bg-white/80 dark:bg-black/30 hover:bg-white dark:hover:bg-black/50 border border-current/20 transition-colors touch-manipulation min-h-[36px] sm:min-h-[40px]"
+            >
+              {action.label || 'Action'}
+            </button>
+          )}
+        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="flex-shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 dark:text-slate-500 transition-colors p-1.5 sm:p-2 -mt-1 -mr-1 rounded-lg hover:bg-white/50 dark:hover:bg-black/20 touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center self-start"
+          aria-label="Close notification"
+        >
+          <X className="w-4 h-4 sm:w-5 sm:h-5" />
+        </button>
       </div>
-      <button
-        onClick={onClose}
-        className="flex-shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 dark:text-slate-500 transition-colors p-1.5 xs:p-2 -mt-1 -mr-1 rounded-lg hover:bg-white/50 dark:hover:bg-black/20 touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
-        aria-label="Close notification"
-      >
-        <X className="w-4 h-4 xs:w-5 xs:h-5" />
-      </button>
     </motion.div>
   );
 }

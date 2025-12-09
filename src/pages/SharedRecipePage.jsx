@@ -175,7 +175,14 @@ export default function SharedRecipePage() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="page-shell py-6 sm:py-8">
-        <BackToHome />
+        <div className="flex items-start gap-3 sm:gap-4 mb-4">
+          <div className="flex-shrink-0">
+            <BackToHome className="mb-0" />
+          </div>
+          <div className="flex-1 min-w-0 sm:hidden">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">Shared Recipe</h1>
+          </div>
+        </div>
 
         {/* Sign-up Banner */}
         <SignUpBanner />

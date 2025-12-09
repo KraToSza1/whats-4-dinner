@@ -15,11 +15,17 @@ export default function MealRemindersPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-4 xs:mb-5 sm:mb-6"
         >
-          <BackToHome className="mb-3 xs:mb-4" />
-          <h1 className="text-2xl xs:text-3xl sm:text-4xl font-bold mb-2">Meal Reminders</h1>
-          <p className="text-sm xs:text-base text-slate-600 dark:text-slate-400">
-            Set reminders for your meals and never miss breakfast, lunch, or dinner again!
-          </p>
+          <div className="flex items-start gap-3 sm:gap-4 mb-3 xs:mb-4">
+            <div className="flex-shrink-0">
+              <BackToHome className="mb-0" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl font-bold mb-2 truncate">Meal Reminders</h1>
+              <p className="text-xs xs:text-sm sm:text-base text-slate-600 dark:text-slate-400 hidden sm:block">
+                Set reminders for your meals and never miss breakfast, lunch, or dinner again!
+              </p>
+            </div>
+          </div>
         </motion.div>
 
         <MealReminders />

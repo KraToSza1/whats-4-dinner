@@ -10,11 +10,17 @@ export default function Terms() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-          <BackToHome className="mb-4" />
-          <h1 className="text-4xl font-bold mb-2">Terms of Service</h1>
-          <p className="text-slate-600 dark:text-slate-400 mb-8">
-            Last updated: {new Date().toLocaleDateString()}
-          </p>
+          <div className="flex items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <div className="flex-shrink-0">
+              <BackToHome className="mb-0" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-4xl font-bold mb-2 truncate">Terms of Service</h1>
+              <p className="text-xs sm:text-base text-slate-600 dark:text-slate-400 mb-4 sm:mb-8">
+                Last updated: {new Date().toLocaleDateString()}
+              </p>
+            </div>
+          </div>
         </motion.div>
 
         <motion.div
@@ -76,17 +82,91 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold mb-4">6. Dietary and Allergy Information</h2>
+            <h2 className="text-2xl font-bold mb-4">6. Medical and Health Disclaimers</h2>
+            <p className="font-semibold text-red-600 dark:text-red-400 mb-3">
+              IMPORTANT: READ THIS SECTION CAREFULLY
+            </p>
             <p>
-              While we provide tools to track allergies and dietary restrictions, we cannot
-              guarantee that recipes are safe for your specific needs. Always verify ingredients and
-              potential cross-contamination risks. Consult with healthcare professionals for serious
-              allergies.
+              <strong>Not Medical Advice:</strong> What's 4 Dinner is a recipe and meal planning
+              application. We are NOT a medical service, healthcare provider, or nutritionist. The
+              information provided in this app, including but not limited to nutritional information,
+              calorie counts, dietary recommendations, and recipe suggestions, is for informational
+              and entertainment purposes only.
+            </p>
+            <p>
+              <strong>No Medical Diagnosis or Treatment:</strong> This app does not provide medical
+              diagnosis, treatment, or advice. Nutritional information, calorie tracking, BMI
+              calculations, and dietary suggestions are tools to help you make informed decisions,
+              but they are NOT substitutes for professional medical advice, diagnosis, or treatment.
+            </p>
+            <p>
+              <strong>Consult Healthcare Professionals:</strong> Always seek the advice of your
+              physician, registered dietitian, or other qualified health provider with any questions
+              you may have regarding a medical condition, dietary needs, allergies, or health goals.
+              Never disregard professional medical advice or delay in seeking it because of
+              something you have read or used in this app.
+            </p>
+            <p>
+              <strong>Allergy and Dietary Restrictions:</strong> While we provide tools to track
+              allergies and dietary restrictions, we CANNOT guarantee that recipes are safe for
+              your specific needs. Recipe information may contain errors, omissions, or
+              cross-contamination risks. Always:
+            </p>
+            <ul className="list-disc pl-6 space-y-2">
+              <li>Verify all ingredients before cooking</li>
+              <li>Check for potential allergens in all recipe components</li>
+              <li>Read product labels carefully</li>
+              <li>Be aware of cross-contamination risks in your kitchen</li>
+              <li>Consult with healthcare professionals for serious allergies or medical conditions</li>
+            </ul>
+            <p>
+              <strong>Nutritional Information Accuracy:</strong> Nutritional information is
+              provided as estimates and may not be 100% accurate. Values can vary based on
+              ingredient brands, preparation methods, serving sizes, and other factors. We are not
+              responsible for any discrepancies in nutritional data.
+            </p>
+            <p>
+              <strong>Weight Management and Health Goals:</strong> Calorie tracking, BMI
+              calculations, and nutrition analytics are tools to help you understand your eating
+              patterns. They are NOT medical devices or diagnostic tools. For weight management,
+              health conditions, or dietary changes, consult with qualified healthcare professionals.
+            </p>
+            <p>
+              <strong>Food Safety:</strong> We provide cooking instructions and techniques, but you
+              are responsible for:
+            </p>
+            <ul className="list-disc pl-6 space-y-2">
+              <li>Proper food handling and storage</li>
+              <li>Ensuring food is cooked to safe temperatures</li>
+              <li>Following food safety guidelines</li>
+              <li>Preventing foodborne illness</li>
+            </ul>
+            <p>
+              <strong>Emergency Situations:</strong> If you experience a severe allergic reaction,
+              food poisoning, or any medical emergency, seek immediate medical attention. Do NOT
+              rely on this app for emergency medical guidance.
+            </p>
+            <p>
+              <strong>No Liability for Health Outcomes:</strong> We are NOT responsible for any
+              health outcomes, allergic reactions, foodborne illnesses, or medical conditions that
+              may result from using recipes, following dietary suggestions, or using nutritional
+              information from this app. You use this app at your own risk regarding your health and
+              wellbeing.
             </p>
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold mb-4">7. Disclaimer</h2>
+            <h2 className="text-2xl font-bold mb-4">7. Dietary and Allergy Information</h2>
+            <p>
+              While we provide tools to track allergies and dietary restrictions, we cannot
+              guarantee that recipes are safe for your specific needs. Always verify ingredients and
+              potential cross-contamination risks. Consult with healthcare professionals for serious
+              allergies. See Section 6 (Medical and Health Disclaimers) for complete information.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">8. General Disclaimer</h2>
             <p>
               The materials on the Service are provided on an 'as is' basis. We make no warranties,
               expressed or implied, and hereby disclaim and negate all other warranties including,
@@ -97,7 +177,7 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold mb-4">8. Limitations</h2>
+            <h2 className="text-2xl font-bold mb-4">9. Limitations of Liability</h2>
             <p>
               In no event shall What's 4 Dinner or its suppliers be liable for any damages
               (including, without limitation, damages for loss of data or profit, or due to business
@@ -106,7 +186,80 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold mb-4">9. Revisions</h2>
+            <h2 className="text-2xl font-bold mb-4">10. Intellectual Property</h2>
+            <p>
+              <strong>Our Content:</strong> All content on What's 4 Dinner, including but not
+              limited to text, graphics, logos, images, software, and the compilation of all
+              content, is the property of What's 4 Dinner or its content suppliers and is protected
+              by copyright, trademark, and other intellectual property laws.
+            </p>
+            <p>
+              <strong>User Content:</strong> You retain ownership of any content you create or
+              upload (such as recipe notes, collections, meal plans). By using the Service, you
+              grant us a license to use, store, and display your content solely for the purpose of
+              providing the Service to you.
+            </p>
+            <p>
+              <strong>Recipe Content:</strong> Recipe information may be sourced from various
+              sources including user-generated content, public databases, and third-party
+              providers. We do not claim ownership of recipe content and respect the intellectual
+              property rights of recipe creators.
+            </p>
+            <p>
+              <strong>Embedded Videos:</strong> Cooking Skills videos are embedded from YouTube. We
+              do not own or claim ownership of these videos. Video content is subject to YouTube's
+              Terms of Service and the respective video creators' rights.
+            </p>
+            <p>
+              <strong>Prohibited Use:</strong> You may not copy, reproduce, distribute, modify,
+              create derivative works, publicly display, or exploit any content from the Service
+              without our express written permission.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">11. User Conduct</h2>
+            <p>You agree not to:</p>
+            <ul className="list-disc pl-6 space-y-2">
+              <li>Use the Service for any illegal purpose or in violation of any laws</li>
+              <li>Upload or transmit any viruses, malware, or harmful code</li>
+              <li>Attempt to gain unauthorized access to the Service or its systems</li>
+              <li>Interfere with or disrupt the Service or servers</li>
+              <li>Use automated systems (bots, scrapers) to access the Service</li>
+              <li>Impersonate any person or entity</li>
+              <li>Harass, abuse, or harm other users</li>
+              <li>Violate any third-party rights, including intellectual property rights</li>
+            </ul>
+            <p>
+              <strong>Termination:</strong> We reserve the right to suspend or terminate your
+              account immediately if you violate these terms or engage in prohibited conduct.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">12. Third-Party Services</h2>
+            <p>
+              <strong>Payment Processors:</strong> We use third-party payment processors (Stripe,
+              Paddle, Paystack) to handle payments. Your use of these services is subject to their
+              respective terms of service and privacy policies.
+            </p>
+            <p>
+              <strong>Authentication:</strong> We use Supabase for authentication and Google for
+              OAuth. Your use of these services is subject to their terms of service.
+            </p>
+            <p>
+              <strong>YouTube Videos:</strong> Cooking Skills videos are embedded from YouTube. Your
+              use of embedded videos is subject to YouTube's Terms of Service.
+            </p>
+            <p>
+              <strong>No Endorsement:</strong> References to third-party services, products, or
+              websites do not constitute endorsement. We are not responsible for the content,
+              policies, or practices of third-party services.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">13. Revisions</h2>
             <p>
               We may revise these terms of service at any time without notice. By using this
               Service, you are agreeing to be bound by the current version of these terms of
@@ -115,7 +268,7 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold mb-4">10. Payment Terms</h2>
+            <h2 className="text-2xl font-bold mb-4">14. Payment Terms</h2>
             <p>
               <strong>Subscription Plans:</strong> We offer various subscription plans (Free,
               Supporter, Unlimited, Family) with different features and pricing. All paid
@@ -140,7 +293,7 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold mb-4">11. Refund Policy</h2>
+            <h2 className="text-2xl font-bold mb-4">15. Refund Policy</h2>
             <p>
               <strong>Refund Eligibility:</strong> We offer refunds for subscription payments within
               14 days of the initial purchase or renewal, provided you have not exceeded reasonable
@@ -163,7 +316,7 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold mb-4">12. Subscription Cancellation</h2>
+            <h2 className="text-2xl font-bold mb-4">16. Subscription Cancellation</h2>
             <p>
               <strong>How to Cancel:</strong> You may cancel your subscription at any time through
               your Profile settings or Billing Management page. Cancellation takes effect at the end
@@ -183,7 +336,7 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold mb-4">13. Auto-Renewal</h2>
+            <h2 className="text-2xl font-bold mb-4">17. Auto-Renewal</h2>
             <p>
               <strong>Automatic Renewal:</strong> Unless cancelled, your subscription will
               automatically renew at the end of each billing period. We will charge your payment
@@ -202,7 +355,7 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold mb-4">14. Payment Provider Terms</h2>
+            <h2 className="text-2xl font-bold mb-4">18. Payment Provider Terms</h2>
             <p>
               <strong>Third-Party Processors:</strong> Payments are processed by third-party payment
               providers (Stripe, Paddle, Paystack). Your use of these services is subject to their
@@ -217,7 +370,35 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold mb-4">15. Contact Information</h2>
+            <h2 className="text-2xl font-bold mb-4">19. Governing Law</h2>
+            <p>
+              These Terms of Service shall be governed by and construed in accordance with the laws
+              of the jurisdiction in which What's 4 Dinner operates, without regard to its conflict
+              of law provisions. Any disputes arising from these terms or your use of the Service
+              shall be resolved in the appropriate courts of that jurisdiction.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">20. Severability</h2>
+            <p>
+              If any provision of these Terms of Service is found to be unenforceable or invalid,
+              that provision shall be limited or eliminated to the minimum extent necessary, and the
+              remaining provisions shall remain in full force and effect.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">21. Entire Agreement</h2>
+            <p>
+              These Terms of Service, together with our Privacy Policy, constitute the entire
+              agreement between you and What's 4 Dinner regarding your use of the Service and
+              supersede all prior agreements and understandings.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">22. Contact Information</h2>
             <p>
               If you have any questions about these Terms of Service, please visit the Help page or
               contact us through your Profile settings.

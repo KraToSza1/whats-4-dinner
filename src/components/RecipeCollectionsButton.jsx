@@ -79,7 +79,7 @@ export default function RecipeCollectionsButton({ recipeId }) {
 
     if (!name) {
       console.warn('⚠️ [Collections] Name is empty, cannot create collection');
-      toast.error('Please enter a collection name');
+      toast.error('Please enter a journey name');
       return;
     }
 
@@ -104,7 +104,7 @@ export default function RecipeCollectionsButton({ recipeId }) {
         setSelectedCollections(getRecipeCollectionsForRecipe(recipeId));
         toast.success(`Created "${name}" and added recipe!`);
       } else {
-        toast.success(`Created "${name}" collection!`);
+        toast.success(`Created "${name}" journey!`);
       }
 
       // Close modal after adding
@@ -113,13 +113,13 @@ export default function RecipeCollectionsButton({ recipeId }) {
       }, 500);
     } catch (error) {
       console.error('❌ [Collections] Error in handleAddCustom:', error);
-      toast.error('Failed to create collection. Please try again.');
+      toast.error('Failed to create journey. Please try again.');
     }
   };
 
   const handleDelete = (collectionId, e) => {
     e.stopPropagation();
-    if (confirm('Delete this collection? Recipes will be removed from it.')) {
+    if (confirm('Delete this journey? Recipes will be removed from it.')) {
       deleteCollection(collectionId);
       setCollections(getCollections());
       setSelectedCollections(getRecipeCollectionsForRecipe(recipeId));
@@ -140,14 +140,14 @@ export default function RecipeCollectionsButton({ recipeId }) {
         }}
         type="button"
         className="px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 md:py-1.5 rounded-md bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-1.5 md:gap-2 min-h-[36px] sm:min-h-0 touch-manipulation flex-shrink-0 z-30 relative"
-        title="Save to collection"
+        title="Save to journey"
         style={{ zIndex: 30 }}
       >
         <span className="text-sm sm:text-base md:text-lg">📁</span>
         <span className="hidden sm:inline">
           {selectedCollections.length > 0
-            ? `${selectedCollections.length} Collections`
-            : 'Save to Collection'}
+            ? `${selectedCollections.length} Journey${selectedCollections.length > 1 ? 's' : ''}`
+            : 'Save to Journey'}
         </span>
       </motion.button>
 
@@ -188,7 +188,7 @@ export default function RecipeCollectionsButton({ recipeId }) {
                   >
                     <div className="flex items-center justify-between mb-6">
                       <h3 className="text-2xl font-bold flex items-center gap-2">
-                        📁 Save to Collection
+                        📁 Save to Journey
                       </h3>
                       <button
                         onClick={() => setShowModal(false)}
@@ -220,7 +220,7 @@ export default function RecipeCollectionsButton({ recipeId }) {
                                 <button
                                   onClick={e => handleDelete(collection.id, e)}
                                   className="ml-2 text-red-500 hover:text-red-700 text-sm"
-                                  title="Delete collection"
+                                  title="Delete journey"
                                 >
                                   🗑️
                                 </button>
@@ -279,7 +279,7 @@ export default function RecipeCollectionsButton({ recipeId }) {
                             console.log('🔵 [Collections] Input onInput:', value);
                             setCustomName(value);
                           }}
-                          placeholder="Create new collection..."
+                          placeholder="Create new journey..."
                           className="flex-1 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-slate-900 dark:text-slate-100"
                           autoFocus
                         />
@@ -299,7 +299,7 @@ export default function RecipeCollectionsButton({ recipeId }) {
                             if (inputValue) {
                               handleAddCustom();
                             } else {
-                              toast.error('Please enter a collection name');
+                              toast.error('Please enter a journey name');
                             }
                           }}
                           type="button"
@@ -309,7 +309,7 @@ export default function RecipeCollectionsButton({ recipeId }) {
                         </motion.button>
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                        Enter a collection name and click Add to create a new collection
+                        Enter a journey name and click Add to create a new journey
                       </p>
                     </div>
                   </motion.div>

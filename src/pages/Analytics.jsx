@@ -322,8 +322,23 @@ export default function Analytics() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-4 sm:mb-6 md:mb-8"
         >
+          <div className="flex items-start gap-3 sm:gap-4 mb-4">
+            <div className="flex-shrink-0">
+              <BackToHome className="mb-0" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-2 truncate">Analytics & Insights</h1>
+              <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-400 hidden sm:block">
+                Comprehensive data visualization and insights about your cooking journey
+              </p>
+            </div>
+          </div>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4">
-            <BackToHome />
+            <div className="sm:hidden">
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Comprehensive data visualization and insights about your cooking journey
+              </p>
+            </div>
             <div className="flex items-center gap-2 flex-wrap">
               <select
                 value={timeRange}
@@ -344,10 +359,6 @@ export default function Analytics() {
               </button>
             </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Analytics & Insights</h1>
-          <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-400">
-            Comprehensive data visualization and insights about your cooking journey
-          </p>
         </motion.div>
 
         {/* Tabs */}
