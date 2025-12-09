@@ -459,7 +459,26 @@ export default function AdminDashboard() {
                   }
                   return (
                     <>
-                      {/* Recipes Needing Work Section */}
+                      <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border-2 border-blue-300 dark:border-blue-700 shadow-xl">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4 sm:mb-5 md:mb-6">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 dark:from-blue-500 dark:to-cyan-500 flex items-center justify-center shadow-lg shrink-0">
+                            <span className="text-xl sm:text-2xl">✏️</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-white">
+                              Recipe Editor
+                            </h2>
+                            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                              Import ChatGPT JSON, upload images, and manage recipes
+                            </p>
+                          </div>
+                        </div>
+                        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border-2 border-blue-200 dark:border-blue-800 shadow-lg overflow-x-auto">
+                          <RecipeEditor recipeId={recipeIdFromUrl || null} />
+                        </div>
+                      </div>
+
+                      {/* Recipes Needing Work Section - MOVED BELOW */}
                       <div className="bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 dark:from-orange-900/20 dark:via-red-900/20 dark:to-pink-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border-2 border-orange-300 dark:border-orange-700 shadow-xl">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                           <div>
@@ -478,26 +497,6 @@ export default function AdminDashboard() {
                           </button>
                         </div>
                         <RecipesNeedingWork />
-                      </div>
-
-                      {/* Recipe Editor Section */}
-                      <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border-2 border-blue-300 dark:border-blue-700 shadow-xl">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4 sm:mb-5 md:mb-6">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 dark:from-blue-500 dark:to-cyan-500 flex items-center justify-center shadow-lg shrink-0">
-                            <span className="text-xl sm:text-2xl">✏️</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-white">
-                              Recipe Editor
-                            </h2>
-                            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                              Import ChatGPT JSON, upload images, and manage recipes
-                            </p>
-                          </div>
-                        </div>
-                        <div className="bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border-2 border-blue-200 dark:border-blue-800 shadow-lg overflow-x-auto">
-                          <RecipeEditor recipeId={recipeIdFromUrl || null} />
-                        </div>
                       </div>
                     </>
                   );
