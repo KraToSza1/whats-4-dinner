@@ -30,6 +30,9 @@ export default function RecipeEditor({
   const [viewMode, setViewMode] = useState(initialRecipeId ? 'edit' : 'browse'); // "browse", "edit", or "bulk"
   const [searchQuery, setSearchQuery] = useState('');
   const [recipes, setRecipes] = useState([]);
+  const [allSearchResults, setAllSearchResults] = useState([]); // Store all search results
+  const [searchCurrentPage, setSearchCurrentPage] = useState(1);
+  const [searchResultsPerPage] = useState(20); // Show 20 search results per page
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
@@ -473,13 +476,21 @@ export default function RecipeEditor({
     setLoading(true);
     if (searchQuery.trim()) {
       console.log('🔍 [RECIPE EDITOR] Searching recipes with query:', searchQuery);
-      const result = await searchRecipesForEditing(searchQuery.trim(), 50);
+      const result = await searchRecipesForEditing(searchQuery.trim(), 100); // Get more results for pagination
       if (result.success) {
         console.log('✅ [RECIPE EDITOR] Search results loaded', { count: result.data.length });
-        setRecipes(result.data);
-        setTotalPages(1);
+        setAllSearchResults(result.data);
+        setSearchCurrentPage(1); // Reset to first page
+        // Paginate search results
+        const startIndex = 0;
+        const endIndex = searchResultsPerPage;
+        setRecipes(result.data.slice(startIndex, endIndex));
+        setTotalPages(Math.ceil(result.data.length / searchResultsPerPage));
       } else {
         console.error('❌ [RECIPE EDITOR] Search failed:', result.error);
+        setAllSearchResults([]);
+        setRecipes([]);
+        setTotalPages(1);
       }
     } else {
       console.log('📖 [RECIPE EDITOR] Loading all recipes', { page: currentPage });
@@ -499,6 +510,26 @@ export default function RecipeEditor({
     setLoading(false);
     console.log('✅ [RECIPE EDITOR] loadRecipes complete');
   };
+
+  // Reset search pagination when search query changes
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      setSearchCurrentPage(1);
+    }
+  }, [searchQuery]);
+
+  // Paginate search results when page changes
+  useEffect(() => {
+    if (searchQuery.trim() && allSearchResults.length > 0) {
+      const startIndex = (searchCurrentPage - 1) * searchResultsPerPage;
+      const endIndex = startIndex + searchResultsPerPage;
+      setRecipes(allSearchResults.slice(startIndex, endIndex));
+      setTotalPages(Math.ceil(allSearchResults.length / searchResultsPerPage));
+    } else if (!searchQuery.trim()) {
+      // Clear search results when search is cleared
+      setAllSearchResults([]);
+    }
+  }, [searchCurrentPage, searchQuery, allSearchResults, searchResultsPerPage]);
 
   // Create new recipe
   const handleCreateNewRecipe = () => {
@@ -2011,6 +2042,8 @@ export default function RecipeEditor({
               <button
                 onClick={() => {
                   setSearchQuery('');
+                  setSearchCurrentPage(1);
+                  setAllSearchResults([]);
                   setCurrentPage(1);
                   loadRecipes();
                 }}
@@ -2051,7 +2084,7 @@ export default function RecipeEditor({
             <div className="text-center py-12 text-slate-500">No recipes found</div>
           ) : (
             <>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[600px] overflow-y-auto">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
                 {recipes.map(recipe => (
                   <motion.div
                     key={recipe.id}
@@ -2088,24 +2121,41 @@ export default function RecipeEditor({
               </div>
 
               {/* Pagination */}
-              {!searchQuery && totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 pt-4">
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 pt-4 border-t border-slate-200 dark:border-slate-700">
                   <button
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg disabled:opacity-50"
+                    onClick={() => {
+                      if (searchQuery.trim()) {
+                        setSearchCurrentPage(p => Math.max(1, p - 1));
+                      } else {
+                        setCurrentPage(p => Math.max(1, p - 1));
+                      }
+                    }}
+                    disabled={searchQuery.trim() ? searchCurrentPage === 1 : currentPage === 1}
+                    className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                   >
-                    Previous
+                    ← Previous
                   </button>
-                  <span className="px-4 py-2 text-slate-600 dark:text-slate-400">
-                    Page {currentPage} of {totalPages}
+                  <span className="px-4 py-2 text-slate-600 dark:text-slate-400 text-sm">
+                    Page {searchQuery.trim() ? searchCurrentPage : currentPage} of {totalPages}
+                    {searchQuery.trim() && allSearchResults.length > 0 && (
+                      <span className="ml-2 text-xs text-slate-500 dark:text-slate-500">
+                        ({allSearchResults.length} results)
+                      </span>
+                    )}
                   </span>
                   <button
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg disabled:opacity-50"
+                    onClick={() => {
+                      if (searchQuery.trim()) {
+                        setSearchCurrentPage(p => Math.min(totalPages, p + 1));
+                      } else {
+                        setCurrentPage(p => Math.min(totalPages, p + 1));
+                      }
+                    }}
+                    disabled={searchQuery.trim() ? searchCurrentPage === totalPages : currentPage === totalPages}
+                    className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                   >
-                    Next
+                    Next →
                   </button>
                 </div>
               )}

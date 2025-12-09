@@ -7,8 +7,11 @@ import { AlertCircle, CheckCircle, Image, FileText, Utensils, ChefHat, Calendar 
 
 export default function RecipesNeedingWork() {
   const [recipes, setRecipes] = useState([]);
+  const [allRecipes, setAllRecipes] = useState([]); // Store all recipes for pagination
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recipesPerPage] = useState(20); // Show 20 recipes per page
   const [stats, setStats] = useState({
     total: 0,
     missingImage: 0,
@@ -22,6 +25,15 @@ export default function RecipesNeedingWork() {
   useEffect(() => {
     fetchRecipesNeedingWork();
   }, []);
+
+  // Paginate recipes
+  useEffect(() => {
+    const startIndex = (currentPage - 1) * recipesPerPage;
+    const endIndex = startIndex + recipesPerPage;
+    setRecipes(allRecipes.slice(startIndex, endIndex));
+  }, [allRecipes, currentPage, recipesPerPage]);
+
+  const totalPages = Math.ceil(allRecipes.length / recipesPerPage);
 
   const fetchRecipesNeedingWork = async () => {
     try {
@@ -53,8 +65,8 @@ export default function RecipesNeedingWork() {
       // Sort by completeness score (lowest first - most incomplete)
       incompleteRecipes.sort((a, b) => a.completeness.score - b.completeness.score);
 
-      setRecipes(incompleteRecipes);
-
+      setAllRecipes(incompleteRecipes); // Store all recipes
+      
       // Calculate stats
       const newStats = {
         total: incompleteRecipes.length,
@@ -66,6 +78,7 @@ export default function RecipesNeedingWork() {
       };
 
       setStats(newStats);
+      setCurrentPage(1); // Reset to first page when data loads
     } catch (err) {
       console.error('Error fetching recipes needing work:', err);
       setError(err.message);
@@ -154,6 +167,36 @@ export default function RecipesNeedingWork() {
 
       {/* Recipes List */}
       <div className="space-y-4">
+        {/* Pagination Info */}
+        {allRecipes.length > 0 && (
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              Showing {((currentPage - 1) * recipesPerPage) + 1} to {Math.min(currentPage * recipesPerPage, allRecipes.length)} of {allRecipes.length} recipes
+            </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                >
+                  Previous
+                </button>
+                <span className="px-3 py-1.5 text-sm text-slate-600 dark:text-slate-400">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {recipes.length === 0 ? (
           <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-800 rounded-xl p-8 text-center">
             <CheckCircle className="w-16 h-16 text-green-600 dark:text-green-400 mx-auto mb-4" />
