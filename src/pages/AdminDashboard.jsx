@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -111,10 +111,11 @@ export default function AdminDashboard() {
   // Sync activeTab with URL params when they change
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab') || 'dashboard';
-    const recipeIdFromUrl = searchParams.get('recipeId');
+    // Use the memoized recipeIdFromUrl instead of reading again
+    const currentRecipeId = recipeIdFromUrl;
 
     // If recipeId is in URL, ensure we're on recipes tab (priority)
-    const targetTab = recipeIdFromUrl ? 'recipes' : tabFromUrl;
+    const targetTab = currentRecipeId ? 'recipes' : tabFromUrl;
 
     // Defer state update to avoid synchronous setState warning
     const timeoutId = setTimeout(() => {
@@ -125,7 +126,7 @@ export default function AdminDashboard() {
             console.log('🔄 [ADMIN DASHBOARD] Updating activeTab from URL', {
               oldTab: prevTab,
               newTab: targetTab,
-              reason: recipeIdFromUrl ? 'recipeId in URL' : 'tab param changed',
+              reason: currentRecipeId ? 'recipeId in URL' : 'tab param changed',
             });
           }
           return targetTab;
@@ -135,7 +136,7 @@ export default function AdminDashboard() {
     }, 0);
 
     return () => clearTimeout(timeoutId);
-  }, [searchParams]);
+  }, [searchParams, recipeIdFromUrl]);
 
   useEffect(() => {
     if (import.meta.env.DEV) {
@@ -478,7 +479,10 @@ export default function AdminDashboard() {
                           </div>
                         </div>
                         <div className="bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border-2 border-blue-200 dark:border-blue-800 shadow-lg overflow-x-auto">
-                          <RecipeEditor key={recipeIdFromUrl || 'browse'} recipeId={recipeIdFromUrl || null} />
+                          <RecipeEditor 
+                            key={`recipe-editor-${recipeIdFromUrl || 'browse'}-${activeTab}`} 
+                            recipeId={recipeIdFromUrl || null} 
+                          />
                         </div>
                       </div>
 
