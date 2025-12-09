@@ -674,17 +674,37 @@ export default function RecipeEditor({
   const prevInitialRecipeIdRef = useRef(initialRecipeId);
   
   // CRITICAL: Immediately switch to edit mode when initialRecipeId is provided
+  // This runs on EVERY render if initialRecipeId changes
   useEffect(() => {
-    if (initialRecipeId) {
-      console.error('🔧 [RECIPE EDITOR] initialRecipeId detected, switching to edit mode:', initialRecipeId);
+    const hasRecipeId = !!initialRecipeId;
+    const hadRecipeId = !!prevInitialRecipeIdRef.current;
+    const recipeIdChanged = initialRecipeId !== prevInitialRecipeIdRef.current;
+    
+    console.error('🔧 [RECIPE EDITOR] initialRecipeId effect:', {
+      initialRecipeId,
+      prev: prevInitialRecipeIdRef.current,
+      hasRecipeId,
+      hadRecipeId,
+      recipeIdChanged,
+      currentViewMode: viewMode
+    });
+    
+    if (hasRecipeId && recipeIdChanged) {
+      console.error('🔧 [RECIPE EDITOR] Switching to edit mode immediately');
       setViewMode('edit');
-    } else if (prevInitialRecipeIdRef.current && !initialRecipeId) {
+      // Reset selected recipe to force reload
+      setSelectedRecipe(null);
+      setRecipeData(null);
+    } else if (!hasRecipeId && hadRecipeId) {
       // RecipeId was cleared, switch back to browse
       console.error('🔧 [RECIPE EDITOR] initialRecipeId cleared, switching to browse mode');
       setViewMode('browse');
+      setSelectedRecipe(null);
+      setRecipeData(null);
     }
+    
     prevInitialRecipeIdRef.current = initialRecipeId;
-  }, [initialRecipeId]);
+  }, [initialRecipeId, viewMode]);
   
   // Load recipe by ID (for when opened from MissingImagesViewer or RecipesNeedingWork)
   useEffect(() => {

@@ -36,8 +36,10 @@ export default function AdminDashboard() {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin: isAdminUser } = useAdmin();
   const toast = useToast();
-  // Read recipeId reactively from searchParams
-  const recipeIdFromUrl = searchParams.get('recipeId');
+  
+  // Read recipeId reactively from searchParams - use useMemo to make it reactive
+  const recipeIdFromUrl = useMemo(() => searchParams.get('recipeId'), [searchParams]);
+  
   const [activeTab, setActiveTab] = useState(() => {
     // If recipeId is in URL, switch to recipes tab
     const initialRecipeId = searchParams.get('recipeId');
