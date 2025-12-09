@@ -36,10 +36,12 @@ export default function AdminDashboard() {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin: isAdminUser } = useAdmin();
   const toast = useToast();
+  // Read recipeId reactively from searchParams
   const recipeIdFromUrl = searchParams.get('recipeId');
   const [activeTab, setActiveTab] = useState(() => {
     // If recipeId is in URL, switch to recipes tab
-    if (recipeIdFromUrl) {
+    const initialRecipeId = searchParams.get('recipeId');
+    if (initialRecipeId) {
       return 'recipes';
     }
     return searchParams.get('tab') || 'dashboard';
@@ -63,7 +65,7 @@ export default function AdminDashboard() {
       if (currentRecipeId && tab === 'recipes') {
         params.set('recipeId', currentRecipeId);
       }
-      navigate(`/admin?${params.toString()}`, { replace: true });
+      navigate(`/admin?${params.toString()}`, { replace: false }); // Use replace: false to allow browser back button
     },
     [navigate, searchParams]
   );
@@ -474,7 +476,7 @@ export default function AdminDashboard() {
                           </div>
                         </div>
                         <div className="bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border-2 border-blue-200 dark:border-blue-800 shadow-lg overflow-x-auto">
-                          <RecipeEditor recipeId={recipeIdFromUrl || null} />
+                          <RecipeEditor key={recipeIdFromUrl || 'browse'} recipeId={recipeIdFromUrl || null} />
                         </div>
                       </div>
 

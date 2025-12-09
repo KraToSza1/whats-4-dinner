@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Image as ImageIcon } from 'lucide-react';
 import {
@@ -670,21 +670,46 @@ export default function RecipeEditor({
     }
   };
 
+  // Track previous initialRecipeId to detect changes
+  const prevInitialRecipeIdRef = useRef(initialRecipeId);
+  
+  // CRITICAL: Immediately switch to edit mode when initialRecipeId is provided
+  useEffect(() => {
+    if (initialRecipeId) {
+      console.error('🔧 [RECIPE EDITOR] initialRecipeId detected, switching to edit mode:', initialRecipeId);
+      setViewMode('edit');
+    } else if (prevInitialRecipeIdRef.current && !initialRecipeId) {
+      // RecipeId was cleared, switch back to browse
+      console.error('🔧 [RECIPE EDITOR] initialRecipeId cleared, switching to browse mode');
+      setViewMode('browse');
+    }
+    prevInitialRecipeIdRef.current = initialRecipeId;
+  }, [initialRecipeId]);
+  
   // Load recipe by ID (for when opened from MissingImagesViewer or RecipesNeedingWork)
   useEffect(() => {
     if (initialRecipeId) {
-      // Ensure we're in edit mode when initialRecipeId is provided
-      if (viewMode !== 'edit') {
-        setViewMode('edit');
-      }
+      console.error('🔄 [RECIPE EDITOR] Loading recipe by ID:', {
+        initialRecipeId,
+        prev: prevInitialRecipeIdRef.current,
+        currentSelected: selectedRecipe?.id,
+        viewMode
+      });
       
-      // Only load if we don't already have this recipe selected
-      if (!selectedRecipe || selectedRecipe.id !== initialRecipeId) {
-        const loadRecipeById = async () => {
-          setLoading(true);
-          try {
-            const result = await getRecipeForEditing(initialRecipeId);
-            setLoading(false);
+      // Always load the recipe when initialRecipeId is provided
+      const loadRecipeById = async () => {
+        console.error('📥 [RECIPE EDITOR] Starting recipe load:', initialRecipeId);
+        setLoading(true);
+        try {
+          const result = await getRecipeForEditing(initialRecipeId);
+          setLoading(false);
+          
+          console.error('📥 [RECIPE EDITOR] Recipe load result:', {
+            success: result.success,
+            hasData: !!result.data,
+            recipeId: result.data?.recipe?.id,
+            hasTitle: !!result.data?.recipe?.title
+          });
 
             if (result.success) {
               const recipeData_recipe = result.data.recipe;
@@ -765,6 +790,17 @@ export default function RecipeEditor({
               if (focusOnImage) {
                 setActiveTab('basic');
               }
+              
+              // Scroll to top of editor to ensure edit form is visible
+              setTimeout(() => {
+                const editorContainer = document.querySelector('[data-recipe-editor]');
+                if (editorContainer) {
+                  editorContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else {
+                  // Fallback: scroll window to top
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }, 100);
             } else {
               toast.error('Failed to load recipe');
             }
@@ -776,10 +812,9 @@ export default function RecipeEditor({
         };
 
         loadRecipeById();
-      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialRecipeId]);
+  }, [initialRecipeId, viewMode]);
 
   // Load recipe for editing
   const handleSelectRecipe = async recipe => {
@@ -1970,7 +2005,7 @@ export default function RecipeEditor({
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full" data-recipe-editor>
       {viewMode === 'bulk' ? (
         <BulkRecipeEditor onBack={() => setViewMode('browse')} />
       ) : viewMode === 'browse' ? (

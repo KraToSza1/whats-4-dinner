@@ -31,41 +31,69 @@ export async function getDashboardStats() {
       .select('*', { count: 'exact', head: true })
       .gte('created_at', weekAgo.toISOString());
 
-    // Get total users (using auth admin API if available, otherwise estimate from profiles)
+    // Get total users and subscription stats using admin API if available
     let totalUsers = 0;
-    try {
-      // Try to get from profiles table
-      const { count: usersCount, error: usersError } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
-
-      if (!usersError && usersCount !== null) {
-        totalUsers = usersCount;
-      }
-    } catch (e) {
-      console.warn('Could not fetch user count:', e);
-    }
-
-    // Get subscription stats
-    const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('plan, subscription_status');
-
     let activeSubscriptions = 0;
     let freeUsers = 0;
     let paidUsers = 0;
 
-    if (profiles && !profilesError) {
-      profiles.forEach(profile => {
-        if (profile.plan === 'free' || !profile.plan) {
-          freeUsers++;
-        } else {
-          paidUsers++;
-          if (profile.subscription_status === 'active') {
-            activeSubscriptions++;
+    try {
+      // Try to get from admin API (uses auth.users + profiles)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const response = await fetch('/api/admin/users', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.stats) {
+            totalUsers = data.stats.total || 0;
+            freeUsers = data.stats.free || 0;
+            paidUsers = (data.stats.supporter || 0) + (data.stats.family || 0);
+            activeSubscriptions = data.stats.active || 0;
           }
         }
-      });
+      }
+    } catch (e) {
+      console.warn('Could not fetch users from admin API, falling back to profiles:', e);
+    }
+
+    // Fallback: Get from profiles table if admin API failed
+    if (totalUsers === 0) {
+      try {
+        const { count: usersCount, error: usersError } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
+
+        if (!usersError && usersCount !== null) {
+          totalUsers = usersCount;
+        }
+
+        // Get subscription stats
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('plan, subscription_status');
+
+        if (profiles && !profilesError) {
+          profiles.forEach(profile => {
+            if (profile.plan === 'free' || !profile.plan) {
+              freeUsers++;
+            } else {
+              paidUsers++;
+              if (profile.subscription_status === 'active') {
+                activeSubscriptions++;
+              }
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Could not fetch user count from profiles:', e);
+      }
     }
 
     // Get most popular recipe (by views if available, otherwise by favorites)
@@ -139,12 +167,52 @@ export async function getRecentActivity(limit = 10) {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    // Get recent user signups (from profiles)
-    const { data: recentUsers, error: usersError } = await supabase
-      .from('profiles')
-      .select('id, email, created_at, plan')
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    // Get recent user signups (try admin API first, then fallback to profiles)
+    let recentUsers = [];
+    let usersError = null;
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const response = await fetch('/api/admin/users', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.users && Array.isArray(data.users)) {
+            // Sort by created_at and limit
+            recentUsers = data.users
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+              .slice(0, limit)
+              .map(user => ({
+                id: user.id,
+                email: user.email,
+                created_at: user.created_at,
+                plan: user.plan || 'free',
+              }));
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch recent users from admin API, falling back to profiles:', e);
+    }
+
+    // Fallback to profiles table
+    if (recentUsers.length === 0) {
+      const { data: profilesData, error: profilesErr } = await supabase
+        .from('profiles')
+        .select('id, email, created_at, plan')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      
+      recentUsers = profilesData || [];
+      usersError = profilesErr;
+    }
 
     return {
       recentRecipes: recentRecipes || [],

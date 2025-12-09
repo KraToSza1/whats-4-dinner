@@ -108,7 +108,8 @@ export default function RecipesNeedingWork() {
   };
 
   const handleEditRecipe = (recipeId) => {
-    navigate(`/admin?tab=recipes&recipeId=${recipeId}`);
+    console.error('🔧 [RECIPES NEEDING WORK] Edit button clicked, navigating to:', recipeId);
+    navigate(`/admin?tab=recipes&recipeId=${recipeId}`, { replace: false });
   };
 
   if (loading) {
