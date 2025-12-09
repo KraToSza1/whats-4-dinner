@@ -64,6 +64,7 @@ export async function getDashboardStats() {
     }
 
     // Fallback: Get from profiles table if admin API failed
+    let profilesError = null;
     if (totalUsers === 0) {
       try {
         const { count: usersCount, error: usersError } = await supabase
@@ -75,11 +76,13 @@ export async function getDashboardStats() {
         }
 
         // Get subscription stats
-        const { data: profiles, error: profilesError } = await supabase
+        const { data: profiles, error: profilesErr } = await supabase
           .from('profiles')
           .select('plan, subscription_status');
 
-        if (profiles && !profilesError) {
+        profilesError = profilesErr;
+
+        if (profiles && !profilesErr) {
           profiles.forEach(profile => {
             if (profile.plan === 'free' || !profile.plan) {
               freeUsers++;
@@ -93,6 +96,7 @@ export async function getDashboardStats() {
         }
       } catch (e) {
         console.warn('Could not fetch user count from profiles:', e);
+        profilesError = e;
       }
     }
 

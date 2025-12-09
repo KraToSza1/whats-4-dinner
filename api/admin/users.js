@@ -28,11 +28,31 @@ export default async function handler(req, res) {
       { auth: { persistSession: false } }
     );
 
-    // Verify the user's token and check if they're an admin
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    // Also create anon client to verify the token
+    const supabaseAnon = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      { auth: { persistSession: false } }
+    );
+
+    // Verify the user's token using anon client (more reliable for token verification)
+    let user = null;
+    let authError = null;
+    
+    try {
+      const { data: { user: verifiedUser }, error: verifyError } = await supabaseAnon.auth.getUser(token);
+      user = verifiedUser;
+      authError = verifyError;
+    } catch (e) {
+      // If anon key fails, try with service role
+      const { data: { user: adminUser }, error: adminError } = await supabaseAdmin.auth.getUser(token);
+      user = adminUser;
+      authError = adminError;
+    }
     
     if (authError || !user) {
-      res.status(401).json({ error: 'Invalid token' });
+      console.error('Admin API auth error:', authError);
+      res.status(401).json({ error: 'Invalid token', details: authError?.message });
       return;
     }
 
@@ -41,7 +61,8 @@ export default async function handler(req, res) {
     const isAdmin = adminEmails.includes(user.email?.toLowerCase());
     
     if (!isAdmin) {
-      res.status(403).json({ error: 'Forbidden: Admin access required' });
+      console.error('Admin API access denied:', { email: user.email, adminEmails });
+      res.status(403).json({ error: 'Forbidden: Admin access required', email: user.email });
       return;
     }
 
