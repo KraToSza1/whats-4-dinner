@@ -639,99 +639,113 @@ export default function RecipeEditor({
     }
   };
 
-  // Load recipe by ID (for when opened from MissingImagesViewer)
+  // Load recipe by ID (for when opened from MissingImagesViewer or RecipesNeedingWork)
   useEffect(() => {
-    if (initialRecipeId && viewMode === 'edit' && !selectedRecipe) {
-      const loadRecipeById = async () => {
-        setLoading(true);
-        const result = await getRecipeForEditing(initialRecipeId);
-        setLoading(false);
+    if (initialRecipeId) {
+      // Ensure we're in edit mode when initialRecipeId is provided
+      if (viewMode !== 'edit') {
+        setViewMode('edit');
+      }
+      
+      // Only load if we don't already have this recipe selected
+      if (!selectedRecipe || selectedRecipe.id !== initialRecipeId) {
+        const loadRecipeById = async () => {
+          setLoading(true);
+          try {
+            const result = await getRecipeForEditing(initialRecipeId);
+            setLoading(false);
 
-        if (result.success) {
-          const recipeData_recipe = result.data.recipe;
-          setRecipeData(result.data);
-          setSelectedRecipe({
-            id: initialRecipeId,
-            title: recipeData_recipe.title || 'Untitled Recipe',
-            hero_image_url: recipeData_recipe.hero_image_url,
-          });
+            if (result.success) {
+              const recipeData_recipe = result.data.recipe;
+              setRecipeData(result.data);
+              setSelectedRecipe({
+                id: initialRecipeId,
+                title: recipeData_recipe.title || 'Untitled Recipe',
+                hero_image_url: recipeData_recipe.hero_image_url,
+              });
 
-          // Load all recipe fields (same as handleSelectRecipe)
-          setTitle(recipeData_recipe.title || '');
-          setDescription(recipeData_recipe.description || '');
-          const imageToSet = recipeData_recipe.hero_image_url || '';
-          setImageUrl(imageToSet);
-          setImageUrlTimestamp(null);
-          setPrepMinutes(recipeData_recipe.prep_minutes?.toString() || '');
-          setCookMinutes(recipeData_recipe.cook_minutes?.toString() || '');
-          setServings(recipeData_recipe.servings?.toString() || '');
-          setDifficulty(recipeData_recipe.difficulty || 'easy');
-          setCuisine(Array.isArray(recipeData_recipe.cuisine) ? recipeData_recipe.cuisine : []);
-          setCuisineInput(
-            Array.isArray(recipeData_recipe.cuisine) ? recipeData_recipe.cuisine.join(', ') : ''
-          );
-          setMealTypes(
-            Array.isArray(recipeData_recipe.meal_types) ? recipeData_recipe.meal_types : []
-          );
-          setDiets(Array.isArray(recipeData_recipe.diets) ? recipeData_recipe.diets : []);
-          setAuthor(recipeData_recipe.author || '');
+              // Load all recipe fields (same as handleSelectRecipe)
+              setTitle(recipeData_recipe.title || '');
+              setDescription(recipeData_recipe.description || '');
+              const imageToSet = recipeData_recipe.hero_image_url || '';
+              setImageUrl(imageToSet);
+              setImageUrlTimestamp(null);
+              setPrepMinutes(recipeData_recipe.prep_minutes?.toString() || '');
+              setCookMinutes(recipeData_recipe.cook_minutes?.toString() || '');
+              setServings(recipeData_recipe.servings?.toString() || '');
+              setDifficulty(recipeData_recipe.difficulty || 'easy');
+              setCuisine(Array.isArray(recipeData_recipe.cuisine) ? recipeData_recipe.cuisine : []);
+              setCuisineInput(
+                Array.isArray(recipeData_recipe.cuisine) ? recipeData_recipe.cuisine.join(', ') : ''
+              );
+              setMealTypes(
+                Array.isArray(recipeData_recipe.meal_types) ? recipeData_recipe.meal_types : []
+              );
+              setDiets(Array.isArray(recipeData_recipe.diets) ? recipeData_recipe.diets : []);
+              setAuthor(recipeData_recipe.author || '');
 
-          // Load nutrition (convert from total to per-serving)
-          const nutritionData = result.data.nutrition || {};
-          const recipeServings = recipeData_recipe.servings || 1;
-          const servingsDivisor = recipeServings > 0 ? recipeServings : 1;
-          const convertToPerServing = value => {
-            if (!value || value === null || value === undefined) return '';
-            const num = typeof value === 'string' ? parseFloat(value) : value;
-            if (isNaN(num) || num === 0) return '';
-            const perServing = num / servingsDivisor;
-            return perServing % 1 === 0 ? perServing.toString() : perServing.toFixed(1);
-          };
-          setNutrition({
-            calories: convertToPerServing(nutritionData.calories),
-            protein: convertToPerServing(nutritionData.protein),
-            fat: convertToPerServing(nutritionData.fat),
-            carbs: convertToPerServing(nutritionData.carbs),
-            fiber: convertToPerServing(nutritionData.fiber),
-            sugar: convertToPerServing(nutritionData.sugar),
-            sodium: convertToPerServing(nutritionData.sodium),
-            cholesterol: convertToPerServing(nutritionData.cholesterol),
-            saturated_fat: convertToPerServing(nutritionData.saturated_fat),
-            trans_fat: convertToPerServing(nutritionData.trans_fat),
-            vitamin_a: convertToPerServing(nutritionData.vitamin_a),
-            vitamin_c: convertToPerServing(nutritionData.vitamin_c),
-            vitamin_d: convertToPerServing(nutritionData.vitamin_d),
-            potassium: convertToPerServing(nutritionData.potassium),
-            calcium: convertToPerServing(nutritionData.calcium),
-            iron: convertToPerServing(nutritionData.iron),
-          });
+              // Load nutrition (convert from total to per-serving)
+              const nutritionData = result.data.nutrition || {};
+              const recipeServings = recipeData_recipe.servings || 1;
+              const servingsDivisor = recipeServings > 0 ? recipeServings : 1;
+              const convertToPerServing = value => {
+                if (!value || value === null || value === undefined) return '';
+                const num = typeof value === 'string' ? parseFloat(value) : value;
+                if (isNaN(num) || num === 0) return '';
+                const perServing = num / servingsDivisor;
+                return perServing % 1 === 0 ? perServing.toString() : perServing.toFixed(1);
+              };
+              setNutrition({
+                calories: convertToPerServing(nutritionData.calories),
+                protein: convertToPerServing(nutritionData.protein),
+                fat: convertToPerServing(nutritionData.fat),
+                carbs: convertToPerServing(nutritionData.carbs),
+                fiber: convertToPerServing(nutritionData.fiber),
+                sugar: convertToPerServing(nutritionData.sugar),
+                sodium: convertToPerServing(nutritionData.sodium),
+                cholesterol: convertToPerServing(nutritionData.cholesterol),
+                saturated_fat: convertToPerServing(nutritionData.saturated_fat),
+                trans_fat: convertToPerServing(nutritionData.trans_fat),
+                vitamin_a: convertToPerServing(nutritionData.vitamin_a),
+                vitamin_c: convertToPerServing(nutritionData.vitamin_c),
+                vitamin_d: convertToPerServing(nutritionData.vitamin_d),
+                potassium: convertToPerServing(nutritionData.potassium),
+                calcium: convertToPerServing(nutritionData.calcium),
+                iron: convertToPerServing(nutritionData.iron),
+              });
 
-          // Load ingredients and steps
-          const loadedIngredients = (result.data.ingredients || []).map(ing => ({
-            ingredient_name: ing.ingredient.name || '',
-            quantity: ing.quantity?.toString() || '',
-            unit: ing.unit || '',
-            preparation: ing.preparation || '',
-          }));
-          setIngredients(loadedIngredients);
-          setOriginalIngredients(loadedIngredients);
+              // Load ingredients and steps
+              const loadedIngredients = (result.data.ingredients || []).map(ing => ({
+                ingredient_name: ing.ingredient.name || '',
+                quantity: ing.quantity?.toString() || '',
+                unit: ing.unit || '',
+                preparation: ing.preparation || '',
+              }));
+              setIngredients(loadedIngredients);
+              setOriginalIngredients(loadedIngredients);
 
-          const loadedSteps = (result.data.steps || []).map(step => ({
-            instruction: step.instruction || '',
-            timer_seconds: step.timer_seconds || null,
-          }));
-          setSteps(loadedSteps);
+              const loadedSteps = (result.data.steps || []).map(step => ({
+                instruction: step.instruction || '',
+                timer_seconds: step.timer_seconds || null,
+              }));
+              setSteps(loadedSteps);
 
-          // Auto-focus on Basic tab if focusOnImage is true
-          if (focusOnImage) {
-            setActiveTab('basic');
+              // Auto-focus on Basic tab if focusOnImage is true
+              if (focusOnImage) {
+                setActiveTab('basic');
+              }
+            } else {
+              toast.error('Failed to load recipe');
+            }
+          } catch (error) {
+            setLoading(false);
+            console.error('Error loading recipe:', error);
+            toast.error(`Failed to load recipe: ${error.message}`);
           }
-        } else {
-          toast.error('Failed to load recipe');
-        }
-      };
+        };
 
-      loadRecipeById();
+        loadRecipeById();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialRecipeId]);

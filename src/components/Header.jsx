@@ -14,6 +14,7 @@ import { isAdmin } from '../utils/admin';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 import InstallButton from './InstallButton.jsx';
+import UserAvatar from './UserAvatar.jsx';
 
 export default function Header({ favorites, setFavorites }) {
   const toast = useToast();
@@ -223,26 +224,7 @@ export default function Header({ favorites, setFavorites }) {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                console.error('🔥🔥🔥 [HEADER] Theme button CLICKED!', {
-                  currentTheme: theme,
-                  toggleThemeType: typeof toggleTheme,
-                  timestamp: new Date().toISOString(),
-                  stack: new Error().stack
-                });
-                try {
-                  toggleTheme();
-                  console.error('🔥🔥🔥 [HEADER] toggleTheme() executed successfully', {
-                    timestamp: new Date().toISOString()
-                  });
-                } catch (error) {
-                  console.error('❌❌❌ [HEADER] toggleTheme() THREW ERROR!', {
-                    error,
-                    timestamp: new Date().toISOString(),
-                    stack: new Error().stack
-                  });
-                }
-              }}
+              onClick={toggleTheme}
               className="relative px-2 sm:px-2.5 md:px-3 py-1.5 sm:py-2 md:py-1.5 rounded-md border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 touch-manipulation flex-shrink-0 transition-all duration-300"
               title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             >
@@ -330,12 +312,15 @@ export default function Header({ favorites, setFavorites }) {
 
                         {userEmail ? (
                           <>
-                            <div className="px-3 sm:px-4 py-2 mb-2 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                              <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-1">
-                                Signed in as
-                              </div>
-                              <div className="text-sm sm:text-base font-medium text-slate-700 dark:text-slate-300 truncate break-all">
-                                {userEmail}
+                            <div className="px-3 sm:px-4 py-2 mb-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 flex items-center gap-3">
+                              <UserAvatar user={user} size={40} showBorder={false} />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-1">
+                                  Signed in as
+                                </div>
+                                <div className="text-sm sm:text-base font-medium text-slate-700 dark:text-slate-300 truncate break-all">
+                                  {userEmail}
+                                </div>
                               </div>
                             </div>
 
@@ -781,37 +766,6 @@ export default function Header({ favorites, setFavorites }) {
                           </svg>
                           <span className="font-medium">Settings</span>
                         </button>
-
-                        {user && (
-                          <button
-                            onClick={() => {
-                              setShowMenu(false);
-                              navigate('/profile');
-                            }}
-                            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left text-sm sm:text-base hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg flex items-center gap-2 sm:gap-3 transition-colors mb-1 touch-manipulation"
-                          >
-                            <svg
-                              className="w-5 h-5 text-slate-600 dark:text-slate-400"
-                              fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                          </svg>
-                          <span className="font-medium">Profile & Settings</span>
-                        </button>
-                        )}
                       </div>
 
                       {/* Help & Support Section */}

@@ -63,29 +63,8 @@ export default function Settings() {
   // Theme is now managed by ThemeContext, no need for separate useEffect
 
   const handleThemeChange = (newTheme) => {
-    console.error('🔥🔥🔥 [SETTINGS] handleThemeChange CALLED!', {
-      newTheme,
-      currentTheme: theme,
-      setThemeType: typeof setTheme,
-      timestamp: new Date().toISOString(),
-      stack: new Error().stack
-    });
-    
-    try {
-      setTheme(newTheme);
-      console.error('🔥🔥🔥 [SETTINGS] setTheme() executed successfully', {
-        newTheme,
-        timestamp: new Date().toISOString()
-      });
-      toast.success(`Switched to ${newTheme === 'dark' ? 'Dark' : 'Light'} Mode`);
-    } catch (error) {
-      console.error('❌❌❌ [SETTINGS] setTheme() THREW ERROR!', {
-        error,
-        newTheme,
-        timestamp: new Date().toISOString(),
-        stack: new Error().stack
-      });
-    }
+    setTheme(newTheme);
+    toast.success(`Switched to ${newTheme === 'dark' ? 'Dark' : 'Light'} Mode`);
   };
 
   const handleUnitSystemChange = (system) => {
@@ -224,12 +203,6 @@ export default function Settings() {
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={(e) => {
-                  console.error('🔥🔥🔥 [SETTINGS BUTTON] Light button CLICKED!', {
-                    event: e,
-                    currentTheme: theme,
-                    timestamp: new Date().toISOString(),
-                    stack: new Error().stack
-                  });
                   e.preventDefault();
                   e.stopPropagation();
                   handleThemeChange('light');
@@ -252,12 +225,6 @@ export default function Settings() {
               </button>
               <button
                 onClick={(e) => {
-                  console.error('🔥🔥🔥 [SETTINGS BUTTON] Dark button CLICKED!', {
-                    event: e,
-                    currentTheme: theme,
-                    timestamp: new Date().toISOString(),
-                    stack: new Error().stack
-                  });
                   e.preventDefault();
                   e.stopPropagation();
                   handleThemeChange('dark');

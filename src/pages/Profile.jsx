@@ -32,11 +32,17 @@ import {
   Download,
   CheckCircle,
   XCircle,
+  Camera,
+  Image as ImageIcon,
+  Palette,
+  Smile,
 } from 'lucide-react';
 import BadgeDisplay from '../components/BadgeDisplay.jsx';
 import StreakCounter from '../components/StreakCounter.jsx';
 import XPBar from '../components/XPBar.jsx';
 import DailyChallenge from '../components/DailyChallenge.jsx';
+import UserAvatar from '../components/UserAvatar.jsx';
+import { getUserAvatar, saveUserAvatar, getUserGradient, getUserInitials } from '../utils/avatar.js';
 
 const DIETS = [
   'Gluten Free',
@@ -1010,6 +1016,10 @@ export default function Profile() {
   const [planLoading, setPlanLoading] = useState(true);
   const [monthlyPrice, setMonthlyPrice] = useState('$0.00');
 
+  // Avatar state
+  const [avatarData, setAvatarData] = useState(() => getUserAvatar());
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+
   // Load plan from Supabase
   useEffect(() => {
     const loadPlan = async () => {
@@ -1127,6 +1137,15 @@ export default function Profile() {
     }
   }, [medicalData]);
 
+  // Listen for avatar changes from other components
+  useEffect(() => {
+    const handleAvatarChange = () => {
+      setAvatarData(getUserAvatar());
+    };
+    window.addEventListener('avatarChanged', handleAvatarChange);
+    return () => window.removeEventListener('avatarChanged', handleAvatarChange);
+  }, []);
+
   const handleUnitSystemChange = system => {
     setUnitSystem(system);
     localStorage.setItem('unitSystem', system);
@@ -1209,6 +1228,72 @@ export default function Profile() {
   const showMessage = (type, text) => {
     setMessage({ type, text });
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+  };
+
+  // Avatar handlers
+  const handleAvatarTypeSelect = (type) => {
+    if (type === 'initials' || type === 'gradient') {
+      const gradient = getUserGradient(safeUser);
+      const initials = getUserInitials(safeUser);
+      const newAvatar = {
+        type: 'gradient',
+        value: gradient,
+        initials: initials,
+      };
+      saveUserAvatar(newAvatar);
+      setAvatarData(newAvatar);
+      setShowAvatarPicker(false);
+      showMessage('success', 'Avatar updated!');
+    } else if (type === 'emoji') {
+      // Show emoji picker (simplified - just common emojis)
+      setShowAvatarPicker('emoji');
+    } else if (type === 'image') {
+      // Trigger file input
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const imageUrl = event.target?.result;
+            if (imageUrl) {
+              const newAvatar = {
+                type: 'image',
+                value: imageUrl,
+              };
+              saveUserAvatar(newAvatar);
+              setAvatarData(newAvatar);
+              setShowAvatarPicker(false);
+              showMessage('success', 'Avatar updated!');
+            }
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      input.click();
+    }
+  };
+
+  const handleEmojiSelect = (emoji) => {
+    const newAvatar = {
+      type: 'emoji',
+      value: emoji,
+    };
+    saveUserAvatar(newAvatar);
+    setAvatarData(newAvatar);
+    setShowAvatarPicker(false);
+    showMessage('success', 'Avatar updated!');
+  };
+
+  const handleRemoveAvatar = () => {
+    if (confirm('Remove custom avatar and use default?')) {
+      saveUserAvatar(null);
+      setAvatarData(null);
+      setShowAvatarPicker(false);
+      showMessage('success', 'Avatar reset to default');
+    }
   };
 
   // Export/Import functions removed to protect user data
@@ -1321,10 +1406,6 @@ export default function Profile() {
     }
   };
 
-  const getInitials = email => {
-    if (!email || typeof email !== 'string') return '??';
-    return email.substring(0, 2).toUpperCase();
-  };
 
   const getAuthProvider = () => {
     const currentUser = safeUser || user;
@@ -1439,8 +1520,15 @@ export default function Profile() {
               <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
                 <h2 className="text-xl font-bold mb-4">Account Information</h2>
                 <div className="flex flex-col sm:flex-row sm:items-start gap-4 mb-4 text-center sm:text-left">
-                  <div className="w-20 h-20 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-2xl font-bold mx-auto sm:mx-0">
-                    {getInitials(safeUser?.email || '')}
+                  <div className="relative mx-auto sm:mx-0">
+                    <UserAvatar user={safeUser} size={80} showBorder={true} />
+                    <button
+                      onClick={() => setShowAvatarPicker(!showAvatarPicker)}
+                      className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-lg transition-colors"
+                      title="Change avatar"
+                    >
+                      <Camera className="w-4 h-4" />
+                    </button>
                   </div>
                   <div className="flex-1 space-y-3">
                     <div>
@@ -1467,6 +1555,95 @@ export default function Profile() {
                     </div>
                   </div>
                 </div>
+
+                {/* Avatar Picker Modal */}
+                <AnimatePresence>
+                  {showAvatarPicker && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 bg-black/50 dark:bg-black/70 z-50 flex items-center justify-center p-4"
+                      onClick={() => setShowAvatarPicker(false)}
+                    >
+                      <motion.div
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.9, opacity: 0 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 p-6 max-w-md w-full"
+                      >
+                        <h3 className="text-xl font-bold mb-4">Choose Avatar Style</h3>
+                        
+                        {showAvatarPicker === 'emoji' ? (
+                          <div>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                              Select an emoji for your avatar
+                            </p>
+                            <div className="grid grid-cols-8 gap-2 max-h-64 overflow-y-auto">
+                              {['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '😶‍🌫️', '😵', '😵‍💫', '🤯', '🤠', '🥳', '🥸', '😎', '🤓', '🧐', '👶', '👧', '🧒', '👦', '👩', '🧑', '👨', '👩‍🦱', '👨‍🦱', '👩‍🦰', '👨‍🦰', '👱‍♀️', '👱', '👱‍♂️', '👩‍🦳', '👨‍🦳', '👩‍🦲', '👨‍🦲', '🧔', '👵', '🧓', '👴', '👲', '👳‍♀️', '👳', '👳‍♂️', '🧕', '👮‍♀️', '👮', '👮‍♂️', '👷‍♀️', '👷', '👷‍♂️', '💂‍♀️', '💂', '💂‍♂️', '🕵️‍♀️', '🕵️', '🕵️‍♂️', '👩‍⚕️', '👨‍⚕️', '👩‍🌾', '👨‍🌾', '👩‍🍳', '👨‍🍳', '👩‍🎓', '👨‍🎓', '👩‍🎤', '👨‍🎤', '👩‍🏫', '👨‍🏫', '👩‍🏭', '👨‍🏭', '👩‍💻', '👨‍💻', '👩‍💼', '👨‍💼', '👩‍🔧', '👨‍🔧', '👩‍🔬', '👨‍🔬', '👩‍🎨', '👨‍🎨', '👩‍🚒', '👨‍🚒', '👩‍✈️', '👨‍✈️', '👩‍🚀', '👨‍🚀', '👩‍⚖️', '👨‍⚖️', '👰', '🤵', '👸', '🤴', '🦸‍♀️', '🦸', '🦸‍♂️', '🦹‍♀️', '🦹', '🦹‍♂️', '🤶', '🎅', '🧙‍♀️', '🧙', '🧙‍♂️', '🧝‍♀️', '🧝', '🧝‍♂️', '🧛‍♀️', '🧛', '🧛‍♂️', '🧟‍♀️', '🧟', '🧟‍♂️', '🧞‍♀️', '🧞', '🧞‍♂️', '🧜‍♀️', '🧜', '🧜‍♂️', '🧚‍♀️', '🧚', '🧚‍♂️', '👼', '🤰', '🤱', '👩‍🍼', '👨‍🍼', '🙇‍♀️', '🙇', '🙇‍♂️', '💁‍♀️', '💁', '💁‍♂️', '🙅‍♀️', '🙅', '🙅‍♂️', '🙆‍♀️', '🙆', '🙆‍♂️', '🙋‍♀️', '🙋', '🙋‍♂️', '🧏‍♀️', '🧏', '🧏‍♂️', '🤦‍♀️', '🤦', '🤦‍♂️', '🤷‍♀️', '🤷', '🤷‍♂️', '🙎‍♀️', '🙎', '🙎‍♂️', '🙍‍♀️', '🙍', '🙍‍♂️', '💇‍♀️', '💇', '💇‍♂️', '💆‍♀️', '💆', '💆‍♂️', '🧖‍♀️', '🧖', '🧖‍♂️', '👭', '👫', '👬', '💏', '💑', '👪', '👨‍👩‍👧', '👨‍👩‍👧‍👦', '👨‍👩‍👦‍👦', '👨‍👩‍👧‍👧', '👩‍👩‍👦', '👩‍👩‍👧', '👩‍👩‍👧‍👦', '👩‍👩‍👦‍👦', '👩‍👩‍👧‍👧', '👨‍👨‍👦', '👨‍👨‍👧', '👨‍👨‍👧‍👦', '👨‍👨‍👦‍👦', '👨‍👨‍👧‍👧', '👩‍👦', '👩‍👧', '👩‍👧‍👦', '👩‍👦‍👦', '👩‍👧‍👧', '👨‍👦', '👨‍👧', '👨‍👧‍👦', '👨‍👦‍👦', '👨‍👧‍👧', '👯‍♀️', '👯', '👯‍♂️', '🧘‍♀️', '🧘', '🧘‍♂️', '🛀', '🛌', '👤', '👥', '🗣️', '👣', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁️', '👂', '🦻', '👃', '👄', '💋', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💟', '❣️', '💔', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💯', '💢', '💥', '💫', '💦', '💨', '🕳️', '💣', '💬', '👁️‍🗨️', '🗨️', '🗯️', '💭', '💤', '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '🦷', '🦴', '👀', '👁️', '👅', '👄'].map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  onClick={() => handleEmojiSelect(emoji)}
+                                  className="text-3xl hover:scale-125 transition-transform p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => setShowAvatarPicker(true)}
+                              className="mt-4 w-full px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-lg"
+                            >
+                              Back
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
+                              <button
+                                onClick={() => handleAvatarTypeSelect('gradient')}
+                                className="p-4 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-400 transition-colors flex flex-col items-center gap-2"
+                              >
+                                <Palette className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+                                <span className="text-sm font-medium">Gradient</span>
+                              </button>
+                              <button
+                                onClick={() => handleAvatarTypeSelect('emoji')}
+                                className="p-4 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-purple-500 dark:hover:border-purple-400 transition-colors flex flex-col items-center gap-2"
+                              >
+                                <Smile className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                                <span className="text-sm font-medium">Emoji</span>
+                              </button>
+                              <button
+                                onClick={() => handleAvatarTypeSelect('image')}
+                                className="p-4 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 transition-colors flex flex-col items-center gap-2"
+                              >
+                                <ImageIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                                <span className="text-sm font-medium">Upload Image</span>
+                              </button>
+                              {avatarData && (
+                                <button
+                                  onClick={handleRemoveAvatar}
+                                  className="p-4 rounded-lg border-2 border-red-200 dark:border-red-800 hover:border-red-500 dark:hover:border-red-400 transition-colors flex flex-col items-center gap-2"
+                                >
+                                  <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+                                  <span className="text-sm font-medium">Remove</span>
+                                </button>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => setShowAvatarPicker(false)}
+                              className="w-full px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-lg"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        )}
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* Stats */}

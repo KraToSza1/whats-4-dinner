@@ -36,7 +36,14 @@ export default function AdminDashboard() {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin: isAdminUser } = useAdmin();
   const toast = useToast();
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'dashboard');
+  const recipeIdFromUrl = searchParams.get('recipeId');
+  const [activeTab, setActiveTab] = useState(() => {
+    // If recipeId is in URL, switch to recipes tab
+    if (recipeIdFromUrl) {
+      return 'recipes';
+    }
+    return searchParams.get('tab') || 'dashboard';
+  });
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const filterParam = searchParams.get('filter');
 
@@ -51,9 +58,14 @@ export default function AdminDashboard() {
       if (filter) {
         params.set('filter', filter);
       }
+      // Preserve recipeId if it exists (unless explicitly clearing it)
+      const currentRecipeId = searchParams.get('recipeId');
+      if (currentRecipeId && tab === 'recipes') {
+        params.set('recipeId', currentRecipeId);
+      }
       navigate(`/admin?${params.toString()}`, { replace: true });
     },
-    [navigate]
+    [navigate, searchParams]
   );
 
   // Keyboard shortcuts
@@ -95,32 +107,31 @@ export default function AdminDashboard() {
   // Sync activeTab with URL params when they change
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab') || 'dashboard';
-    const filterFromUrl = searchParams.get('filter');
+    const recipeIdFromUrl = searchParams.get('recipeId');
 
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.log('🔄 [ADMIN DASHBOARD] URL params changed', {
-        tabFromUrl,
-        filterFromUrl,
-        currentActiveTab: activeTab,
-        currentFilterParam: filterParam,
+    // If recipeId is in URL, ensure we're on recipes tab (priority)
+    const targetTab = recipeIdFromUrl ? 'recipes' : tabFromUrl;
+
+    // Defer state update to avoid synchronous setState warning
+    const timeoutId = setTimeout(() => {
+      setActiveTab(prevTab => {
+        if (targetTab !== prevTab) {
+          if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.log('🔄 [ADMIN DASHBOARD] Updating activeTab from URL', {
+              oldTab: prevTab,
+              newTab: targetTab,
+              reason: recipeIdFromUrl ? 'recipeId in URL' : 'tab param changed',
+            });
+          }
+          return targetTab;
+        }
+        return prevTab;
       });
-    }
+    }, 0);
 
-    if (tabFromUrl !== activeTab) {
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
-        console.log('🔄 [ADMIN DASHBOARD] Updating activeTab from URL', {
-          oldTab: activeTab,
-          newTab: tabFromUrl,
-        });
-      }
-      // Use setTimeout to avoid synchronous setState warning
-      setTimeout(() => {
-        setActiveTab(tabFromUrl);
-      }, 0);
-    }
-  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => clearTimeout(timeoutId);
+  }, [searchParams]);
 
   useEffect(() => {
     if (import.meta.env.DEV) {
@@ -485,7 +496,7 @@ export default function AdminDashboard() {
                           </div>
                         </div>
                         <div className="bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border-2 border-blue-200 dark:border-blue-800 shadow-lg overflow-x-auto">
-                          <RecipeEditor />
+                          <RecipeEditor recipeId={recipeIdFromUrl || null} />
                         </div>
                       </div>
                     </>

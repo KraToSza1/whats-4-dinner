@@ -26,6 +26,7 @@
     "test:features": "node scripts/test-comprehensive-features.js",
     "test:scenarios": "node scripts/test-all-scenarios.js",
     "test:everything": "node scripts/test-everything.js",
+    "test:production": "node scripts/test-production-ready.js",
     "test:all": "npm run test:everything",
     "inspect:db": "node scripts/inspect-database.js"
   },
@@ -39,6 +40,7 @@
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.555.0",
     "react": "^19.2.1",
+    "react-avatar": "^5.0.4",
     "react-dom": "^19.2.1",
     "react-is": "^19.2.1",
     "react-router-dom": "^7.10.1",
