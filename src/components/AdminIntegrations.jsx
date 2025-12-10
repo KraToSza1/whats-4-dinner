@@ -101,37 +101,39 @@ export default function AdminIntegrations() {
 
   const loadVercelStats = async () => {
     try {
-      // Check if we're on Vercel
       const isVercel =
         window.location.hostname.includes('vercel.app') || import.meta.env.VITE_VERCEL_ENV;
-
-      // Get deployment info from environment or API
       const deploymentUrl = window.location.origin;
       const environment =
-        import.meta.env.VITE_VERCEL_ENV || (isVercel ? 'production' : 'development');
+        import.meta.env.VITE_VERCEL_ENV || import.meta.env.VERCEL_ENV || (isVercel ? 'production' : 'development');
 
-      // Performance metrics (simulated - would use Vercel Analytics API in production)
-      const performanceMetrics = {
-        pageLoadTime: Math.random() * 500 + 200, // Simulated
-        apiResponseTime: Math.random() * 300 + 100,
-        errorRate: Math.random() * 2,
-      };
+      const start = Date.now();
+      const res = await fetch('/api/health').catch(err => {
+        throw new Error(`API health check failed: ${err.message}`);
+      });
+      const latency = Date.now() - start;
+      let data = null;
+      if (res && res.ok) {
+        data = await res.json().catch(() => null);
+      }
 
       setVercelStats({
         deployment: {
           url: deploymentUrl,
           environment,
-          status: 'deployed',
+          status: res?.ok ? 'deployed' : 'warning',
+          apiStatus: res?.ok ? 'healthy' : 'error',
         },
         performance: {
-          pageLoadTime: performanceMetrics.pageLoadTime,
-          apiResponseTime: performanceMetrics.apiResponseTime,
-          errorRate: performanceMetrics.errorRate,
-          status: performanceMetrics.errorRate < 1 ? 'healthy' : 'warning',
+          pageLoadTime: latency,
+          apiResponseTime: latency,
+          errorRate: res?.ok ? 0 : 100,
+          status: res?.ok && latency < 800 ? 'healthy' : latency < 1500 ? 'warning' : 'error',
         },
         analytics: {
-          pageViews: Math.floor(Math.random() * 10000) + 5000, // Simulated
-          uniqueVisitors: Math.floor(Math.random() * 2000) + 1000,
+          pageViews: data?.environment ? 0 : 0, // placeholder until analytics API connected
+          uniqueVisitors: 0,
+          note: data?.environment ? `env: ${data.environment}` : 'Connect Vercel Analytics for real data',
         },
       });
     } catch (error) {

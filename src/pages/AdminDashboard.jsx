@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAdmin } from '../context/AdminContext';
@@ -9,6 +9,7 @@ import RecipeEditor from '../components/RecipeEditor';
 import AdminNavigation from '../components/AdminNavigation';
 import AdminStatsWidget from '../components/AdminStatsWidget';
 import UserManagement from '../components/UserManagement';
+import UserSupportManagement from '../components/UserSupportManagement';
 import RecipeAnalytics from '../components/RecipeAnalytics';
 import SystemHealth from '../components/SystemHealth';
 import AdminSettings from '../components/AdminSettings';
@@ -45,9 +46,13 @@ export default function AdminDashboard() {
   
   useEffect(() => {
     if (recipeIdFromUrl) {
-      // Force remount by changing key
-      setEditorKey(prev => prev + 1);
-      console.error('🔄 [ADMIN DASHBOARD] RecipeId changed, forcing RecipeEditor remount:', recipeIdFromUrl);
+      // Force remount by changing key - defer to avoid cascading renders
+      setTimeout(() => {
+        setEditorKey(prev => prev + 1);
+        if (import.meta.env.DEV) {
+          console.warn('🔄 [ADMIN DASHBOARD] RecipeId changed, forcing RecipeEditor remount:', recipeIdFromUrl);
+        }
+      }, 0);
     }
   }, [recipeIdFromUrl]);
   
@@ -92,13 +97,14 @@ export default function AdminDashboard() {
         setShowKeyboardShortcuts(prev => !prev);
       }
 
-      // Number keys for tabs (1-7)
-      if (!e.ctrlKey && !e.metaKey && e.key >= '1' && e.key <= '7') {
+      // Number keys for tabs (1-8)
+      if (!e.ctrlKey && !e.metaKey && e.key >= '1' && e.key <= '8') {
         const tabIndex = parseInt(e.key) - 1;
         const tabs = [
           'dashboard',
           'recipes',
           'users',
+          'support',
           'analytics',
           'features',
           'system',
@@ -133,8 +139,7 @@ export default function AdminDashboard() {
       setActiveTab(prevTab => {
         if (targetTab !== prevTab) {
           if (import.meta.env.DEV) {
-            // eslint-disable-next-line no-console
-            console.log('🔄 [ADMIN DASHBOARD] Updating activeTab from URL', {
+            console.warn('🔄 [ADMIN DASHBOARD] Updating activeTab from URL', {
               oldTab: prevTab,
               newTab: targetTab,
               reason: currentRecipeId ? 'recipeId in URL' : 'tab param changed',
@@ -151,7 +156,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (import.meta.env.DEV) {
-      console.log('🔍 [ADMIN DASHBOARD] Auth check effect', {
+      console.warn('🔍 [ADMIN DASHBOARD] Auth check effect', {
         authLoading,
         hasUser: !!user,
         userEmail: user?.email,
@@ -163,7 +168,7 @@ export default function AdminDashboard() {
     // Wait for auth to load
     if (authLoading) {
       if (import.meta.env.DEV) {
-        console.log('⏳ [ADMIN DASHBOARD] Waiting for auth to load...');
+        console.warn('⏳ [ADMIN DASHBOARD] Waiting for auth to load...');
       }
       return;
     }
@@ -190,7 +195,7 @@ export default function AdminDashboard() {
     }
 
     if (import.meta.env.DEV) {
-      console.log('✅ [ADMIN DASHBOARD] Auth check passed, user is admin');
+      console.warn('✅ [ADMIN DASHBOARD] Auth check passed, user is admin');
     }
   }, [user, userIsAdmin, authLoading, navigate, toast]);
 
@@ -235,16 +240,17 @@ export default function AdminDashboard() {
     { id: 'dashboard', name: 'Dashboard', shortcut: '1' },
     { id: 'recipes', name: 'Recipes', shortcut: '2' },
     { id: 'users', name: 'Users', shortcut: '3' },
-    { id: 'analytics', name: 'Analytics', shortcut: '4' },
-    { id: 'features', name: 'Features', shortcut: '5' },
-    { id: 'system', name: 'System', shortcut: '6' },
-    { id: 'settings', name: 'Settings', shortcut: '7' },
+    { id: 'support', name: 'Support', shortcut: '4' },
+    { id: 'analytics', name: 'Analytics', shortcut: '5' },
+    { id: 'features', name: 'Features', shortcut: '6' },
+    { id: 'system', name: 'System', shortcut: '7' },
+    { id: 'settings', name: 'Settings', shortcut: '8' },
   ];
 
   // Show loading state while auth is loading
   if (authLoading) {
     if (import.meta.env.DEV) {
-      console.log('⏳ [ADMIN DASHBOARD] Rendering loading state - authLoading:', authLoading);
+      console.warn('⏳ [ADMIN DASHBOARD] Rendering loading state - authLoading:', authLoading);
     }
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center">
@@ -267,7 +273,7 @@ export default function AdminDashboard() {
 
   // Login check already handled above - this is just for rendering
   if (import.meta.env.DEV) {
-    console.log(
+    console.warn(
       '✅ [ADMIN DASHBOARD] Rendering dashboard - authLoading:',
       authLoading,
       'user:',
@@ -459,8 +465,7 @@ export default function AdminDashboard() {
                 {/* Show Missing Images Viewer if filter is set */}
                 {(() => {
                   if (import.meta.env.DEV) {
-                    // eslint-disable-next-line no-console
-                    console.log('🔍 [ADMIN DASHBOARD] Recipes tab active', {
+                    console.warn('🔍 [ADMIN DASHBOARD] Recipes tab active', {
                       activeTab,
                       filterParam,
                       shouldShowViewer:
@@ -524,6 +529,8 @@ export default function AdminDashboard() {
             )}
 
             {activeTab === 'users' && <UserManagement />}
+
+            {activeTab === 'support' && <UserSupportManagement />}
 
             {activeTab === 'analytics' && <RecipeAnalytics />}
 
@@ -597,6 +604,18 @@ export default function AdminDashboard() {
             </>
           )}
         </AnimatePresence>
+        
+        {/* Footer with John 3:16 */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1 }}
+          className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-700 text-center"
+        >
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life." - John 3:16
+          </p>
+        </motion.div>
       </div>
     </div>
   );

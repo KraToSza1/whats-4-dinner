@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getAllUsers, searchUsers, updateUserPlan, getUserStats } from '../utils/userManagement';
+import { getUserSupportTickets } from '../utils/supportTickets';
 import { useToast } from './Toast';
 import {
   Search,
@@ -16,6 +17,8 @@ import {
   Sparkles,
   Crown,
   Zap,
+  MessageSquare,
+  AlertCircle,
 } from 'lucide-react';
 
 // Debounce hook
@@ -46,6 +49,7 @@ export default function UserManagement() {
   const [newPlan, setNewPlan] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
+  const [userTickets, setUserTickets] = useState({});
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
@@ -53,6 +57,27 @@ export default function UserManagement() {
     loadUsers();
     loadStats();
   }, []);
+
+  useEffect(() => {
+    // Load support tickets for all users
+    const loadUserTickets = async () => {
+      const ticketsMap = {};
+      for (const user of users) {
+        try {
+          const result = await getUserSupportTickets(user.id);
+          const openTickets = result.tickets.filter(t => t.status === 'open' || t.status === 'in_progress');
+          ticketsMap[user.id] = openTickets.length;
+        } catch (error) {
+          console.error(`Error loading tickets for user ${user.id}:`, error);
+        }
+      }
+      setUserTickets(ticketsMap);
+    };
+
+    if (users.length > 0) {
+      loadUserTickets();
+    }
+  }, [users]);
 
   useEffect(() => {
     if (debouncedSearchQuery) {
@@ -309,6 +334,9 @@ export default function UserManagement() {
                       Joined
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                      Support
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -317,6 +345,7 @@ export default function UserManagement() {
                   <AnimatePresence>
                     {paginatedUsers.map((user, index) => {
                       const PlanIcon = planIcons[user.plan || 'free'] || UsersIcon;
+                      const ticketCount = userTickets[user.id] || 0;
                       return (
                         <motion.tr
                           key={user.id}
@@ -366,6 +395,18 @@ export default function UserManagement() {
                                   year: 'numeric',
                                 })
                               : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {ticketCount > 0 ? (
+                              <div className="flex items-center gap-2">
+                                <MessageSquare className="w-4 h-4 text-red-500" />
+                                <span className="text-sm font-semibold text-red-600 dark:text-red-400">
+                                  {ticketCount} {ticketCount === 1 ? 'ticket' : 'tickets'}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-slate-400 dark:text-slate-500">No tickets</span>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {editingUser === user.id ? (

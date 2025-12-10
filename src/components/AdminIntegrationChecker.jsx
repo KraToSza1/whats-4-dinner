@@ -12,6 +12,7 @@ export default function AdminIntegrationChecker() {
     supabase: { status: 'checking', message: 'Checking...' },
     paddle: { status: 'checking', message: 'Checking...' },
     vercel: { status: 'checking', message: 'Checking...' },
+    api: { status: 'checking', message: 'Checking...' },
   });
   const [loading, setLoading] = useState(true);
 
@@ -140,16 +141,47 @@ export default function AdminIntegrationChecker() {
     }
   }, []);
 
+  const checkApiHealth = useCallback(async () => {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch('/api/health', { signal: controller.signal });
+      clearTimeout(timeout);
+
+      if (!res.ok) {
+        return {
+          status: 'error',
+          message: 'API health endpoint failed',
+          details: `Status ${res.status}`,
+        };
+      }
+
+      const data = await res.json();
+      return {
+        status: 'success',
+        message: data.message || 'API OK',
+        details: `env: ${data.environment || 'unknown'} • ${data.timestamp || ''}`,
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        message: 'API unreachable',
+        details: error.name === 'AbortError' ? 'Timed out' : error.message,
+      };
+    }
+  }, []);
+
   const runChecks = useCallback(async () => {
     setLoading(true);
     const results = {
       supabase: await checkSupabase(),
       paddle: await checkPaddle(),
       vercel: await checkVercel(),
+      api: await checkApiHealth(),
     };
     setChecks(results);
     setLoading(false);
-  }, [checkSupabase, checkPaddle, checkVercel]);
+  }, [checkSupabase, checkPaddle, checkVercel, checkApiHealth]);
 
   useEffect(() => {
     runChecks();
@@ -197,7 +229,7 @@ export default function AdminIntegrationChecker() {
         </motion.button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Supabase */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -252,6 +284,25 @@ export default function AdminIntegrationChecker() {
                 {checks.vercel.message}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-500">{checks.vercel.details}</p>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* API Health */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className={`p-4 rounded-xl border-2 ${getStatusColor(checks.api.status)}`}
+        >
+          <div className="flex items-start gap-3">
+            {getStatusIcon(checks.api.status)}
+            <div className="flex-1 min-w-0">
+              <h4 className="font-semibold text-slate-900 dark:text-white mb-1">Vercel API</h4>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">
+                {checks.api.message}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-500">{checks.api.details}</p>
             </div>
           </div>
         </motion.div>

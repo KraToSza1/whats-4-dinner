@@ -88,3 +88,7 @@ The Recipe Editor allows importing/exporting recipes via JSON format for ChatGPT
 SEO files:
 
 - Add `public/robots.txt` and `public/sitemap.xml` for indexing (pending).
+
+---
+
+*"For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life." - John 3:16*

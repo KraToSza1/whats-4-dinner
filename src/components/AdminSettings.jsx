@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+// motion is used extensively throughout the JSX below
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
 import { useToast } from './Toast';
+import { clearClientCaches } from '../utils/cache.js';
 import {
   Settings,
   Save,
@@ -55,6 +58,7 @@ export default function AdminSettings() {
     cacheEnabled: true,
     cacheTTL: 3600, // 1 hour in seconds
     enableCDN: false,
+    cacheBustVersion: 0,
 
     // Security Settings
     requireEmailVerification: false,
@@ -68,11 +72,7 @@ export default function AdminSettings() {
     enablePerformanceMonitoring: true,
   });
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     setLoading(true);
     try {
       // Try to load from Supabase admin_settings table
@@ -88,7 +88,7 @@ export default function AdminSettings() {
       }
 
       if (data?.value) {
-        setSettings({ ...settings, ...data.value });
+        setSettings(prev => ({ ...prev, ...data.value }));
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -96,7 +96,7 @@ export default function AdminSettings() {
       const stored = localStorage.getItem('admin:settings:v1');
       if (stored) {
         try {
-          setSettings({ ...settings, ...JSON.parse(stored) });
+          setSettings(prev => ({ ...prev, ...JSON.parse(stored) }));
         } catch (e) {
           console.error('Error parsing stored settings:', e);
         }
@@ -104,7 +104,11 @@ export default function AdminSettings() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   const saveSettings = async () => {
     setSaving(true);
@@ -141,13 +145,6 @@ export default function AdminSettings() {
     }
   };
 
-  const resetSettings = () => {
-    if (confirm('Are you sure you want to reset all settings to defaults?')) {
-      loadSettings();
-      toast.info('Settings reset to defaults');
-    }
-  };
-
   const exportSettings = () => {
     const dataStr = JSON.stringify(settings, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -169,7 +166,7 @@ export default function AdminSettings() {
         const imported = JSON.parse(e.target.result);
         setSettings({ ...settings, ...imported });
         toast.success('Settings imported! Click Save to apply.');
-      } catch (error) {
+      } catch (_error) {
         toast.error('Invalid settings file');
       }
     };
@@ -178,16 +175,46 @@ export default function AdminSettings() {
 
   const clearCache = async () => {
     try {
-      // Clear localStorage cache
-      const keys = Object.keys(localStorage);
-      keys.forEach(key => {
-        if (key.startsWith('recipe') || key.startsWith('cache')) {
-          localStorage.removeItem(key);
-        }
+      const summary = await clearClientCaches({
+        reason: 'admin-manual',
+        preserveKeys: ['sb-', 'supabase', 'theme', 'language'],
       });
-      toast.success('✨ Cache cleared!');
-    } catch (error) {
+
+      const parts = [];
+      if (summary.localStorageCleared) parts.push(`${summary.localStorageCleared} local entries`);
+      if (summary.sessionStorageCleared) parts.push(`${summary.sessionStorageCleared} session entries`);
+      if (summary.cachesCleared) parts.push(`${summary.cachesCleared} SW caches`);
+
+      toast.success(`✨ Cache cleared (${parts.join(', ') || 'nothing to clear'})`);
+    } catch (_error) {
       toast.error('Error clearing cache');
+    }
+  };
+
+  const forceCacheFlushForAllUsers = async () => {
+    const newVersion = Date.now();
+    setSettings(prev => ({ ...prev, cacheBustVersion: newVersion }));
+
+    try {
+      const { error } = await supabase.from('admin_settings').upsert(
+        {
+          key: 'app_settings',
+          value: { ...settings, cacheBustVersion: newVersion },
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'key' }
+      );
+
+      if (error) {
+        console.error('Error writing cache bust version:', error);
+        toast.error('Failed to propagate cache flush flag');
+        return;
+      }
+
+      toast.success('🚀 Cache flush flag broadcasted — users will clear cache on next load');
+    } catch (_error) {
+      console.error('Error forcing cache flush:', _error);
+      toast.error('Failed to broadcast cache flush');
     }
   };
 
@@ -455,6 +482,29 @@ export default function AdminSettings() {
               </p>
             </div>
           )}
+          <div className="flex flex-col gap-3 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  Cache Bust Version
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Last broadcast: {settings.cacheBustVersion ? new Date(settings.cacheBustVersion).toLocaleString() : 'Never'}
+                </p>
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={forceCacheFlushForAllUsers}
+                className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold shadow-md hover:shadow-lg"
+              >
+                Force cache flush (all users)
+              </motion.button>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              Sets a cache-bust flag in Supabase. Clients running CacheGuard will clear local caches and service-worker data the next time they load the app.
+            </p>
+          </div>
         </div>
       </motion.div>
 

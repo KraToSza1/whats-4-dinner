@@ -2,6 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import BackToHome from '../components/BackToHome.jsx';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/Toast';
+import { createSupportTicket } from '../utils/supportTickets';
 import {
   Search,
   BookOpen,
@@ -328,9 +331,19 @@ const FAQ_ITEMS = [
 
 export default function Help() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const toast = useToast();
   const [openCategory, setOpenCategory] = useState(null);
   const [openQuestion, setOpenQuestion] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSupportForm, setShowSupportForm] = useState(false);
+  const [supportForm, setSupportForm] = useState({
+    subject: '',
+    description: '',
+    category: 'general',
+    priority: 'medium',
+  });
+  const [submitting, setSubmitting] = useState(false);
 
   // Filter FAQs based on search
   const filteredFAQs = useMemo(() => {
@@ -362,6 +375,52 @@ export default function Help() {
         break;
       default:
         break;
+    }
+  };
+
+  const handleSubmitSupportTicket = async e => {
+    e.preventDefault();
+    if (!user) {
+      toast.error('Please sign in to submit a support ticket');
+      return;
+    }
+
+    if (!supportForm.subject.trim() || !supportForm.description.trim()) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const result = await createSupportTicket({
+        userId: user.id,
+        subject: supportForm.subject,
+        description: supportForm.description,
+        category: supportForm.category,
+        priority: supportForm.priority,
+        metadata: {
+          userAgent: navigator.userAgent,
+          url: window.location.href,
+        },
+      });
+
+      if (result.success) {
+        toast.success('Support ticket submitted successfully! We\'ll get back to you soon.');
+        setSupportForm({
+          subject: '',
+          description: '',
+          category: 'general',
+          priority: 'medium',
+        });
+        setShowSupportForm(false);
+      } else {
+        toast.error(result.error || 'Failed to submit support ticket');
+      }
+    } catch (error) {
+      toast.error('Failed to submit support ticket');
+      console.error(error);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -813,11 +872,25 @@ export default function Help() {
                 onClick={e => {
                   e.preventDefault();
                   e.stopPropagation();
-                  navigate('/profile?tab=account');
+                  setShowSupportForm(!showSupportForm);
                 }}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="px-5 sm:px-6 py-3 bg-white text-emerald-600 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer touch-manipulation min-h-[44px] relative z-10 w-full sm:w-auto"
+                type="button"
+              >
+                <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                <span>{showSupportForm ? 'Hide Support Form' : 'Contact Support'}</span>
+              </motion.button>
+              <motion.button
+                onClick={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate('/profile?tab=account');
+                }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-5 sm:px-6 py-3 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl font-semibold hover:bg-white/20 transition-all flex items-center justify-center gap-2 cursor-pointer touch-manipulation min-h-[44px] relative z-10 w-full sm:w-auto"
                 type="button"
               >
                 <Settings className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
@@ -863,12 +936,123 @@ export default function Help() {
                 </div>
               </div>
             </div>
+            {/* Support Ticket Form */}
+            <AnimatePresence>
+              {showSupportForm && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-6 sm:mt-8 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-xl p-4 sm:p-6 relative z-10"
+                >
+                  {!user ? (
+                    <div className="text-center py-4">
+                      <p className="text-emerald-50 mb-4">Please sign in to submit a support ticket</p>
+                      <motion.button
+                        onClick={() => navigate('/')}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="px-4 py-2 bg-white text-emerald-600 rounded-lg font-semibold"
+                      >
+                        Sign In
+                      </motion.button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSubmitSupportTicket} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-emerald-50 mb-2">
+                          Subject *
+                        </label>
+                        <input
+                          type="text"
+                          value={supportForm.subject}
+                          onChange={e => setSupportForm({ ...supportForm, subject: e.target.value })}
+                          placeholder="Brief description of your issue..."
+                          required
+                          className="w-full px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-emerald-50 mb-2">
+                          Description *
+                        </label>
+                        <textarea
+                          value={supportForm.description}
+                          onChange={e => setSupportForm({ ...supportForm, description: e.target.value })}
+                          placeholder="Please provide as much detail as possible about your issue..."
+                          rows={5}
+                          required
+                          className="w-full px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 resize-none"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-emerald-50 mb-2">
+                            Category
+                          </label>
+                          <select
+                            value={supportForm.category}
+                            onChange={e => setSupportForm({ ...supportForm, category: e.target.value })}
+                            className="w-full px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-white/50"
+                          >
+                            <option value="general">General</option>
+                            <option value="technical">Technical</option>
+                            <option value="billing">Billing</option>
+                            <option value="account">Account</option>
+                            <option value="feature_request">Feature Request</option>
+                            <option value="bug_report">Bug Report</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-emerald-50 mb-2">
+                            Priority
+                          </label>
+                          <select
+                            value={supportForm.priority}
+                            onChange={e => setSupportForm({ ...supportForm, priority: e.target.value })}
+                            className="w-full px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-white/50"
+                          >
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <motion.button
+                          type="submit"
+                          disabled={submitting}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="flex-1 px-4 py-2 bg-white text-emerald-600 rounded-lg font-semibold hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {submitting ? 'Submitting...' : 'Submit Ticket'}
+                        </motion.button>
+                        <motion.button
+                          type="button"
+                          onClick={() => setShowSupportForm(false)}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/30 text-white rounded-lg font-semibold hover:bg-white/20"
+                        >
+                          Cancel
+                        </motion.button>
+                      </div>
+                    </form>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
             <div className="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-white/20 px-2">
               <p className="text-emerald-50 text-xs sm:text-sm">
                 <strong>What's 4 Dinner</strong> - Your smart meal planning companion
               </p>
               <p className="text-emerald-100/80 text-[10px] sm:text-xs mt-2">
                 Made with ❤️ for food lovers everywhere
+              </p>
+              <p className="text-emerald-100/60 text-[9px] sm:text-[10px] mt-3 italic">
+                "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life." - John 3:16
               </p>
             </div>
           </div>

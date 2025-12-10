@@ -66,6 +66,7 @@ import ProModalWrapper from './components/ProModalWrapper.jsx';
 import PremiumFeatureModalWrapper from './components/PremiumFeatureModalWrapper.jsx';
 import { useToast } from './components/Toast.jsx';
 import { AnimatePresence } from 'framer-motion';
+import CacheGuard from './components/CacheGuard.jsx';
 
 // "chicken,  rice , , tomato" -> ["chicken","rice","tomato"]
 const toIngredientArray = raw =>
@@ -1309,6 +1310,7 @@ const App = () => {
 
   return (
     <Router>
+      <CacheGuard />
       <GroceryListProvider>
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
           <Header
