@@ -1,0 +1,23 @@
+# Browser support configuration
+# Supports all modern browsers and IE11+
+
+# Modern browsers (last 2 versions)
+last 2 versions
+
+# Specific browser versions
+Chrome >= 60
+Firefox >= 60
+Safari >= 12
+Edge >= 79
+iOS >= 12
+Android >= 6
+
+# Internet Explorer 11 (if needed)
+IE 11
+
+# Not dead browsers (browsers with >0.5% usage)
+not dead
+
+# Not IE 11 (uncomment if you want to drop IE11 support)
+# not IE 11
+

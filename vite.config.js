@@ -1,10 +1,44 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import legacy from '@vitejs/plugin-legacy';
+import { nodePolyfills } from 'vite-plugin-polyfill';
 
 export default defineConfig({
   plugins: [
     react(),
+    // Polyfills for Node.js modules (if needed)
+    nodePolyfills({
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true,
+      },
+    }),
+    // Legacy browser support (IE11, older Safari, etc.)
+    legacy({
+      targets: ['defaults', 'not IE 11', 'not dead', '> 0.5%'],
+      modernPolyfills: true,
+      renderLegacyChunks: true,
+      polyfills: [
+        'es.symbol',
+        'es.array.filter',
+        'es.promise',
+        'es.promise.finally',
+        'es/map',
+        'es/set',
+        'es.array.for-each',
+        'es.object.define-properties',
+        'es.object.define-property',
+        'es.object.get-own-property-descriptor',
+        'es.object.get-own-property-descriptors',
+        'es.object.keys',
+        'es.object.to-string',
+        'web.dom-collections.for-each',
+        'esnext.global-this',
+        'esnext.string.match-all',
+      ],
+    }),
     VitePWA({
       registerType: 'autoUpdate', // Auto-update service worker, install prompt handled by InstallPWA component
       // Enable service worker in production, disable in dev
@@ -103,16 +137,27 @@ export default defineConfig({
   },
   build: {
     sourcemap: false, // Disable source maps to reduce warnings
-    target: 'es2015', // Support older browsers (IE11, older Safari, etc.)
+    target: ['es2015', 'edge88', 'firefox78', 'chrome87', 'safari14'], // Support modern browsers
     minify: 'terser',
     terserOptions: {
       compress: {
         drop_console: false, // Keep console for debugging
+        ecma: 2015, // Support ES2015
+      },
+      format: {
+        ecma: 2015, // Support ES2015
       },
     },
+    cssTarget: ['chrome87', 'safari14'], // CSS compatibility
+    polyfillModulePreload: true, // Polyfill module preload
   },
   esbuild: {
     sourcemap: false, // Disable source maps in esbuild
     target: 'es2015', // Support older browsers
+    legalComments: 'none', // Remove comments
+  },
+  define: {
+    // Ensure global is defined for older browsers
+    'global': 'globalThis',
   },
 });

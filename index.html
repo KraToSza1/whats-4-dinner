@@ -2,9 +2,48 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <link rel="icon" href="/logo.svg" />
     <link rel="apple-touch-icon" href="/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Browser compatibility polyfills - loaded before main app -->
+    <script>
+      // Global polyfill for older browsers
+      if (typeof globalThis === 'undefined') {
+        window.globalThis = window;
+      }
+      
+      // Ensure console exists (very old browsers)
+      if (typeof console === 'undefined') {
+        window.console = {
+          log: function() {},
+          warn: function() {},
+          error: function() {},
+          info: function() {},
+        };
+      }
+      
+      // Ensure requestAnimationFrame exists (older browsers)
+      if (!window.requestAnimationFrame) {
+        window.requestAnimationFrame = function(callback) {
+          return setTimeout(callback, 16);
+        };
+        window.cancelAnimationFrame = function(id) {
+          clearTimeout(id);
+        };
+      }
+      
+      // Ensure performance.now exists (older browsers)
+      if (!window.performance || !window.performance.now) {
+        if (window.performance) {
+          window.performance.now = function() {
+            return Date.now();
+          };
+        } else {
+          window.performance = { now: function() { return Date.now(); } };
+        }
+      }
+    </script>
     <!-- Theme initialization - prevents flash of wrong theme -->
     <script>
       (function() {
