@@ -387,32 +387,33 @@ export default function UserSupportManagement() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white dark:bg-slate-800 rounded-2xl border-2 border-slate-200 dark:border-slate-700 shadow-lg p-6 space-y-6"
+              className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl border-2 border-slate-200 dark:border-slate-700 shadow-lg p-4 sm:p-6 space-y-4 sm:space-y-6"
             >
               {/* Ticket Header */}
-              <div className="flex items-start justify-between border-b-2 border-slate-200 dark:border-slate-700 pb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 border-b-2 border-slate-200 dark:border-slate-700 pb-3 sm:pb-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                    <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-white break-words">
                       {selectedTicket.subject}
                     </h3>
                     <span
-                      className={`px-3 py-1 text-sm font-bold rounded-full ${getPriorityColor(
+                      className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-bold rounded-full ${getPriorityColor(
                         selectedTicket.priority
-                      )} flex items-center gap-2`}
+                      )} flex items-center gap-1 sm:gap-2 w-fit`}
                     >
                       {getPriorityIcon(selectedTicket.priority)}
-                      {selectedTicket.priority}
+                      <span className="hidden sm:inline">{selectedTicket.priority}</span>
+                      <span className="sm:hidden">{selectedTicket.priority.charAt(0).toUpperCase()}</span>
                     </span>
                     <span
-                      className={`px-3 py-1 text-sm font-bold rounded-full ${getStatusColor(
+                      className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-bold rounded-full ${getStatusColor(
                         selectedTicket.status
-                      )}`}
+                      )} w-fit`}
                     >
                       {selectedTicket.status.replace('_', ' ')}
                     </span>
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                     <div className="flex items-center gap-2">
                       <User className="w-4 h-4" />
                       {selectedTicket.user?.email || 'Unknown user'}
@@ -430,13 +431,13 @@ export default function UserSupportManagement() {
               </div>
 
               {/* Quick Actions */}
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-2">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => handleStatusUpdate(selectedTicket.id, 'open')}
                   disabled={updating || selectedTicket.status === 'open'}
-                  className="px-3 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white rounded-lg font-semibold"
+                  className="px-3 py-2 text-xs sm:text-sm bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white rounded-lg font-semibold touch-manipulation min-h-[44px] flex-1 sm:flex-initial"
                 >
                   Open
                 </motion.button>
@@ -445,7 +446,7 @@ export default function UserSupportManagement() {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => handleStatusUpdate(selectedTicket.id, 'in_progress')}
                   disabled={updating || selectedTicket.status === 'in_progress'}
-                  className="px-3 py-1.5 text-xs bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white rounded-lg font-semibold"
+                  className="px-3 py-2 text-xs sm:text-sm bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white rounded-lg font-semibold touch-manipulation min-h-[44px] flex-1 sm:flex-initial"
                 >
                   In Progress
                 </motion.button>
@@ -454,7 +455,7 @@ export default function UserSupportManagement() {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => handleStatusUpdate(selectedTicket.id, 'resolved')}
                   disabled={updating || selectedTicket.status === 'resolved'}
-                  className="px-3 py-1.5 text-xs bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white rounded-lg font-semibold"
+                  className="px-3 py-2 text-xs sm:text-sm bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white rounded-lg font-semibold touch-manipulation min-h-[44px] flex-1 sm:flex-initial"
                 >
                   Resolve
                 </motion.button>
@@ -463,16 +464,15 @@ export default function UserSupportManagement() {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => handleStatusUpdate(selectedTicket.id, 'closed')}
                   disabled={updating || selectedTicket.status === 'closed'}
-                  className="px-3 py-1.5 text-xs bg-slate-500 hover:bg-slate-600 disabled:opacity-50 text-white rounded-lg font-semibold"
+                  className="px-3 py-2 text-xs sm:text-sm bg-slate-500 hover:bg-slate-600 disabled:opacity-50 text-white rounded-lg font-semibold touch-manipulation min-h-[44px] flex-1 sm:flex-initial"
                 >
                   Close
                 </motion.button>
-                <div className="flex-1" />
                 <select
                   value={selectedTicket.priority}
                   onChange={e => handlePriorityUpdate(selectedTicket.id, e.target.value)}
                   disabled={updating}
-                  className="px-3 py-1.5 text-xs border-2 border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="px-3 py-2 text-xs sm:text-sm border-2 border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 disabled:opacity-50 touch-manipulation min-h-[44px] w-full sm:w-auto"
                 >
                   <option value="low">Low Priority</option>
                   <option value="medium">Medium Priority</option>

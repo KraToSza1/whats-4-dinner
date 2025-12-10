@@ -76,14 +76,14 @@ export default function SystemHealth() {
 
   if (loading && !health) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {[1, 2, 3].map(i => (
           <div
             key={i}
-            className="bg-white dark:bg-slate-800 rounded-2xl p-6 border-2 border-slate-200 dark:border-slate-700 animate-pulse"
+            className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 border-2 border-slate-200 dark:border-slate-700 animate-pulse"
           >
-            <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-48 mb-4"></div>
-            <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-32"></div>
+            <div className="h-5 sm:h-6 bg-slate-200 dark:bg-slate-700 rounded w-32 sm:w-48 mb-3 sm:mb-4"></div>
+            <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24 sm:w-32"></div>
           </div>
         ))}
       </div>
@@ -92,9 +92,9 @@ export default function SystemHealth() {
 
   if (!health) {
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 border-2 border-slate-200 dark:border-slate-700 text-center">
-        <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-        <p className="text-slate-500 dark:text-slate-400 text-lg">Failed to check system health</p>
+      <div className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl p-6 sm:p-12 border-2 border-slate-200 dark:border-slate-700 text-center">
+        <XCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-400 mx-auto mb-3 sm:mb-4" />
+        <p className="text-sm sm:text-base md:text-lg text-slate-500 dark:text-slate-400">Failed to check system health</p>
       </div>
     );
   }
@@ -134,37 +134,38 @@ export default function SystemHealth() {
   const isSlow = responseTime > 500;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Enhanced Overall Status */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className={`rounded-2xl p-8 border-2 shadow-xl ${
+        className={`rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 border-2 shadow-xl ${
           allHealthy
             ? 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-300 dark:border-green-700'
             : 'bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-red-300 dark:border-red-700'
         }`}
       >
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3 mb-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
               {allHealthy ? (
                 <motion.div
                   animate={{ scale: [1, 1.1, 1] }}
                   transition={{ duration: 2, repeat: Infinity }}
                 >
-                  <CheckCircle className="w-12 h-12 text-green-500" />
+                  <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-green-500 shrink-0" />
                 </motion.div>
               ) : (
                 <motion.div
                   animate={{ rotate: [0, -10, 10, 0] }}
                   transition={{ duration: 1, repeat: Infinity }}
                 >
-                  <XCircle className="w-12 h-12 text-red-500" />
+                  <XCircle className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-red-500 shrink-0" />
                 </motion.div>
               )}
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-                System Status: {allHealthy ? 'All Systems Operational' : 'Issues Detected'}
+              <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-white">
+                <span className="hidden sm:inline">System Status: </span>
+                {allHealthy ? 'All Systems Operational' : 'Issues Detected'}
               </h3>
             </div>
             <p className="text-sm text-slate-600 dark:text-slate-400 flex items-center gap-2">

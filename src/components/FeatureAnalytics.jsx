@@ -58,17 +58,17 @@ export default function FeatureAnalytics() {
 
   if (loading) {
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 border-2 border-slate-200 dark:border-slate-700 text-center">
-        <RefreshCw className="w-12 h-12 text-slate-400 mx-auto mb-4 animate-spin" />
-        <p className="text-slate-500 dark:text-slate-400">Loading feature analytics...</p>
+      <div className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl p-6 sm:p-12 border-2 border-slate-200 dark:border-slate-700 text-center">
+        <RefreshCw className="w-10 h-10 sm:w-12 sm:h-12 text-slate-400 mx-auto mb-3 sm:mb-4 animate-spin" />
+        <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400">Loading feature analytics...</p>
       </div>
     );
   }
 
   if (!stats) {
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 border-2 border-slate-200 dark:border-slate-700 text-center">
-        <p className="text-slate-500 dark:text-slate-400">No analytics data available</p>
+      <div className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl p-6 sm:p-12 border-2 border-slate-200 dark:border-slate-700 text-center">
+        <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400">No analytics data available</p>
       </div>
     );
   }
@@ -88,23 +88,23 @@ export default function FeatureAnalytics() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-            <Activity className="w-8 h-8 text-purple-500" />
-            Feature Usage Analytics
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2 sm:gap-3">
+            <Activity className="w-6 h-6 sm:w-8 sm:h-8 text-purple-500 shrink-0" />
+            <span className="truncate">Feature Usage Analytics</span>
           </h2>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Track which features users are engaging with
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <select
             value={selectedPeriod}
             onChange={e => setSelectedPeriod(parseInt(e.target.value))}
-            className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500"
+            className="px-3 sm:px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg sm:rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 text-sm sm:text-base touch-manipulation min-h-[44px]"
           >
             <option value={7}>Last 7 days</option>
             <option value={30}>Last 30 days</option>
@@ -114,69 +114,69 @@ export default function FeatureAnalytics() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={loadAnalytics}
-            className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-xl font-semibold flex items-center gap-2"
+            className="px-3 sm:px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg sm:rounded-xl font-semibold flex items-center justify-center gap-2 text-sm sm:text-base touch-manipulation min-h-[44px] w-full sm:w-auto"
           >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
+            <RefreshCw className="w-4 h-4 shrink-0" />
+            <span>Refresh</span>
           </motion.button>
         </div>
       </div>
 
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 text-white shadow-xl"
+          className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 text-white shadow-xl"
         >
-          <div className="flex items-center justify-between mb-2">
-            <Activity className="w-6 h-6 opacity-80" />
-            <TrendingUp className="w-5 h-5" />
+          <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+            <Activity className="w-5 h-5 sm:w-6 sm:h-6 opacity-80 shrink-0" />
+            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
           </div>
-          <p className="text-sm opacity-90 mb-1">Total Usage</p>
-          <p className="text-3xl font-bold">{stats.totalUsage.toLocaleString()}</p>
+          <p className="text-xs sm:text-sm opacity-90 mb-1">Total Usage</p>
+          <p className="text-xl sm:text-2xl md:text-3xl font-bold">{stats.totalUsage.toLocaleString()}</p>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl p-6 text-white shadow-xl"
+          className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 text-white shadow-xl"
         >
-          <div className="flex items-center justify-between mb-2">
-            <Users className="w-6 h-6 opacity-80" />
-            <Zap className="w-5 h-5" />
+          <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+            <Users className="w-5 h-5 sm:w-6 sm:h-6 opacity-80 shrink-0" />
+            <Zap className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
           </div>
-          <p className="text-sm opacity-90 mb-1">Unique Users</p>
-          <p className="text-3xl font-bold">{stats.uniqueUsers.toLocaleString()}</p>
+          <p className="text-xs sm:text-sm opacity-90 mb-1">Unique Users</p>
+          <p className="text-xl sm:text-2xl md:text-3xl font-bold">{stats.uniqueUsers.toLocaleString()}</p>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl p-6 text-white shadow-xl"
+          className="bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 text-white shadow-xl"
         >
-          <div className="flex items-center justify-between mb-2">
-            <BarChart3 className="w-6 h-6 opacity-80" />
-            <Calendar className="w-5 h-5" />
+          <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+            <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 opacity-80 shrink-0" />
+            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
           </div>
-          <p className="text-sm opacity-90 mb-1">Active Features</p>
-          <p className="text-3xl font-bold">{Object.keys(stats.featureCounts).length}</p>
+          <p className="text-xs sm:text-sm opacity-90 mb-1">Active Features</p>
+          <p className="text-xl sm:text-2xl md:text-3xl font-bold">{Object.keys(stats.featureCounts).length}</p>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl p-6 text-white shadow-xl"
+          className="bg-gradient-to-br from-orange-500 to-red-500 rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 text-white shadow-xl"
         >
-          <div className="flex items-center justify-between mb-2">
-            <TrendingUp className="w-6 h-6 opacity-80" />
-            <Activity className="w-5 h-5" />
+          <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+            <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 opacity-80 shrink-0" />
+            <Activity className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
           </div>
-          <p className="text-sm opacity-90 mb-1">Avg per User</p>
-          <p className="text-3xl font-bold">
+          <p className="text-xs sm:text-sm opacity-90 mb-1">Avg per User</p>
+          <p className="text-xl sm:text-2xl md:text-3xl font-bold">
             {stats.uniqueUsers > 0
               ? Math.round(stats.totalUsage / stats.uniqueUsers)
               : 0}
@@ -185,17 +185,17 @@ export default function FeatureAnalytics() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Top Features Chart */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-white dark:bg-slate-800 rounded-2xl p-6 border-2 border-slate-200 dark:border-slate-700 shadow-xl"
+          className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 border-2 border-slate-200 dark:border-slate-700 shadow-xl"
         >
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-purple-500" />
-            Top Features
+          <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-4 sm:mb-6 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500 shrink-0" />
+            <span>Top Features</span>
           </h3>
           {featureChartData.length > 0 ? (
             <BarChart

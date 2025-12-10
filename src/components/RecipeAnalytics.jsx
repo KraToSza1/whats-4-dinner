@@ -40,14 +40,14 @@ export default function RecipeAnalytics() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {[1, 2, 3, 4].map(i => (
           <div
             key={i}
-            className="bg-white dark:bg-slate-800 rounded-2xl p-6 border-2 border-slate-200 dark:border-slate-700 animate-pulse"
+            className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 border-2 border-slate-200 dark:border-slate-700 animate-pulse"
           >
-            <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-48 mb-4"></div>
-            <div className="h-64 bg-slate-200 dark:bg-slate-700 rounded-xl"></div>
+            <div className="h-5 sm:h-6 bg-slate-200 dark:bg-slate-700 rounded w-32 sm:w-48 mb-3 sm:mb-4"></div>
+            <div className="h-48 sm:h-64 bg-slate-200 dark:bg-slate-700 rounded-lg sm:rounded-xl"></div>
           </div>
         ))}
       </div>
@@ -56,9 +56,9 @@ export default function RecipeAnalytics() {
 
   if (!analytics) {
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 border-2 border-slate-200 dark:border-slate-700 text-center">
-        <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-        <p className="text-slate-500 dark:text-slate-400 text-lg">Failed to load analytics</p>
+      <div className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl p-6 sm:p-12 border-2 border-slate-200 dark:border-slate-700 text-center">
+        <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-400 mx-auto mb-3 sm:mb-4" />
+        <p className="text-sm sm:text-base md:text-lg text-slate-500 dark:text-slate-400">Failed to load analytics</p>
       </div>
     );
   }
@@ -114,15 +114,15 @@ export default function RecipeAnalytics() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header with Refresh */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-            <Award className="w-8 h-8 text-yellow-500" />
-            Recipe Analytics
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2 sm:gap-3">
+            <Award className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-500 shrink-0" />
+            <span className="truncate">Recipe Analytics</span>
           </h2>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Insights into your recipe database
           </p>
         </div>
@@ -131,15 +131,15 @@ export default function RecipeAnalytics() {
           whileTap={{ scale: 0.95 }}
           onClick={() => loadAnalytics(true)}
           disabled={refreshing}
-          className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2 disabled:opacity-50"
+          className="px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg sm:rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm sm:text-base touch-manipulation min-h-[44px] w-full sm:w-auto"
         >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
+          <RefreshCw className={`w-4 h-4 shrink-0 ${refreshing ? 'animate-spin' : ''}`} />
+          <span>Refresh</span>
         </motion.button>
       </div>
 
       {/* Enhanced Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
         {metricCards.map((card, index) => {
           const Icon = card.icon;
           return (
@@ -150,29 +150,29 @@ export default function RecipeAnalytics() {
               transition={{ delay: index * 0.1 }}
               whileHover={{ y: -4, scale: 1.02 }}
               className={`
-                relative overflow-hidden rounded-2xl p-6 border-2 shadow-lg
+                relative overflow-hidden rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border-2 shadow-lg
                 ${card.bgColor} ${card.borderColor}
               `}
             >
               {/* Gradient Background */}
               <div
-                className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${card.color} opacity-10 rounded-full blur-3xl`}
+                className={`absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-br ${card.color} opacity-10 rounded-full blur-3xl`}
               />
               <div className="relative z-10">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
                   <div
-                    className={`w-12 h-12 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center shadow-lg`}
+                    className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center shadow-lg shrink-0`}
                   >
-                    <Icon className="w-6 h-6 text-white" />
+                    <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
                   {index === 0 && (
-                    <Sparkles className="w-5 h-5 text-yellow-400 animate-pulse" />
+                    <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 animate-pulse shrink-0" />
                   )}
                 </div>
-                <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">
+                <h3 className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400 mb-1.5 sm:mb-2 uppercase tracking-wide">
                   {card.title}
                 </h3>
-                <p className="text-3xl font-bold text-slate-900 dark:text-white mb-1">
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-1">
                   {card.value}
                 </p>
                 {card.subtitle && (
