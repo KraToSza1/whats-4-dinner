@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
-import { checkRecipeRowCompleteness, getRecipesNeedingWork } from '../utils/recipeCompleteness.js';
-import { useNavigate } from 'react-router-dom';
+import { checkRecipeRowCompleteness } from '../utils/recipeCompleteness.js';
 import { useToast } from './Toast';
 import { AlertCircle, CheckCircle, Image, FileText, Utensils, ChefHat, Calendar } from 'lucide-react';
 
@@ -21,7 +20,6 @@ export default function RecipesNeedingWork() {
     missingSteps: 0,
     missingDescription: 0,
   });
-  const navigate = useNavigate();
   const toast = useToast();
 
   useEffect(() => {
