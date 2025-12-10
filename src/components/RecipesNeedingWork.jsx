@@ -108,8 +108,25 @@ export default function RecipesNeedingWork() {
   };
 
   const handleEditRecipe = (recipeId) => {
-    console.error('🔧 [RECIPES NEEDING WORK] Edit button clicked, navigating to:', recipeId);
-    navigate(`/admin?tab=recipes&recipeId=${recipeId}`, { replace: false });
+    if (!recipeId) {
+      console.error('🔧 [RECIPES NEEDING WORK] No recipe ID provided');
+      return;
+    }
+    
+    if (import.meta.env.DEV) {
+      console.warn('🔧 [RECIPES NEEDING WORK] Edit button clicked, navigating to:', recipeId);
+    }
+    
+    try {
+      // Navigate to admin dashboard with recipe ID - ensure tab is set to recipes
+      const url = `/admin?tab=recipes&recipeId=${encodeURIComponent(recipeId)}`;
+      navigate(url, { replace: false });
+    } catch (error) {
+      console.error('Error navigating to recipe editor:', error);
+      // Fallback: try window.location if navigate fails
+      const url = `/admin?tab=recipes&recipeId=${encodeURIComponent(recipeId)}`;
+      window.location.href = url;
+    }
   };
 
   if (loading) {
