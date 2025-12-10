@@ -57,15 +57,32 @@ export default async function handler(req, res) {
     }
 
     // Check if user is admin
-    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
-    const isAdmin = adminEmails.includes(user.email?.toLowerCase());
+    const adminEmailsRaw = process.env.ADMIN_EMAILS || '';
+    const adminEmails = adminEmailsRaw.split(',').map(e => e.trim().toLowerCase()).filter(e => e);
+    const userEmailLower = user.email?.toLowerCase() || '';
+    const isAdmin = adminEmails.includes(userEmailLower);
+    
+    // Always log for debugging (will help diagnose the issue)
+    console.log('🔍 [ADMIN API] Auth check:', {
+      userEmail: user.email,
+      userEmailLower,
+      adminEmailsRaw,
+      adminEmails,
+      isAdmin,
+      hasAdminEmails: adminEmails.length > 0,
+    });
     
     if (!isAdmin) {
-      // Only log in development - 403 is expected for non-admin users
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Admin API access denied:', { email: user.email, adminEmails });
-      }
-      res.status(403).json({ error: 'Forbidden: Admin access required', email: user.email });
+      res.status(403).json({ 
+        error: 'Forbidden: Admin access required', 
+        email: user.email,
+        debug: {
+          userEmailLower,
+          adminEmails,
+          adminEmailsRaw,
+          hasAdminEmails: adminEmails.length > 0,
+        }
+      });
       return;
     }
 
