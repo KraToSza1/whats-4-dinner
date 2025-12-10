@@ -82,9 +82,17 @@ export default function AdminSettings() {
         .eq('key', 'app_settings')
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        // PGRST116 = no rows returned, which is fine for first time
-        console.error('Error loading settings:', error);
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No rows returned - this is fine for first time
+        } else if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          // Table doesn't exist yet - show helpful message
+          if (import.meta?.env?.DEV) {
+            console.warn('[AdminSettings] admin_settings table not found. Run migration: Database/CREATE_ADMIN_SETTINGS_TABLE.sql');
+          }
+        } else {
+          console.error('Error loading settings:', error);
+        }
       }
 
       if (data?.value) {

@@ -21,25 +21,36 @@ export default function CacheGuard() {
         let shouldFlush = false;
         let flushReason = '';
 
-        // Check global cache bust flag
-        const { data: adminData, error: adminError } = await supabase
-          .from('admin_settings')
-          .select('value')
-          .eq('key', 'app_settings')
-          .single();
+        // Check global cache bust flag (gracefully handle missing table)
+        try {
+          const { data: adminData, error: adminError } = await supabase
+            .from('admin_settings')
+            .select('value')
+            .eq('key', 'app_settings')
+            .single();
 
-        if (!adminError && adminData?.value) {
-          const remoteVersion = adminData.value.cacheBustVersion || 0;
-          const localVersion = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+          // Ignore 404 errors (table doesn't exist yet) - this is expected
+          if (!adminError || adminError.code === 'PGRST116') {
+            if (adminData?.value) {
+              const remoteVersion = adminData.value.cacheBustVersion || 0;
+              const localVersion = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
 
-          if (Number.isFinite(remoteVersion) && remoteVersion > localVersion) {
-            shouldFlush = true;
-            flushReason = 'global-cache-bust';
-            if (isMounted) {
-              localStorage.setItem(STORAGE_KEY, String(remoteVersion));
+              if (Number.isFinite(remoteVersion) && remoteVersion > localVersion) {
+                shouldFlush = true;
+                flushReason = 'global-cache-bust';
+                if (isMounted) {
+                  localStorage.setItem(STORAGE_KEY, String(remoteVersion));
+                }
+              } else if (!localStorage.getItem(STORAGE_KEY)) {
+                localStorage.setItem(STORAGE_KEY, String(remoteVersion));
+              }
             }
-          } else if (!localStorage.getItem(STORAGE_KEY)) {
-            localStorage.setItem(STORAGE_KEY, String(remoteVersion));
+          }
+          // Silently ignore 404 errors - table might not exist yet
+        } catch (e) {
+          // Table doesn't exist or other error - silently continue
+          if (import.meta?.env?.DEV) {
+            console.warn('[CacheGuard] admin_settings table not available:', e.message);
           }
         }
 
@@ -52,7 +63,20 @@ export default function CacheGuard() {
               .eq('id', user.id)
               .single();
 
-            if (!profileError && profileData?.cache_bust_version) {
+            // Handle missing column gracefully (400 error means column doesn't exist)
+            if (profileError) {
+              if (profileError.code === '42703' || profileError.message?.includes('cache_bust_version')) {
+                // Column doesn't exist yet - this is fine, just skip user-specific cache bust
+                if (import.meta?.env?.DEV) {
+                  console.warn('[CacheGuard] cache_bust_version column not found in profiles table. Run migration: Database/ADD_CACHE_BUST_VERSION_TO_PROFILES.sql');
+                }
+              } else if (profileError.code !== 'PGRST116') {
+                // Other error - log but continue
+                if (import.meta?.env?.DEV) {
+                  console.warn('[CacheGuard] Error reading user cache_bust_version:', profileError.message);
+                }
+              }
+            } else if (profileData?.cache_bust_version !== undefined) {
               const userRemoteVersion = profileData.cache_bust_version || 0;
               const userLocalVersion = parseInt(localStorage.getItem(USER_STORAGE_KEY) || '0', 10);
 
@@ -69,7 +93,7 @@ export default function CacheGuard() {
           } catch (profileErr) {
             // User-specific check failed, but continue with global check
             if (import.meta?.env?.DEV) {
-              console.warn('[CacheGuard] Unable to read user cache_bust_version:', profileErr);
+              console.warn('[CacheGuard] Unable to read user cache_bust_version:', profileErr.message);
             }
           }
         }
