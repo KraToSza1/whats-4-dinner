@@ -63,25 +63,35 @@ export default async function handler(req, res) {
     const isAdmin = adminEmails.includes(userEmailLower);
     
     // Always log for debugging (will help diagnose the issue)
-    console.log('🔍 [ADMIN API] Auth check:', {
+    const debugInfo = {
       userEmail: user.email,
       userEmailLower,
       adminEmailsRaw,
       adminEmails,
       isAdmin,
       hasAdminEmails: adminEmails.length > 0,
-    });
+      envVarExists: !!process.env.ADMIN_EMAILS,
+      envVarLength: process.env.ADMIN_EMAILS?.length || 0,
+    };
+    
+    console.log('🔍 [ADMIN API] Auth check:', debugInfo);
     
     if (!isAdmin) {
+      // If no admin emails configured, give helpful error
+      if (adminEmails.length === 0) {
+        res.status(403).json({ 
+          error: 'Forbidden: No admin emails configured. Please set ADMIN_EMAILS environment variable in Vercel.',
+          email: user.email,
+          debug: debugInfo
+        });
+        return;
+      }
+      
       res.status(403).json({ 
         error: 'Forbidden: Admin access required', 
+        message: `Your email (${user.email}) is not in the admin list. Current admins: ${adminEmails.join(', ')}`,
         email: user.email,
-        debug: {
-          userEmailLower,
-          adminEmails,
-          adminEmailsRaw,
-          hasAdminEmails: adminEmails.length > 0,
-        }
+        debug: debugInfo
       });
       return;
     }

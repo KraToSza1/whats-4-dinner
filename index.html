@@ -238,7 +238,8 @@
             message.includes('will soon be rejected') || 
             message.includes('rejected for invalid domain') ||
             message.includes('Partitioned'))) ||
-          message.includes('Partitioned cookie or storage access')
+          message.includes('Partitioned cookie or storage access') ||
+          message.includes('Partitioned cookie or storage access was provided')
         ) {
           return;
         }
