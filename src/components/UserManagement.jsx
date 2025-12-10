@@ -396,6 +396,20 @@ export default function UserManagement() {
               <table className="w-full">
                 <thead className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border-b-2 border-slate-200 dark:border-slate-700">
                   <tr>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider w-12">
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.size === paginatedUsers.length && paginatedUsers.length > 0}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedUsers(new Set(paginatedUsers.map(u => u.id)));
+                          } else {
+                            setSelectedUsers(new Set());
+                          }
+                        }}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                    </th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                       Email
                     </th>
