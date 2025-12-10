@@ -228,31 +228,31 @@ export default function AdminSettings() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-            <Settings className="w-8 h-8 text-blue-500" />
-            Admin Settings
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2 sm:gap-3">
+            <Settings className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500 shrink-0" />
+            <span className="truncate">Admin Settings</span>
           </h2>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Manage app-wide settings and configuration
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={exportSettings}
-            className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-2"
+            className="px-3 sm:px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg sm:rounded-xl text-slate-700 dark:text-slate-300 font-semibold flex items-center justify-center gap-2 text-sm sm:text-base touch-manipulation min-h-[44px] w-full sm:w-auto"
           >
-            <Download className="w-4 h-4" />
-            Export
+            <Download className="w-4 h-4 shrink-0" />
+            <span>Export</span>
           </motion.button>
-          <label className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-2 cursor-pointer">
-            <Upload className="w-4 h-4" />
-            Import
+          <label className="px-3 sm:px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg sm:rounded-xl text-slate-700 dark:text-slate-300 font-semibold flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-base touch-manipulation min-h-[44px] w-full sm:w-auto">
+            <Upload className="w-4 h-4 shrink-0" />
+            <span>Import</span>
             <input type="file" accept=".json" onChange={importSettings} className="hidden" />
           </label>
           <motion.button
@@ -260,10 +260,10 @@ export default function AdminSettings() {
             whileTap={{ scale: 0.95 }}
             onClick={saveSettings}
             disabled={saving}
-            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+            className="px-4 sm:px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 text-white rounded-lg sm:rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-sm sm:text-base touch-manipulation min-h-[44px] w-full sm:w-auto"
           >
-            <Save className="w-4 h-4" />
-            {saving ? 'Saving...' : 'Save Settings'}
+            <Save className="w-4 h-4 shrink-0" />
+            <span>{saving ? 'Saving...' : 'Save Settings'}</span>
           </motion.button>
         </div>
       </div>
@@ -272,22 +272,22 @@ export default function AdminSettings() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white dark:bg-slate-800 rounded-2xl p-6 border-2 border-slate-200 dark:border-slate-700 shadow-xl"
+        className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 border-2 border-slate-200 dark:border-slate-700 shadow-xl"
       >
-        <div className="flex items-center gap-3 mb-6">
-          <Settings className="w-6 h-6 text-blue-500" />
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white">App Settings</h3>
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+          <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
+          <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">App Settings</h3>
         </div>
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5 sm:mb-2">
               App Name
             </label>
             <input
               type="text"
               value={settings.appName}
               onChange={e => setSettings({ ...settings, appName: e.target.value })}
-              className="w-full px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 sm:px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg sm:rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base touch-manipulation min-h-[44px]"
             />
           </div>
           <div>
@@ -344,13 +344,13 @@ export default function AdminSettings() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="bg-white dark:bg-slate-800 rounded-2xl p-6 border-2 border-slate-200 dark:border-slate-700 shadow-xl"
+        className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 border-2 border-slate-200 dark:border-slate-700 shadow-xl"
       >
-        <div className="flex items-center gap-3 mb-6">
-          <Shield className="w-6 h-6 text-purple-500" />
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white">Feature Flags</h3>
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+          <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-purple-500 shrink-0" />
+          <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Feature Flags</h3>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           {[
             { key: 'enableChallenges', label: 'Challenges', icon: '🎯' },
             { key: 'enableStreaks', label: 'Streaks', icon: '🔥' },
@@ -426,24 +426,24 @@ export default function AdminSettings() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="bg-white dark:bg-slate-800 rounded-2xl p-6 border-2 border-slate-200 dark:border-slate-700 shadow-xl"
+        className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 border-2 border-slate-200 dark:border-slate-700 shadow-xl"
       >
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <RefreshCw className="w-6 h-6 text-orange-500" />
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Cache Management</h3>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500 shrink-0" />
+            <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Cache Management</h3>
           </div>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={clearCache}
-            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold flex items-center gap-2"
+            className="px-3 sm:px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg sm:rounded-xl font-semibold flex items-center justify-center gap-2 text-sm sm:text-base touch-manipulation min-h-[44px] w-full sm:w-auto"
           >
-            <Trash2 className="w-4 h-4" />
-            Clear Cache
+            <Trash2 className="w-4 h-4 shrink-0" />
+            <span>Clear Cache</span>
           </motion.button>
         </div>
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-xl">
             <div>
               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -496,7 +496,7 @@ export default function AdminSettings() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={forceCacheFlushForAllUsers}
-                className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold shadow-md hover:shadow-lg"
+                className="px-3 sm:px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg sm:rounded-xl font-semibold shadow-md hover:shadow-lg text-xs sm:text-sm touch-manipulation min-h-[44px] w-full sm:w-auto"
               >
                 Force cache flush (all users)
               </motion.button>
