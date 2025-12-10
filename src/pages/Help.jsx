@@ -5,6 +5,7 @@ import BackToHome from '../components/BackToHome.jsx';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import { createSupportTicket } from '../utils/supportTickets';
+import { getTodaysVerse } from '../utils/bibleVerses';
 import {
   Search,
   BookOpen,
@@ -1051,23 +1052,9 @@ export default function Help() {
               <p className="text-emerald-100/80 text-[10px] sm:text-xs mt-2">
                 Made with ❤️ for food lovers everywhere
               </p>
-              <div className="text-emerald-100/60 text-[9px] sm:text-[10px] mt-3 space-y-1 italic">
-                <p>"For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life." - John 3:16</p>
-                <p>"I can do all things through Christ who strengthens me." - Philippians 4:13</p>
-                <p>"Trust in the Lord with all your heart and lean not on your own understanding." - Proverbs 3:5</p>
-                <p>"Be still, and know that I am God." - Psalm 46:10</p>
-                <p>"The Lord is my shepherd, I lack nothing." - Psalm 23:1</p>
-                <p>"Cast all your anxiety on him because he cares for you." - 1 Peter 5:7</p>
-                <p>"For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you, plans to give you hope and a future." - Jeremiah 29:11</p>
-                <p>"Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God." - Philippians 4:6</p>
-                <p>"Jesus said, 'I am the way and the truth and the life. No one comes to the Father except through me.'" - John 14:6</p>
-                <p>"The Lord will fight for you; you need only to be still." - Exodus 14:14</p>
-                <p>"And we know that in all things God works for the good of those who love him, who have been called according to his purpose." - Romans 8:28</p>
-                <p>"The Lord is close to the brokenhearted and saves those who are crushed in spirit." - Psalm 34:18</p>
-                <p>"Come to me, all you who are weary and burdened, and I will give you rest." - Matthew 11:28</p>
-                <p>"But those who hope in the Lord will renew their strength. They will soar on wings like eagles; they will run and not grow weary, they will walk and not be faint." - Isaiah 40:31</p>
-                <p>"Have I not commanded you? Be strong and courageous. Do not be afraid; do not be discouraged, for the Lord your God will be with you wherever you go." - Joshua 1:9</p>
-              </div>
+              <p className="text-emerald-100/60 text-[9px] sm:text-[10px] mt-3 italic">
+                "{getTodaysVerse().text}" - {getTodaysVerse().reference}
+              </p>
             </div>
           </div>
         </motion.section>
