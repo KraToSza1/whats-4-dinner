@@ -2682,16 +2682,21 @@ export default function Profile() {
         </AnimatePresence>
         
         {/* Footer with Bible verse (rotates daily) */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-700 text-center"
-        >
-          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
-            "{getTodaysVerse().text}" - {getTodaysVerse().reference}
-          </p>
-        </motion.div>
+        {(() => {
+          const verse = getTodaysVerse();
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-700 text-center"
+            >
+              <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+                "{verse.text}" - {verse.reference}
+              </p>
+            </motion.div>
+          );
+        })()}
       </div>
     </div>
   );

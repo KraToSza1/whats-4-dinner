@@ -1052,9 +1052,14 @@ export default function Help() {
               <p className="text-emerald-100/80 text-[10px] sm:text-xs mt-2">
                 Made with ❤️ for food lovers everywhere
               </p>
-              <p className="text-emerald-100/60 text-[9px] sm:text-[10px] mt-3 italic">
-                "{getTodaysVerse().text}" - {getTodaysVerse().reference}
-              </p>
+              {(() => {
+                const verse = getTodaysVerse();
+                return (
+                  <p className="text-emerald-100/60 text-[9px] sm:text-[10px] mt-3 italic">
+                    "{verse.text}" - {verse.reference}
+                  </p>
+                );
+              })()}
             </div>
           </div>
         </motion.section>
