@@ -80,7 +80,6 @@ function InstallAppSection() {
   const [isInstallable, setIsInstallable] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstructions, setShowInstructions] = useState(false);
-  const todaysVerse = useMemo(() => getTodaysVerse(), []);
 
   // Check if app is installed
   const checkIfInstalled = () => {
@@ -838,6 +837,7 @@ function ProgressTabContent() {
 }
 
 export default function Profile() {
+  const todaysVerse = useMemo(() => getTodaysVerse(), []);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
