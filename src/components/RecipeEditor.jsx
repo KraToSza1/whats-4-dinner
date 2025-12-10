@@ -2092,59 +2092,64 @@ export default function RecipeEditor({
           </div>
 
           {/* Search Bar and Create Button */}
-          <div className="flex gap-2 items-center flex-wrap">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               onKeyPress={e => e.key === 'Enter' && loadRecipes()}
               placeholder="Search recipes by title... (or leave empty to see all)"
-              className="flex-1 min-w-[200px] px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+              className="flex-1 w-full sm:min-w-[200px] px-3 sm:px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-sm sm:text-base"
             />
-            <button
-              onClick={loadRecipes}
-              disabled={loading}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
-            >
-              {loading ? 'Loading...' : 'Search'}
-            </button>
-            {searchQuery && (
+            <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setSearchCurrentPage(1);
-                  setAllSearchResults([]);
-                  setCurrentPage(1);
-                  loadRecipes();
-                }}
-                className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg text-sm font-semibold"
+                onClick={loadRecipes}
+                disabled={loading}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50 touch-manipulation min-h-[44px]"
               >
-                Clear
+                {loading ? 'Loading...' : 'Search'}
               </button>
-            )}
-            <button
-              onClick={handleExportCompleteRecipe}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-lg"
-              title="Export complete recipe with correct data as reference for ChatGPT (select a recipe first)"
-            >
-              <span>📤</span>
-              <span>Export Complete Recipe</span>
-            </button>
-            <button
-              onClick={() => setShowJsonImport(true)}
-              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-lg"
-              title="Import recipe from ChatGPT JSON"
-            >
-              <span>📥</span>
-              <span>Import JSON from ChatGPT</span>
-            </button>
-            <button
-              onClick={handleCreateNewRecipe}
-              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2"
-            >
-              <span>➕</span>
-              <span>Create New Recipe</span>
-            </button>
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSearchCurrentPage(1);
+                    setAllSearchResults([]);
+                    setCurrentPage(1);
+                    loadRecipes();
+                  }}
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg text-sm font-semibold touch-manipulation min-h-[44px]"
+                >
+                  Clear
+                </button>
+              )}
+              <button
+                onClick={handleExportCompleteRecipe}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 shadow-lg touch-manipulation min-h-[44px]"
+                title="Export complete recipe with correct data as reference for ChatGPT (select a recipe first)"
+              >
+                <span>📤</span>
+                <span className="hidden sm:inline">Export Complete Recipe</span>
+                <span className="sm:hidden">Export</span>
+              </button>
+              <button
+                onClick={() => setShowJsonImport(true)}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 shadow-lg touch-manipulation min-h-[44px]"
+                title="Import recipe from ChatGPT JSON"
+              >
+                <span>📥</span>
+                <span className="hidden sm:inline">Import JSON from ChatGPT</span>
+                <span className="sm:hidden">Import</span>
+              </button>
+              <button
+                onClick={handleCreateNewRecipe}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 touch-manipulation min-h-[44px]"
+              >
+                <span>➕</span>
+                <span className="hidden sm:inline">Create New Recipe</span>
+                <span className="sm:hidden">New</span>
+              </button>
+            </div>
           </div>
 
           {/* Recipe Grid */}
@@ -2236,64 +2241,66 @@ export default function RecipeEditor({
         // Edit Mode
         <div className="space-y-4">
           {/* ChatGPT Import/Export Banner - Prominent */}
-          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg p-4 shadow-lg mb-4">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-3">
-                <span className="text-3xl">🤖</span>
+          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg p-3 sm:p-4 shadow-lg mb-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <span className="text-2xl sm:text-3xl">🤖</span>
                 <div>
-                  <h3 className="text-white font-bold text-lg">ChatGPT Recipe Import/Export</h3>
-                  <p className="text-white/90 text-sm">
+                  <h3 className="text-white font-bold text-base sm:text-lg">ChatGPT Recipe Import/Export</h3>
+                  <p className="text-white/90 text-xs sm:text-sm">
                     Import complete recipes from ChatGPT JSON or export current recipe as reference
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                 <button
                   onClick={handleExportCompleteRecipe}
-                  className="px-4 py-2.5 bg-white hover:bg-gray-100 text-indigo-600 rounded-lg font-bold flex items-center gap-2 shadow-md transition-all hover:scale-105"
+                  className="w-full sm:w-auto px-3 sm:px-4 py-2.5 bg-white hover:bg-gray-100 text-indigo-600 rounded-lg font-bold flex items-center justify-center gap-2 shadow-md transition-all hover:scale-105 touch-manipulation min-h-[44px] text-sm sm:text-base"
                   title="Export complete recipe with correct data as reference for ChatGPT"
                 >
                   <span>📤</span>
-                  <span>Export Complete Recipe</span>
+                  <span className="hidden sm:inline">Export Complete Recipe</span>
+                  <span className="sm:hidden">Export Recipe</span>
                 </button>
                 <button
                   onClick={() => setShowJsonImport(true)}
-                  className="px-4 py-2.5 bg-white hover:bg-gray-100 text-purple-600 rounded-lg font-bold flex items-center gap-2 shadow-md transition-all hover:scale-105"
+                  className="w-full sm:w-auto px-3 sm:px-4 py-2.5 bg-white hover:bg-gray-100 text-purple-600 rounded-lg font-bold flex items-center justify-center gap-2 shadow-md transition-all hover:scale-105 touch-manipulation min-h-[44px] text-sm sm:text-base"
                   title="Import recipe from ChatGPT JSON"
                 >
                   <span>📥</span>
-                  <span>Import JSON from ChatGPT</span>
+                  <span className="hidden sm:inline">Import JSON from ChatGPT</span>
+                  <span className="sm:hidden">Import JSON</span>
                 </button>
               </div>
             </div>
           </div>
 
           {/* Header with Back Button */}
-          <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-2">
             <button
               onClick={() => {
                 setViewMode('browse');
                 setSelectedRecipe(null);
                 setRecipeData(null);
               }}
-              className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg font-semibold"
+              className="w-full sm:w-auto px-4 py-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg font-semibold touch-manipulation min-h-[44px] text-sm sm:text-base"
             >
               ← Back to Browse
             </button>
             {(hasChanges || !selectedRecipe?.id) && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 {hasChanges && (
-                  <span className="text-sm text-amber-600 dark:text-amber-400">
+                  <span className="text-xs sm:text-sm text-amber-600 dark:text-amber-400 text-center sm:text-left">
                     ● Unsaved changes
                   </span>
                 )}
                 {!selectedRecipe?.id && (
-                  <span className="text-sm text-blue-600 dark:text-blue-400">● New Recipe</span>
+                  <span className="text-xs sm:text-sm text-blue-600 dark:text-blue-400 text-center sm:text-left">● New Recipe</span>
                 )}
                 <button
                   onClick={handleSaveAll}
                   disabled={saving || (!selectedRecipe?.id && !title.trim())}
-                  className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50 flex items-center gap-2"
+                  className="w-full sm:w-auto px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2 touch-manipulation min-h-[44px]"
                 >
                   {saving
                     ? 'Saving...'
@@ -2306,9 +2313,9 @@ export default function RecipeEditor({
           </div>
 
           {/* Recipe Preview */}
-          <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
-            <div className="flex gap-4">
-              <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-800">
+          <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 sm:p-4 border border-slate-200 dark:border-slate-700">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <div className="w-full sm:w-24 h-48 sm:h-24 flex-shrink-0 rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-800 mx-auto sm:mx-0">
                 {imageUrl ? (
                   <img
                     key={`${imageUrl}-${imageUrlTimestamp || ''}`}
@@ -2335,10 +2342,10 @@ export default function RecipeEditor({
                 )}
               </div>
               <div className="flex-1">
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white break-words">
                   {selectedRecipe?.title || title || 'New Recipe'}
                 </h2>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 break-all">
                   {selectedRecipe?.id ? `ID: ${selectedRecipe.id}` : 'New Recipe - Not Saved Yet'}
                 </p>
                 {!selectedRecipe?.id && (
@@ -2449,7 +2456,7 @@ export default function RecipeEditor({
 
           {/* Tabs */}
           <div className="border-b border-slate-200 dark:border-slate-700">
-            <div className="flex overflow-x-auto">
+            <div className="flex overflow-x-auto scrollbar-hide -mx-6 sm:mx-0 px-6 sm:px-0">
               {[
                 { id: 'basic', label: 'Basic Info' },
                 { id: 'ingredients', label: 'Ingredients' },
@@ -2460,7 +2467,7 @@ export default function RecipeEditor({
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-6 py-4 font-semibold transition-colors whitespace-nowrap ${
+                  className={`px-4 sm:px-6 py-3 sm:py-4 font-semibold transition-colors whitespace-nowrap text-sm sm:text-base touch-manipulation min-h-[44px] ${
                     activeTab === tab.id
                       ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -2473,7 +2480,7 @@ export default function RecipeEditor({
           </div>
 
           {/* Tab Content */}
-          <div className="bg-white dark:bg-slate-800 rounded-lg p-6 border border-slate-200 dark:border-slate-700">
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-4 sm:p-6 border border-slate-200 dark:border-slate-700">
             {/* Basic Info Tab */}
             {activeTab === 'basic' && (
               <div className="space-y-6">
@@ -2537,7 +2544,7 @@ export default function RecipeEditor({
                 </div>
 
                 {/* Time and Servings */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                       Prep Time (minutes)
@@ -2581,7 +2588,7 @@ export default function RecipeEditor({
                 </div>
 
                 {/* Difficulty and Author */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                       Difficulty
@@ -2650,7 +2657,7 @@ export default function RecipeEditor({
                   </label>
                   <div className="flex flex-wrap gap-3">
                     {['breakfast', 'lunch', 'dinner', 'snack', 'dessert'].map(type => (
-                      <label key={type} className="flex items-center gap-2 cursor-pointer">
+                      <label key={type} className="flex items-center gap-2 cursor-pointer touch-manipulation min-h-[44px] px-2">
                         <input
                           type="checkbox"
                           checked={mealTypes.includes(type)}
@@ -2661,7 +2668,7 @@ export default function RecipeEditor({
                               setMealTypes(mealTypes.filter(t => t !== type));
                             }
                           }}
-                          className="w-4 h-4 text-blue-600 rounded border-slate-300 dark:border-slate-600"
+                          className="w-5 h-5 text-blue-600 rounded border-slate-300 dark:border-slate-600"
                         />
                         <span className="text-sm text-slate-700 dark:text-slate-300 capitalize">
                           {type}
@@ -2686,7 +2693,7 @@ export default function RecipeEditor({
                       'dairy-free',
                       'nut-free',
                     ].map(diet => (
-                      <label key={diet} className="flex items-center gap-2 cursor-pointer">
+                      <label key={diet} className="flex items-center gap-2 cursor-pointer touch-manipulation min-h-[44px] px-2">
                         <input
                           type="checkbox"
                           checked={diets.includes(diet)}
@@ -2697,7 +2704,7 @@ export default function RecipeEditor({
                               setDiets(diets.filter(d => d !== diet));
                             }
                           }}
-                          className="w-4 h-4 text-blue-600 rounded border-slate-300 dark:border-slate-600"
+                          className="w-5 h-5 text-blue-600 rounded border-slate-300 dark:border-slate-600"
                         />
                         <span className="text-sm text-slate-700 dark:text-slate-300 capitalize">
                           {diet.replace('-', ' ')}
@@ -2771,7 +2778,7 @@ export default function RecipeEditor({
                     key={index}
                     className="flex gap-2 items-start p-4 border border-slate-200 dark:border-slate-700 rounded-lg"
                   >
-                    <div className="flex-1 grid grid-cols-2 gap-2">
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <input
                         type="text"
                         value={ing.ingredient_name}
@@ -2908,7 +2915,7 @@ export default function RecipeEditor({
                   <h4 className="text-md font-semibold text-slate-700 dark:text-slate-300 mb-3">
                     Macronutrients
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                         Calories (kcal)
@@ -2973,7 +2980,7 @@ export default function RecipeEditor({
                   <h4 className="text-md font-semibold text-slate-700 dark:text-slate-300 mb-3">
                     Fat Breakdown
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                         Saturated Fat (g)
@@ -3012,7 +3019,7 @@ export default function RecipeEditor({
                   <h4 className="text-md font-semibold text-slate-700 dark:text-slate-300 mb-3">
                     Carbohydrates
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                         Fiber (g)
@@ -3049,7 +3056,7 @@ export default function RecipeEditor({
                   <h4 className="text-md font-semibold text-slate-700 dark:text-slate-300 mb-3">
                     Minerals
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                         Sodium (mg)
@@ -3114,7 +3121,7 @@ export default function RecipeEditor({
                   <h4 className="text-md font-semibold text-slate-700 dark:text-slate-300 mb-3">
                     Vitamins
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                         Vitamin A (IU)
@@ -3165,7 +3172,7 @@ export default function RecipeEditor({
                   <h4 className="text-md font-semibold text-slate-700 dark:text-slate-300 mb-3">
                     Other
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                         Cholesterol (mg)
