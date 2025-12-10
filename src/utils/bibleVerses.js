@@ -41,7 +41,7 @@ export const BIBLE_VERSES = [
     reference: "1 Peter 5:7"
   },
   {
-    text: "For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you, plans to give you hope and a future.",
+    text: "For I know the plans I have for you,\" declares the Lord, \"plans to prosper you and not to harm you, plans to give you hope and a future.",
     reference: "Jeremiah 29:11"
   },
   {
