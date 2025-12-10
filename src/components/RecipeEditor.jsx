@@ -680,24 +680,30 @@ export default function RecipeEditor({
     const hadRecipeId = !!prevInitialRecipeIdRef.current;
     const recipeIdChanged = initialRecipeId !== prevInitialRecipeIdRef.current;
     
-    console.error('🔧 [RECIPE EDITOR] initialRecipeId effect:', {
-      initialRecipeId,
-      prev: prevInitialRecipeIdRef.current,
-      hasRecipeId,
-      hadRecipeId,
-      recipeIdChanged,
-      currentViewMode: viewMode
-    });
+    if (import.meta.env.DEV) {
+      console.warn('🔧 [RECIPE EDITOR] initialRecipeId effect:', {
+        initialRecipeId,
+        prev: prevInitialRecipeIdRef.current,
+        hasRecipeId,
+        hadRecipeId,
+        recipeIdChanged,
+        currentViewMode: viewMode
+      });
+    }
     
     if (hasRecipeId && recipeIdChanged) {
-      console.error('🔧 [RECIPE EDITOR] Switching to edit mode immediately');
+      if (import.meta.env.DEV) {
+        console.warn('🔧 [RECIPE EDITOR] Switching to edit mode immediately');
+      }
       setViewMode('edit');
       // Reset selected recipe to force reload
       setSelectedRecipe(null);
       setRecipeData(null);
     } else if (!hasRecipeId && hadRecipeId) {
       // RecipeId was cleared, switch back to browse
-      console.error('🔧 [RECIPE EDITOR] initialRecipeId cleared, switching to browse mode');
+      if (import.meta.env.DEV) {
+        console.warn('🔧 [RECIPE EDITOR] initialRecipeId cleared, switching to browse mode');
+      }
       setViewMode('browse');
       setSelectedRecipe(null);
       setRecipeData(null);
@@ -709,27 +715,33 @@ export default function RecipeEditor({
   // Load recipe by ID (for when opened from MissingImagesViewer or RecipesNeedingWork)
   useEffect(() => {
     if (initialRecipeId) {
-      console.error('🔄 [RECIPE EDITOR] Loading recipe by ID:', {
-        initialRecipeId,
-        prev: prevInitialRecipeIdRef.current,
-        currentSelected: selectedRecipe?.id,
-        viewMode
-      });
+      if (import.meta.env.DEV) {
+        console.warn('🔄 [RECIPE EDITOR] Loading recipe by ID:', {
+          initialRecipeId,
+          prev: prevInitialRecipeIdRef.current,
+          currentSelected: selectedRecipe?.id,
+          viewMode
+        });
+      }
       
       // Always load the recipe when initialRecipeId is provided
       const loadRecipeById = async () => {
-        console.error('📥 [RECIPE EDITOR] Starting recipe load:', initialRecipeId);
+        if (import.meta.env.DEV) {
+          console.warn('📥 [RECIPE EDITOR] Starting recipe load:', initialRecipeId);
+        }
         setLoading(true);
         try {
           const result = await getRecipeForEditing(initialRecipeId);
           setLoading(false);
           
-          console.error('📥 [RECIPE EDITOR] Recipe load result:', {
-            success: result.success,
-            hasData: !!result.data,
-            recipeId: result.data?.recipe?.id,
-            hasTitle: !!result.data?.recipe?.title
-          });
+          if (import.meta.env.DEV) {
+            console.warn('📥 [RECIPE EDITOR] Recipe load result:', {
+              success: result.success,
+              hasData: !!result.data,
+              recipeId: result.data?.recipe?.id,
+              hasTitle: !!result.data?.recipe?.title
+            });
+          }
 
             if (result.success) {
               const recipeData_recipe = result.data.recipe;
@@ -2139,7 +2151,7 @@ export default function RecipeEditor({
             <div className="text-center py-12 text-slate-500">No recipes found</div>
           ) : (
             <>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
                 {recipes.map(recipe => (
                   <motion.div
                     key={recipe.id}

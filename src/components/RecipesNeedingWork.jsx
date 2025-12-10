@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
 import { checkRecipeRowCompleteness, getRecipesNeedingWork } from '../utils/recipeCompleteness.js';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from './Toast';
 import { AlertCircle, CheckCircle, Image, FileText, Utensils, ChefHat, Calendar } from 'lucide-react';
 
 export default function RecipesNeedingWork() {
@@ -21,6 +22,7 @@ export default function RecipesNeedingWork() {
     missingDescription: 0,
   });
   const navigate = useNavigate();
+  const toast = useToast();
 
   useEffect(() => {
     fetchRecipesNeedingWork();
@@ -107,25 +109,35 @@ export default function RecipesNeedingWork() {
     return badges;
   };
 
-  const handleEditRecipe = (recipeId) => {
+  const handleEditRecipe = (recipeId, e) => {
+    // Prevent event bubbling
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (!recipeId) {
       console.error('🔧 [RECIPES NEEDING WORK] No recipe ID provided');
+      toast.error('No recipe ID provided');
       return;
     }
     
-    if (import.meta.env.DEV) {
-      console.warn('🔧 [RECIPES NEEDING WORK] Edit button clicked, navigating to:', recipeId);
-    }
+    console.warn('🔧 [RECIPES NEEDING WORK] Edit button clicked', {
+      recipeId,
+      timestamp: new Date().toISOString(),
+      url: window.location.href,
+    });
     
     try {
       // Navigate to admin dashboard with recipe ID - ensure tab is set to recipes
       const url = `/admin?tab=recipes&recipeId=${encodeURIComponent(recipeId)}`;
-      navigate(url, { replace: false });
-    } catch (error) {
-      console.error('Error navigating to recipe editor:', error);
-      // Fallback: try window.location if navigate fails
-      const url = `/admin?tab=recipes&recipeId=${encodeURIComponent(recipeId)}`;
+      console.warn('🔧 [RECIPES NEEDING WORK] Navigating to:', url);
+      
+      // Use window.location for more reliable navigation
       window.location.href = url;
+    } catch (error) {
+      console.error('❌ [RECIPES NEEDING WORK] Error navigating to recipe editor:', error);
+      toast.error(`Failed to navigate: ${error.message}`);
     }
   };
 
@@ -234,8 +246,7 @@ export default function RecipesNeedingWork() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="bg-white dark:bg-slate-800 rounded-xl p-6 border-2 border-slate-200 dark:border-slate-700 hover:border-purple-400 dark:hover:border-purple-600 transition-all cursor-pointer"
-                onClick={() => handleEditRecipe(recipe.id)}
+                className="bg-white dark:bg-slate-800 rounded-xl p-6 border-2 border-slate-200 dark:border-slate-700 hover:border-purple-400 dark:hover:border-purple-600 transition-all"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
@@ -292,11 +303,8 @@ export default function RecipesNeedingWork() {
                   </div>
 
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEditRecipe(recipe.id);
-                    }}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold shrink-0"
+                    onClick={(e) => handleEditRecipe(recipe.id, e)}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold shrink-0 transition-colors"
                   >
                     Edit
                   </button>
