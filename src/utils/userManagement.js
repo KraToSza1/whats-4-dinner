@@ -149,6 +149,41 @@ export async function updateUserPlan(userId, plan, billingPeriod = 'monthly') {
 }
 
 /**
+ * Flush cache for a specific user
+ * Updates the user's profile with a new cache_bust_version timestamp
+ */
+export async function flushUserCache(userId) {
+  try {
+    const cacheBustVersion = Date.now();
+    
+    // Update user's profile with cache_bust_version
+    // We'll store it in a metadata JSONB field or directly as a column
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        cache_bust_version: cacheBustVersion,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      cacheBustVersion,
+      error: null,
+    };
+  } catch (error) {
+    console.error('Error flushing user cache:', error);
+    return {
+      success: false,
+      cacheBustVersion: null,
+      error: error.message,
+    };
+  }
+}
+
+/**
  * Get user statistics
  * Uses admin API if available, otherwise falls back to profiles table
  */

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getAllUsers, searchUsers, updateUserPlan, getUserStats } from '../utils/userManagement';
+import { getAllUsers, searchUsers, updateUserPlan, getUserStats, flushUserCache } from '../utils/userManagement';
 import { getUserSupportTickets } from '../utils/supportTickets';
 import { useToast } from './Toast';
 import {
@@ -19,6 +19,7 @@ import {
   Zap,
   MessageSquare,
   AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 
 // Debounce hook
@@ -131,6 +132,24 @@ export default function UserManagement() {
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFlushUserCache = async (userId, userEmail) => {
+    if (!confirm(`Are you sure you want to flush cache for ${userEmail || 'this user'}?`)) {
+      return;
+    }
+
+    try {
+      const result = await flushUserCache(userId);
+      if (result.success) {
+        toast.success(`✨ Cache flushed for ${userEmail || 'user'}. They will clear cache on next load.`);
+      } else {
+        toast.error(`Failed to flush cache: ${result.error}`);
+      }
+    } catch (error) {
+      toast.error('Error flushing user cache');
+      console.error(error);
     }
   };
 
@@ -442,17 +461,29 @@ export default function UserManagement() {
                                 </motion.button>
                               </div>
                             ) : (
-                              <motion.button
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
-                                onClick={() => {
-                                  setEditingUser(user.id);
-                                  setNewPlan(user.plan || 'free');
-                                }}
-                                className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </motion.button>
+                              <div className="flex items-center gap-2">
+                                <motion.button
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
+                                  onClick={() => {
+                                    setEditingUser(user.id);
+                                    setNewPlan(user.plan || 'free');
+                                  }}
+                                  className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                  title="Edit Plan"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </motion.button>
+                                <motion.button
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
+                                  onClick={() => handleFlushUserCache(user.id, user.email)}
+                                  className="p-2 text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                                  title="Flush User Cache"
+                                >
+                                  <RefreshCw className="w-4 h-4" />
+                                </motion.button>
+                              </div>
                             )}
                           </td>
                         </motion.tr>
