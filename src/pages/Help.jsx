@@ -338,6 +338,7 @@ export default function Help() {
   const [openQuestion, setOpenQuestion] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSupportForm, setShowSupportForm] = useState(false);
+  const todaysVerse = useMemo(() => getTodaysVerse(), []);
   const [supportForm, setSupportForm] = useState({
     subject: '',
     description: '',
@@ -1052,14 +1053,9 @@ export default function Help() {
               <p className="text-emerald-100/80 text-[10px] sm:text-xs mt-2">
                 Made with ❤️ for food lovers everywhere
               </p>
-              {(() => {
-                const verse = getTodaysVerse();
-                return (
-                  <p className="text-emerald-100/60 text-[9px] sm:text-[10px] mt-3 italic">
-                    "{verse.text}" - {verse.reference}
-                  </p>
-                );
-              })()}
+              <p className="text-emerald-100/60 text-[9px] sm:text-[10px] mt-3 italic">
+                "{todaysVerse.text}" - {todaysVerse.reference}
+              </p>
             </div>
           </div>
         </motion.section>
