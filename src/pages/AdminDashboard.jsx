@@ -48,7 +48,7 @@ export default function AdminDashboard() {
     if (recipeIdFromUrl) {
       // Force remount by changing key - defer to avoid cascading renders
       setTimeout(() => {
-        setEditorKey(prev => prev + 1);
+      setEditorKey(prev => prev + 1);
         if (import.meta.env.DEV) {
           console.warn('🔄 [ADMIN DASHBOARD] RecipeId changed, forcing RecipeEditor remount:', recipeIdFromUrl);
         }
@@ -134,18 +134,25 @@ export default function AdminDashboard() {
     // If recipeId is in URL, ensure we're on recipes tab (priority)
     const targetTab = currentRecipeId ? 'recipes' : tabFromUrl;
 
-    // Update immediately if different (no timeout needed for this)
-    if (targetTab !== activeTab) {
-      if (import.meta.env.DEV) {
-        console.warn('🔄 [ADMIN DASHBOARD] Updating activeTab from URL', {
-          oldTab: activeTab,
-          newTab: targetTab,
-          reason: currentRecipeId ? 'recipeId in URL' : 'tab param changed',
-        });
-      }
-      setActiveTab(targetTab);
-    }
-  }, [searchParams, recipeIdFromUrl, activeTab]);
+    // Defer state update to avoid synchronous setState warning
+    const timeoutId = setTimeout(() => {
+      setActiveTab(prevTab => {
+        if (targetTab !== prevTab) {
+          if (import.meta.env.DEV) {
+            console.warn('🔄 [ADMIN DASHBOARD] Updating activeTab from URL', {
+              oldTab: prevTab,
+              newTab: targetTab,
+              reason: currentRecipeId ? 'recipeId in URL' : 'tab param changed',
+            });
+          }
+          return targetTab;
+        }
+        return prevTab;
+      });
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchParams, recipeIdFromUrl]);
 
   useEffect(() => {
     if (import.meta.env.DEV) {
