@@ -75,7 +75,6 @@
     "tailwindcss": "^4.1.17",
     "vite": "^7.1.2",
     "vite-bundle-visualizer": "^1.2.1",
-    "vite-plugin-polyfill": "^0.0.1",
     "vite-plugin-pwa": "^1.0.3"
   }
 }

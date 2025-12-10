@@ -2,19 +2,10 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import legacy from '@vitejs/plugin-legacy';
-import { nodePolyfills } from 'vite-plugin-polyfill';
 
 export default defineConfig({
   plugins: [
     react(),
-    // Polyfills for Node.js modules (if needed)
-    nodePolyfills({
-      globals: {
-        Buffer: true,
-        global: true,
-        process: true,
-      },
-    }),
     // Legacy browser support (older browsers, but not IE11 as it's too old for React 19)
     legacy({
       targets: ['defaults', 'not dead', '> 0.5%'], // Supports Chrome 60+, Firefox 60+, Safari 12+, Edge 79+
