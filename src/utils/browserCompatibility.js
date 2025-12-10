@@ -687,6 +687,7 @@ export const initBrowserCompatibility = () => {
 
   // Log browser info in dev mode
   if (import.meta.env?.DEV) {
+    // eslint-disable-next-line no-console
     console.log('🌐 Browser Compatibility Check:', {
       browser: browser.name,
       version: browser.version,

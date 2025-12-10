@@ -15,9 +15,9 @@ export default defineConfig({
         process: true,
       },
     }),
-    // Legacy browser support (IE11, older Safari, etc.)
+    // Legacy browser support (older browsers, but not IE11 as it's too old for React 19)
     legacy({
-      targets: ['defaults', 'not IE 11', 'not dead', '> 0.5%'],
+      targets: ['defaults', 'not dead', '> 0.5%'], // Supports Chrome 60+, Firefox 60+, Safari 12+, Edge 79+
       modernPolyfills: true,
       renderLegacyChunks: true,
       polyfills: [

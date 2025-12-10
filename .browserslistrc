@@ -1,5 +1,6 @@
 # Browser support configuration
-# Supports all modern browsers and IE11+
+# Supports all modern browsers (Chrome 60+, Firefox 60+, Safari 12+, Edge 79+)
+# Note: IE11 is NOT supported due to React 19 requirements
 
 # Modern browsers (last 2 versions)
 last 2 versions
@@ -12,12 +13,9 @@ Edge >= 79
 iOS >= 12
 Android >= 6
 
-# Internet Explorer 11 (if needed)
-IE 11
-
 # Not dead browsers (browsers with >0.5% usage)
 not dead
 
-# Not IE 11 (uncomment if you want to drop IE11 support)
-# not IE 11
+# Explicitly exclude IE11 (React 19 doesn't support it)
+not IE 11
 
