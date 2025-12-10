@@ -41,7 +41,8 @@ export default function InstallPWA() {
 
     // Check if service worker is registered (required for PWA)
     // Only warn in development to reduce console noise
-    if ('serviceWorker' in navigator && import.meta.env.DEV) {
+    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if ('serviceWorker' in navigator && isDev) {
       navigator.serviceWorker.getRegistration().then(registration => {
         if (!registration) {
           console.warn('⚠️ [PWA] Service worker not registered. PWA install may not work.');

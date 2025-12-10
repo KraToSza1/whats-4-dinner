@@ -61,7 +61,10 @@ export default async function handler(req, res) {
     const isAdmin = adminEmails.includes(user.email?.toLowerCase());
     
     if (!isAdmin) {
-      console.error('Admin API access denied:', { email: user.email, adminEmails });
+      // Only log in development - 403 is expected for non-admin users
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Admin API access denied:', { email: user.email, adminEmails });
+      }
       res.status(403).json({ error: 'Forbidden: Admin access required', email: user.email });
       return;
     }

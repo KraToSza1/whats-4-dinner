@@ -56,6 +56,8 @@ See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for detailed instructions on:
   - `SUPABASE_URL`
   - `SUPABASE_ANON_KEY`
   - `SUPABASE_SERVICE_ROLE_KEY` (serverless only, for Stripe webhook upsert)
+- Admin Access
+  - `ADMIN_EMAILS` - Comma-separated list of admin email addresses (e.g., `email1@example.com,email2@example.com`)
 - Stripe
   - `STRIPE_SECRET_KEY`
   - `STRIPE_PRICE_ID` (recurring price)
