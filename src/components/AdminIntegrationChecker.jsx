@@ -13,6 +13,7 @@ export default function AdminIntegrationChecker() {
     paddle: { status: 'checking', message: 'Checking...' },
     vercel: { status: 'checking', message: 'Checking...' },
     api: { status: 'checking', message: 'Checking...' },
+    google: { status: 'checking', message: 'Checking...' },
   });
   const [loading, setLoading] = useState(true);
 
@@ -171,6 +172,54 @@ export default function AdminIntegrationChecker() {
     }
   }, []);
 
+  const checkGoogleOAuth = useCallback(async () => {
+    try {
+      // Check if Supabase has Google OAuth configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        return {
+          status: 'error',
+          message: 'Supabase URL missing',
+          details: 'Cannot check Google OAuth without Supabase',
+        };
+      }
+
+      // Try to test Google OAuth by checking if provider is available
+      // We can't actually test the OAuth flow, but we can check if Supabase is configured
+      const { data: { providers }, error } = await supabase.auth.listProviders();
+
+      if (error) {
+        return {
+          status: 'warning',
+          message: 'Cannot verify providers',
+          details: error.message,
+        };
+      }
+
+      const hasGoogle = providers?.some(p => p.provider === 'google');
+
+      if (hasGoogle) {
+        return {
+          status: 'success',
+          message: 'Google OAuth enabled',
+          details: 'Configured in Supabase',
+        };
+      } else {
+        return {
+          status: 'error',
+          message: 'Google OAuth not enabled',
+          details: 'Enable in Supabase Dashboard → Authentication → Providers',
+        };
+      }
+    } catch (error) {
+      return {
+        status: 'warning',
+        message: 'Check failed',
+        details: error.message,
+      };
+    }
+  }, []);
+
   const runChecks = useCallback(async () => {
     setLoading(true);
     const results = {
@@ -178,10 +227,11 @@ export default function AdminIntegrationChecker() {
       paddle: await checkPaddle(),
       vercel: await checkVercel(),
       api: await checkApiHealth(),
+      google: await checkGoogleOAuth(),
     };
     setChecks(results);
     setLoading(false);
-  }, [checkSupabase, checkPaddle, checkVercel, checkApiHealth]);
+  }, [checkSupabase, checkPaddle, checkVercel, checkApiHealth, checkGoogleOAuth]);
 
   useEffect(() => {
     runChecks();
@@ -229,7 +279,7 @@ export default function AdminIntegrationChecker() {
         </motion.button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
         {/* Supabase */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -306,6 +356,25 @@ export default function AdminIntegrationChecker() {
             </div>
           </div>
         </motion.div>
+
+        {/* Google OAuth */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className={`p-4 rounded-xl border-2 ${getStatusColor(checks.google.status)}`}
+        >
+          <div className="flex items-start gap-3">
+            {getStatusIcon(checks.google.status)}
+            <div className="flex-1 min-w-0">
+              <h4 className="font-semibold text-slate-900 dark:text-white mb-1">Google OAuth</h4>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">
+                {checks.google.message}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-500">{checks.google.details}</p>
+            </div>
+          </div>
+        </motion.div>
       </div>
 
       {/* Quick Links */}
@@ -336,6 +405,15 @@ export default function AdminIntegrationChecker() {
         >
           <ExternalLink className="w-4 h-4" />
           Vercel Dashboard
+        </a>
+        <a
+          href="https://console.cloud.google.com/apis/credentials"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+        >
+          <ExternalLink className="w-4 h-4" />
+          Google Cloud Console
         </a>
       </div>
     </div>

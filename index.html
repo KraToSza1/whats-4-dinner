@@ -251,6 +251,26 @@
         if (message.includes('OpaqueResponseBlocking')) {
           return;
         }
+        // Suppress Google accountchooser warnings (harmless, from Google's own scripts)
+        if (message.includes('unreachable code after return statement') && message.includes('accountchooser')) {
+          return;
+        }
+        // Suppress Google Self-XSS warnings (harmless, Google's own security message)
+        if (message.includes('Self-XSS') || message.includes('impersonate you and steal')) {
+          return;
+        }
+        // Suppress Google CSP warnings (harmless, from Google's own pages)
+        if (message.includes('Content-Security-Policy') && (message.includes('accountchooser') || message.includes('bscframe'))) {
+          return;
+        }
+        // Suppress Google Quirks Mode warnings (harmless)
+        if (message.includes('Quirks Mode') || message.includes('Standards Mode')) {
+          return;
+        }
+        // Suppress deprecated MouseEvent warnings (harmless, from Google's scripts)
+        if (message.includes('MouseEvent.mozPressure') || message.includes('MouseEvent.mozInputSource') || message.includes('PointerEvent.pressure') || message.includes('PointerEvent.pointerType')) {
+          return;
+        }
         // Suppress service worker registration messages in production
         if (
           !window.location.hostname.includes('localhost') &&
@@ -277,8 +297,13 @@
            (message.includes('__cf_bm') || 
             message.includes('rejected for invalid domain') ||
             message.includes('Partitioned'))) ||
-          message.includes('Partitioned cookie or storage access')
+          message.includes('Partitioned cookie or storage access') ||
+          message.includes('Partitioned cookie or storage access was provided')
         ) {
+          return;
+        }
+        // Suppress NS_BINDING_ABORTED (network cancellation, harmless)
+        if (message.includes('NS_BINDING_ABORTED')) {
           return;
         }
         // Suppress image loading errors that are handled by fallback mechanism

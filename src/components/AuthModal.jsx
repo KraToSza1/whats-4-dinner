@@ -80,6 +80,10 @@ export default function AuthModal({ open, onClose }) {
           setError(
             `Redirect URL mismatch. Add "${fullRedirectTo}" to your Supabase dashboard under Authentication > URL Configuration > Redirect URLs.`
           );
+        } else if (err.message?.includes('disallowed_useragent') || err.message?.includes('403')) {
+          setError(
+            `Google is blocking this sign-in. Please try using email magic link instead, or sign in directly from the website (not from an embedded browser).`
+          );
         } else {
           setError(err.message || 'OAuth sign-in failed. Please try again.');
         }
