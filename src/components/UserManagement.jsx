@@ -51,6 +51,8 @@ export default function UserManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
   const [userTickets, setUserTickets] = useState({});
+  const [selectedUsers, setSelectedUsers] = useState(new Set());
+  const [flushingCache, setFlushingCache] = useState(false);
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
@@ -140,6 +142,7 @@ export default function UserManagement() {
       return;
     }
 
+    setFlushingCache(true);
     try {
       const result = await flushUserCache(userId);
       if (result.success) {
@@ -150,6 +153,47 @@ export default function UserManagement() {
     } catch (error) {
       toast.error('Error flushing user cache');
       console.error(error);
+    } finally {
+      setFlushingCache(false);
+    }
+  };
+
+  const handleBulkFlushCache = async () => {
+    if (selectedUsers.size === 0) {
+      toast.error('Please select at least one user');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to flush cache for ${selectedUsers.size} user(s)?`)) {
+      return;
+    }
+
+    setFlushingCache(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      for (const userId of selectedUsers) {
+        const user = users.find(u => u.id === userId);
+        const result = await flushUserCache(userId, user?.email);
+        if (result.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`✨ Cache flushed for ${successCount} user(s). ${failCount > 0 ? `${failCount} failed.` : ''}`);
+      } else {
+        toast.error(`Failed to flush cache for all ${selectedUsers.size} user(s)`);
+      }
+      setSelectedUsers(new Set());
+    } catch (error) {
+      toast.error('Error during bulk cache flush');
+      console.error(error);
+    } finally {
+      setFlushingCache(false);
     }
   };
 
@@ -293,6 +337,18 @@ export default function UserManagement() {
               <option value="supporter">Supporter</option>
               <option value="family">Family</option>
             </select>
+            {selectedUsers.size > 0 && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleBulkFlushCache}
+                disabled={flushingCache}
+                className="px-4 py-3 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 disabled:opacity-50 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${flushingCache ? 'animate-spin' : ''}`} />
+                Flush Cache ({selectedUsers.size})
+              </motion.button>
+            )}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -365,6 +421,7 @@ export default function UserManagement() {
                     {paginatedUsers.map((user, index) => {
                       const PlanIcon = planIcons[user.plan || 'free'] || UsersIcon;
                       const ticketCount = userTickets[user.id] || 0;
+                      const isSelected = selectedUsers.has(user.id);
                       return (
                         <motion.tr
                           key={user.id}
@@ -372,8 +429,24 @@ export default function UserManagement() {
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: 20 }}
                           transition={{ delay: index * 0.02 }}
-                          className="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+                          className={`hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
                         >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const newSelected = new Set(selectedUsers);
+                                if (e.target.checked) {
+                                  newSelected.add(user.id);
+                                } else {
+                                  newSelected.delete(user.id);
+                                }
+                                setSelectedUsers(newSelected);
+                              }}
+                              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                            />
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-md">
@@ -475,13 +548,14 @@ export default function UserManagement() {
                                   <Edit2 className="w-4 h-4" />
                                 </motion.button>
                                 <motion.button
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.9 }}
+                                  whileHover={{ scale: 1.15 }}
+                                  whileTap={{ scale: 0.95 }}
                                   onClick={() => handleFlushUserCache(user.id, user.email)}
-                                  className="p-2 text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
-                                  title="Flush User Cache"
+                                  className="px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-lg font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-1.5"
+                                  title="Flush User Cache - Clears all cached data for this user"
                                 >
                                   <RefreshCw className="w-4 h-4" />
+                                  <span className="text-xs hidden sm:inline">Cache</span>
                                 </motion.button>
                               </div>
                             )}
