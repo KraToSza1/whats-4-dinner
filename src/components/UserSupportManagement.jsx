@@ -209,13 +209,13 @@ export default function UserSupportManagement() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header with Stats */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-            <MessageSquare className="w-8 h-8 text-blue-500" />
-            Support Ticket Management
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-2 sm:gap-3">
+            <MessageSquare className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500 shrink-0" />
+            <span className="truncate">Support Ticket Management</span>
           </h2>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Manage user support requests and issues
           </p>
         </div>
@@ -227,16 +227,16 @@ export default function UserSupportManagement() {
             loadStats();
           }}
           disabled={loading}
-          className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2 disabled:opacity-50"
+          className="px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg sm:rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm sm:text-base touch-manipulation min-h-[44px] w-full sm:w-auto"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
+          <RefreshCw className={`w-4 h-4 shrink-0 ${loading ? 'animate-spin' : ''}`} />
+          <span>Refresh</span>
         </motion.button>
       </div>
 
       {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3 md:gap-4">
           {[
             { label: 'Total', value: stats.total, color: 'from-slate-500 to-slate-600' },
             { label: 'Open', value: stats.open, color: 'from-blue-500 to-cyan-500' },
@@ -253,10 +253,10 @@ export default function UserSupportManagement() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.05 }}
               whileHover={{ scale: 1.05, y: -2 }}
-              className={`bg-gradient-to-br ${stat.color} rounded-xl p-4 text-white shadow-lg`}
+              className={`bg-gradient-to-br ${stat.color} rounded-lg sm:rounded-xl p-2 sm:p-3 md:p-4 text-white shadow-lg`}
             >
-              <p className="text-xs font-medium opacity-90 mb-1">{stat.label}</p>
-              <p className="text-2xl font-bold">{stat.value.toLocaleString()}</p>
+              <p className="text-[10px] sm:text-xs font-medium opacity-90 mb-0.5 sm:mb-1">{stat.label}</p>
+              <p className="text-lg sm:text-xl md:text-2xl font-bold">{stat.value.toLocaleString()}</p>
             </motion.div>
           ))}
         </div>
@@ -266,23 +266,23 @@ export default function UserSupportManagement() {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white dark:bg-slate-800 rounded-2xl p-6 border-2 border-slate-200 dark:border-slate-700 shadow-lg"
+        className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 border-2 border-slate-200 dark:border-slate-700 shadow-lg"
       >
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
             <input
               type="text"
-              placeholder="🔍 Search tickets by subject, description, or user email..."
+              placeholder="🔍 Search tickets..."
               value={filters.search}
               onChange={e => setFilters({ ...filters, search: e.target.value })}
-              className="w-full pl-12 pr-4 py-3 border-2 border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="w-full pl-10 sm:pl-12 pr-4 py-2.5 sm:py-3 border-2 border-slate-300 dark:border-slate-600 rounded-lg sm:rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm sm:text-base touch-manipulation min-h-[44px]"
             />
           </div>
           <select
             value={filters.status}
             onChange={e => setFilters({ ...filters, status: e.target.value })}
-            className="px-4 py-3 border-2 border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium"
+            className="px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-slate-300 dark:border-slate-600 rounded-lg sm:rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium text-sm sm:text-base touch-manipulation min-h-[44px]"
           >
             <option value="all">All Status</option>
             <option value="open">Open</option>
@@ -293,7 +293,7 @@ export default function UserSupportManagement() {
           <select
             value={filters.priority}
             onChange={e => setFilters({ ...filters, priority: e.target.value })}
-            className="px-4 py-3 border-2 border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium"
+            className="px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-slate-300 dark:border-slate-600 rounded-lg sm:rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium text-sm sm:text-base touch-manipulation min-h-[44px]"
           >
             <option value="all">All Priority</option>
             <option value="urgent">Urgent</option>
@@ -305,12 +305,12 @@ export default function UserSupportManagement() {
       </motion.div>
 
       {/* Tickets List and Detail View */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Tickets List */}
-        <div className="lg:col-span-1 space-y-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border-2 border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden">
-            <div className="p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border-b-2 border-slate-200 dark:border-slate-700">
-              <h3 className="font-bold text-slate-900 dark:text-white">
+        <div className="lg:col-span-1 space-y-3 sm:space-y-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl border-2 border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden">
+            <div className="p-3 sm:p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 border-b-2 border-slate-200 dark:border-slate-700">
+              <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
                 Tickets ({filteredTickets.length})
               </h3>
             </div>
