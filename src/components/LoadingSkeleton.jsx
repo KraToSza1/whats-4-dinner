@@ -1,3 +1,7 @@
+// "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life." - John 3:16
+// "I can do all things through Christ who strengthens me." - Philippians 4:13
+// "Trust in the Lord with all your heart and lean not on your own understanding." - Proverbs 3:5
+// "Be still, and know that I am God." - Psalm 46:10
 import { motion } from 'framer-motion';
 import { LoadingFoodAnimation } from './LottieFoodAnimations.jsx';
 import { PulseFoodLoader } from './FoodLoaders.jsx';

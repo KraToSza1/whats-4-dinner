@@ -58,3 +58,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
 // App booted successfully
 // "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life." - John 3:16
+// "I can do all things through Christ who strengthens me." - Philippians 4:13
+// "Trust in the Lord with all your heart and lean not on your own understanding." - Proverbs 3:5
+// "Be still, and know that I am God." - Psalm 46:10
+// "The Lord is my shepherd, I lack nothing." - Psalm 23:1
+// "Cast all your anxiety on him because he cares for you." - 1 Peter 5:7
+// "For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you, plans to give you hope and a future." - Jeremiah 29:11
+// "Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God." - Philippians 4:6
+// "Jesus said, 'I am the way and the truth and the life. No one comes to the Father except through me.'" - John 14:6
+// "The Lord will fight for you; you need only to be still." - Exodus 14:14

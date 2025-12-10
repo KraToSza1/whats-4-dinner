@@ -2679,6 +2679,24 @@ export default function Profile() {
             </motion.div>
           )}
         </AnimatePresence>
+        
+        {/* Footer with Bible verses */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-700 text-center space-y-2"
+        >
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "I can do all things through Christ who strengthens me." - Philippians 4:13
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "Trust in the Lord with all your heart and lean not on your own understanding." - Proverbs 3:5
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life." - John 3:16
+          </p>
+        </motion.div>
       </div>
     </div>
   );

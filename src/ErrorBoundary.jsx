@@ -1,4 +1,9 @@
-﻿import React from 'react';
+﻿// "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life." - John 3:16
+// "I can do all things through Christ who strengthens me." - Philippians 4:13
+// "Trust in the Lord with all your heart and lean not on your own understanding." - Proverbs 3:5
+// "Be still, and know that I am God." - Psalm 46:10
+// "The Lord is my shepherd, I lack nothing." - Psalm 23:1
+import React from 'react';
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {

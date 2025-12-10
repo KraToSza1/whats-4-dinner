@@ -605,15 +605,57 @@ export default function AdminDashboard() {
           )}
         </AnimatePresence>
         
-        {/* Footer with John 3:16 */}
+        {/* Footer with Bible verses */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1 }}
-          className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-700 text-center"
+          className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-700 text-center space-y-2"
         >
           <p className="text-xs text-slate-400 dark:text-slate-500 italic">
             "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life." - John 3:16
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "I can do all things through Christ who strengthens me." - Philippians 4:13
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "Trust in the Lord with all your heart and lean not on your own understanding." - Proverbs 3:5
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "Be still, and know that I am God." - Psalm 46:10
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "The Lord is my shepherd, I lack nothing." - Psalm 23:1
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "Cast all your anxiety on him because he cares for you." - 1 Peter 5:7
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "For I know the plans I have for you," declares the Lord, "plans to prosper you and not to harm you, plans to give you hope and a future." - Jeremiah 29:11
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God." - Philippians 4:6
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "Jesus said, 'I am the way and the truth and the life. No one comes to the Father except through me.'" - John 14:6
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "The Lord will fight for you; you need only to be still." - Exodus 14:14
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "And we know that in all things God works for the good of those who love him, who have been called according to his purpose." - Romans 8:28
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "The Lord is close to the brokenhearted and saves those who are crushed in spirit." - Psalm 34:18
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "Come to me, all you who are weary and burdened, and I will give you rest." - Matthew 11:28
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "But those who hope in the Lord will renew their strength. They will soar on wings like eagles; they will run and not grow weary, they will walk and not be faint." - Isaiah 40:31
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            "Have I not commanded you? Be strong and courageous. Do not be afraid; do not be discouraged, for the Lord your God will be with you wherever you go." - Joshua 1:9
           </p>
         </motion.div>
       </div>
