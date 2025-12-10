@@ -57,10 +57,16 @@ export async function getDashboardStats() {
             paidUsers = (data.stats.supporter || 0) + (data.stats.family || 0);
             activeSubscriptions = data.stats.active || 0;
           }
+        } else if (response.status === 403) {
+          // 403 is expected for non-admin users - silently fallback
+          // Don't log this as it's not an error
         }
       }
     } catch (e) {
-      console.warn('Could not fetch users from admin API, falling back to profiles:', e);
+      // Only warn in dev mode
+      if (import.meta.env.DEV) {
+        console.warn('Could not fetch users from admin API, falling back to profiles:', e);
+      }
     }
 
     // Fallback: Get from profiles table if admin API failed
@@ -200,6 +206,9 @@ export async function getRecentActivity(limit = 10) {
                 plan: user.plan || 'free',
               }));
           }
+        } else if (response.status === 403) {
+          // 403 is expected for non-admin users - silently fallback
+          // Don't log this as it's not an error
         }
       }
     } catch (e) {

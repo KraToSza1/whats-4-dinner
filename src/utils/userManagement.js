@@ -34,8 +34,16 @@ export async function getAllUsers(limit = 1000, offset = 0) {
     });
 
     if (!response.ok) {
+      // 403 is expected for non-admin users - silently fallback
+      if (response.status === 403) {
+        // Fallback to profiles table without logging
+        return await getAllUsersFromProfiles(limit, offset);
+      }
+      // Only log non-403 errors
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('Admin API error:', errorData);
+      if (import.meta.env.DEV) {
+        console.error('Admin API error:', errorData);
+      }
       // Fallback to profiles table
       return await getAllUsersFromProfiles(limit, offset);
     }

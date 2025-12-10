@@ -233,8 +233,12 @@
         }
         // Suppress cookie warnings (Cloudflare issue, harmless)
         if (
-          message.includes('Cookie') &&
-          (message.includes('__cf_bm') || message.includes('will soon be rejected') || message.includes('Partitioned'))
+          (message.includes('Cookie') && 
+           (message.includes('__cf_bm') || 
+            message.includes('will soon be rejected') || 
+            message.includes('rejected for invalid domain') ||
+            message.includes('Partitioned'))) ||
+          message.includes('Partitioned cookie or storage access')
         ) {
           return;
         }
@@ -268,8 +272,11 @@
         }
         // Suppress cookie errors (Cloudflare issue, harmless)
         if (
-          message.includes('Cookie') &&
-          (message.includes('__cf_bm') || message.includes('rejected for invalid domain'))
+          (message.includes('Cookie') &&
+           (message.includes('__cf_bm') || 
+            message.includes('rejected for invalid domain') ||
+            message.includes('Partitioned'))) ||
+          message.includes('Partitioned cookie or storage access')
         ) {
           return;
         }
