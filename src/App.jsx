@@ -120,6 +120,80 @@ const App = () => {
     };
   }, []);
 
+  // Hide Vercel Toolbar for non-admin users
+  useEffect(() => {
+    const hideVercelToolbar = () => {
+      // Check if we're on Vercel
+      const isVercelDeployment =
+        window.location.hostname.includes('vercel.app') ||
+        window.location.hostname.includes('vercel.live') ||
+        import.meta.env.VITE_VERCEL_ENV ||
+        import.meta.env.VERCEL;
+
+      if (!isVercelDeployment) {
+        return; // Not on Vercel, nothing to hide
+      }
+
+      // Check if user is admin (from useAdmin hook)
+      if (isAdmin) {
+        // Admin can see toolbar - no need to hide
+        return;
+      }
+
+      // Non-admin - hide the toolbar
+      const style = document.createElement('style');
+      style.id = 'hide-vercel-toolbar';
+      style.textContent = `
+        iframe[src*="vercel.live"],
+        iframe[src*="vercel-scripts"],
+        [data-vercel-toolbar],
+        [class*="vercel"][class*="toolbar"],
+        [id*="vercel"][id*="toolbar"] {
+          display: none !important;
+          visibility: hidden !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+          position: absolute !important;
+          width: 0 !important;
+          height: 0 !important;
+          z-index: -9999 !important;
+        }
+      `;
+      
+      // Remove existing style if present
+      const existing = document.getElementById('hide-vercel-toolbar');
+      if (existing) {
+        existing.remove();
+      }
+      
+      document.head.appendChild(style);
+      
+      // Also hide any existing elements
+      const hideElements = () => {
+        const vercelIframes = document.querySelectorAll('iframe[src*="vercel.live"], iframe[src*="vercel-scripts"]');
+        vercelIframes.forEach(iframe => {
+          iframe.style.display = 'none';
+          iframe.style.visibility = 'hidden';
+          iframe.style.opacity = '0';
+          iframe.style.pointerEvents = 'none';
+        });
+      };
+      
+      hideElements();
+      
+      // Watch for dynamically added elements
+      const observer = new MutationObserver(hideElements);
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['src', 'class', 'id'],
+      });
+    };
+    
+    hideVercelToolbar();
+  }, [isAdmin]);
+
   // Initialize Paddle globally when app loads
   useEffect(() => {
     const initializePaddle = () => {

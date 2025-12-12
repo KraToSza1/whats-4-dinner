@@ -20,6 +20,10 @@ import './index.css';
 import './utils/admin.js';
 import { forceEnableAdmin } from './utils/admin.js';
 
+// Hide Vercel Toolbar for non-admin users
+import { initVercelToolbarHiding } from './utils/hideVercelToolbar.js';
+initVercelToolbarHiding();
+
 // Auto-enable admin via URL parameter
 if (typeof window !== 'undefined') {
   const urlParams = new URLSearchParams(window.location.search);
