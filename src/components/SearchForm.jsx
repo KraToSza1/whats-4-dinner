@@ -49,13 +49,36 @@ export default function SearchForm({ onSearch, placeholder }) {
 
   const handleSubmit = e => {
     e.preventDefault();
+    const searchId = `search_form_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const q = ingredients.trim();
-    if (!q) return;
+    
+    console.log('🔍🔍🔍 [SEARCH FORM SUBMIT] ============================================');
+    console.log('🔍 [SEARCH FORM SUBMIT] Search ID:', searchId);
+    console.log('🔍 [SEARCH FORM SUBMIT] Timestamp:', new Date().toISOString());
+    console.log('🔍 [SEARCH FORM SUBMIT] User Agent:', navigator.userAgent);
+    console.log('🔍 [SEARCH FORM SUBMIT] Platform:', navigator.platform);
+    console.log('🔍 [SEARCH FORM SUBMIT] Network:', navigator.onLine ? 'ONLINE' : 'OFFLINE');
+    console.log('🔍 [SEARCH FORM SUBMIT] Query:', q);
+    console.log('🔍 [SEARCH FORM SUBMIT] Query Length:', q.length);
+    console.log('🔍 [SEARCH FORM SUBMIT] Raw Input:', ingredients);
+    console.log('🔍🔍🔍 [SEARCH FORM SUBMIT] ============================================');
+    
+    if (!q) {
+      console.warn('⚠️ [SEARCH FORM SUBMIT] Empty query, aborting');
+      return;
+    }
+    
     try {
       localStorage.setItem(LS_KEY, q);
     } catch (_e) {
-      // Ignore localStorage errors
+      console.warn('⚠️ [SEARCH FORM SUBMIT] Failed to save to localStorage:', _e);
     }
+    
+    console.log('🔍 [SEARCH FORM SUBMIT] Calling onSearch callback', {
+      searchId,
+      query: q
+    });
+    
     onSearch(q);
   };
 

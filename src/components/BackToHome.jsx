@@ -81,14 +81,6 @@ export default function BackToHome({ className = '', onClick, toHome = true, lab
 
       {/* Text - hidden on mobile */}
       <span className="hidden sm:inline relative z-10 font-medium">{buttonLabel}</span>
-
-      {/* Hover effect indicator */}
-      <motion.div
-        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity relative z-10"
-        initial={false}
-      >
-        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-      </motion.div>
     </motion.button>
   );
 }

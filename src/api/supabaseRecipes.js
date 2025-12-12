@@ -214,7 +214,7 @@ function mapSupabaseRecipe(row) {
       if (isExternal) {
         heroImageUrl = ''; // Clear invalid URL
       }
-    } catch (e) {
+    } catch (_e) {
       // Invalid URL format
       heroImageUrl = '';
     }
@@ -777,11 +777,76 @@ export async function searchSupabaseRecipes({
   isAdmin = false, // Admin flag - if true, shows all recipes including incomplete ones
 }) {
   const t0 = now();
+  const searchId = `search_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  // URGENT: EXTREMELY DETAILED LOGGING FOR ALL MOBILE DEVICES DEBUGGING
+  console.log('🔍🔍🔍 [SEARCH START] ============================================');
+  console.log('🔍 [SEARCH START] Search ID:', searchId);
+  console.log('🔍 [SEARCH START] Timestamp:', new Date().toISOString());
+  console.log('🔍 [SEARCH START] User Agent:', navigator.userAgent);
+  console.log('🔍 [SEARCH START] Platform:', navigator.platform);
+  console.log('🔍 [SEARCH START] Screen:', { width: window.screen.width, height: window.screen.height });
+  console.log('🔍 [SEARCH START] Window:', { width: window.innerWidth, height: window.innerHeight });
+  console.log('🔍 [SEARCH START] Network:', navigator.onLine ? 'ONLINE' : 'OFFLINE');
+  console.log('🔍 [SEARCH START] Connection:', navigator.connection ? {
+    effectiveType: navigator.connection.effectiveType,
+    downlink: navigator.connection.downlink,
+    rtt: navigator.connection.rtt,
+    saveData: navigator.connection.saveData
+  } : 'NOT AVAILABLE');
+  console.log('🔍 [SEARCH START] Search Parameters:', {
+    query: query || '(empty)',
+    queryLength: query?.length || 0,
+    includeIngredients: includeIngredients || [],
+    ingredientsCount: includeIngredients?.length || 0,
+    diet: diet || '(none)',
+    mealType: mealType || '(none)',
+    maxTime: maxTime || '(none)',
+    cuisine: cuisine || '(none)',
+    difficulty: difficulty || '(none)',
+    maxCalories: maxCalories || '(none)',
+    healthScore: healthScore || '(none)',
+    minProtein: minProtein || '(none)',
+    maxCarbs: maxCarbs || '(none)',
+    intolerances: intolerances || '(none)',
+    limit: limit,
+    offset: offset,
+    isAdmin: isAdmin
+  });
+  console.log('🔍 [SEARCH START] Supabase Config:', {
+    hasSupabase: !!supabase,
+    hasUrl: !!SUPABASE_URL,
+    urlLength: SUPABASE_URL?.length || 0,
+    urlPreview: SUPABASE_URL ? `${SUPABASE_URL.substring(0, 30)}...` : 'MISSING',
+    hasAnonKey: !!(import.meta.env.VITE_SUPABASE_ANON_KEY),
+    anonKeyLength: import.meta.env.VITE_SUPABASE_ANON_KEY?.length || 0
+  });
+  console.log('🔍 [SEARCH START] Environment:', {
+    mode: import.meta.env.MODE,
+    dev: import.meta.env.DEV,
+    prod: import.meta.env.PROD,
+    baseUrl: import.meta.env.BASE_URL
+  });
+  console.log('🔍🔍🔍 [SEARCH START] ============================================');
+  
   try {
-    // Only log in development to reduce console noise
     // Validate and sanitize inputs - increase max limit to support browsing large recipe databases
     const validatedLimit = Math.min(Math.max(Number(limit) || 24, 1), 1000); // Clamp between 1-1000 (increased to support large databases)
     const validatedOffset = Math.max(Number(offset) || 0, 0); // Offset for pagination
+    
+    // Declare variables at function scope so they're available in all code paths
+    let data = null;
+    let error = null;
+    let count = null;
+    let mapped = [];
+
+    console.log('🔍 [SEARCH VALIDATION] Validated parameters:', {
+      searchId,
+      validatedLimit,
+      validatedOffset,
+      originalLimit: limit,
+      originalOffset: offset
+    });
 
     const debugPayload = {
       query,
@@ -841,9 +906,12 @@ export async function searchSupabaseRecipes({
 
     // If no search and no filters, use the simplest possible query
     if (!hasSearchQuery && !hasIngredientFilters && !hasComplexFilters) {
-      if (import.meta.env.DEV) {
-        console.log('📋 [SEARCH API] Using ultra-simple query (no filters)');
-      }
+      console.log('🔍 [SEARCH QUERY TYPE] Using ultra-simple query (no filters)', {
+        searchId,
+        hasSearchQuery,
+        hasIngredientFilters,
+        hasComplexFilters
+      });
 
       let simpleBuilder = supabase
         .from('recipes')
@@ -860,13 +928,28 @@ export async function searchSupabaseRecipes({
         simpleBuilder = simpleBuilder.eq('has_complete_nutrition', true);
       }
 
+      // CRITICAL FIX: Ensure range doesn't exceed available records
+      const simpleRangeEnd = validatedOffset + validatedLimit - 1;
+      
       simpleBuilder = simpleBuilder
         .order('created_at', { ascending: false })
-        .range(validatedOffset, validatedOffset + validatedLimit - 1);
+        .range(validatedOffset, simpleRangeEnd);
 
       // Execute immediately without complex filtering
-      let data, error, count;
       const queryStartTime = Date.now();
+      
+      console.log('🔍 [SEARCH QUERY EXEC] Starting simple query execution', {
+        searchId,
+        queryStartTime,
+        validatedOffset,
+        validatedLimit,
+        isAdmin
+      });
+
+      // Declare variables for simple query result
+      let simpleData = null;
+      let simpleError = null;
+      let simpleCount = null;
 
       try {
         // First, test if Supabase client is working
@@ -1032,22 +1115,28 @@ export async function searchSupabaseRecipes({
         }
         const elapsed = Date.now() - queryStartTime;
 
-        if (import.meta.env.DEV && import.meta.env.VITE_VERBOSE_LOGS === 'true') {
-          console.log('✅ [SEARCH API] Simple query completed in', elapsed, 'ms');
-          console.log('✅ [SEARCH API] Result:', {
-            hasData: !!result?.data,
-            dataLength: result?.data?.length || 0,
-            hasError: !!result?.error,
-            errorMessage: result?.error?.message || 'none',
-            count: result?.count ?? 'null',
-          });
-        }
+        console.log('✅✅✅ [SEARCH QUERY SUCCESS] ============================================');
+        console.log('✅ [SEARCH QUERY SUCCESS] Search ID:', searchId);
+        console.log('✅ [SEARCH QUERY SUCCESS] Query completed in', elapsed, 'ms');
+        console.log('✅ [SEARCH QUERY SUCCESS] Result:', {
+          hasData: !!result?.data,
+          dataLength: result?.data?.length || 0,
+          dataIsArray: Array.isArray(result?.data),
+          hasError: !!result?.error,
+          errorMessage: result?.error?.message || 'none',
+          errorCode: result?.error?.code || 'none',
+          errorDetails: result?.error?.details || 'none',
+          errorHint: result?.error?.hint || 'none',
+          count: result?.count ?? 'null',
+          sampleRecipeIds: result?.data?.slice(0, 3).map(r => r.id) || []
+        });
+        console.log('✅✅✅ [SEARCH QUERY SUCCESS] ============================================');
 
-        data = result?.data || null;
-        error = result?.error || null;
-        count = result?.count ?? null;
+        simpleData = result?.data || null;
+        simpleError = result?.error || null;
+        simpleCount = result?.count ?? null;
 
-        if (error) {
+        if (simpleError) {
           if (import.meta.env.DEV) {
             console.error('❌ [SUPABASE ERROR] Simple query failed:', {
               message: error.message,
@@ -1056,10 +1145,10 @@ export async function searchSupabaseRecipes({
               code: error.code,
             });
           }
-          throw new Error(`Database error: ${error.message || 'Unknown error'}`);
+          throw new Error(`Database error: ${simpleError.message || 'Unknown error'}`);
         }
 
-        if (!data || data.length === 0) {
+        if (!simpleData || simpleData.length === 0) {
           return {
             data: [],
             totalCount: 0,
@@ -1067,17 +1156,22 @@ export async function searchSupabaseRecipes({
         }
 
         // Map results
-        const mappedRecipes = data.map(mapSupabaseRecipe).filter(Boolean);
+        const mappedRecipes = simpleData.map(mapSupabaseRecipe).filter(Boolean);
 
         return {
           data: mappedRecipes,
-          totalCount: count ?? mappedRecipes.length,
+          totalCount: simpleCount ?? mappedRecipes.length,
         };
       } catch (queryError) {
         const elapsed = Date.now() - queryStartTime;
-        if (import.meta.env.DEV) {
-          console.error('❌ [SEARCH API] Simple query failed after', elapsed, 'ms:', queryError);
-        }
+        console.error('❌❌❌ [SEARCH QUERY ERROR] ============================================');
+        console.error('❌ [SEARCH QUERY ERROR] Search ID:', searchId);
+        console.error('❌ [SEARCH QUERY ERROR] Query failed after', elapsed, 'ms');
+        console.error('❌ [SEARCH QUERY ERROR] Error type:', queryError?.constructor?.name || typeof queryError);
+        console.error('❌ [SEARCH QUERY ERROR] Error message:', queryError?.message || String(queryError));
+        console.error('❌ [SEARCH QUERY ERROR] Error stack:', queryError?.stack || 'NO STACK');
+        console.error('❌ [SEARCH QUERY ERROR] Full error object:', queryError);
+        console.error('❌❌❌ [SEARCH QUERY ERROR] ============================================');
         throw queryError;
       }
     }
@@ -1099,9 +1193,13 @@ export async function searchSupabaseRecipes({
       builder = builder.eq('has_complete_nutrition', true);
     }
 
+    // CRITICAL FIX: Ensure we don't request beyond available records
+    // Calculate the end index, but Supabase will automatically cap it to available records
+    const rangeEnd = validatedOffset + validatedLimit - 1;
+    
     builder = builder
       .order('created_at', { ascending: false }) // Use created_at instead of updated_at (simpler index)
-      .range(validatedOffset, validatedOffset + validatedLimit - 1); // Server-side pagination
+      .range(validatedOffset, rangeEnd); // Server-side pagination (Supabase handles out-of-range gracefully)
 
     // Building complex query with filters
 
@@ -1271,7 +1369,7 @@ export async function searchSupabaseRecipes({
     });
 
     // Execute query with timeout protection and detailed logging
-    let data, error, count;
+    // Variables data, error, count, and mapped are already declared at function scope (line 838-841)
     const queryStartTime = Date.now();
 
     if (import.meta.env.DEV && import.meta.env.VITE_VERBOSE_LOGS === 'true') {
@@ -1321,9 +1419,6 @@ export async function searchSupabaseRecipes({
 
       const elapsed = Date.now() - queryStartTime;
 
-      // Clear timeout immediately after result
-      if (timeoutId) clearTimeout(timeoutId);
-
       if (import.meta.env.DEV && import.meta.env.VITE_VERBOSE_LOGS === 'true') {
         console.log('✅ [SEARCH API] Query completed in', elapsed, 'ms');
         console.log('✅ [SEARCH API] Result:', {
@@ -1351,7 +1446,7 @@ export async function searchSupabaseRecipes({
           );
         }
       }
-    } catch (timeoutError) {
+    } catch (_timeoutError) {
       const elapsed = Date.now() - queryStartTime;
 
       // If timeout, try a much simpler query as fallback
@@ -1491,7 +1586,7 @@ export async function searchSupabaseRecipes({
     }
 
     // Map all recipes - show recipes with or without images
-    let mapped = data.map(mapSupabaseRecipe).filter(Boolean);
+    mapped = data.map(mapSupabaseRecipe).filter(Boolean);
 
     if (import.meta.env.DEV) {
       console.log('✅ [SEARCH API] Mapped recipes:', {
@@ -2107,41 +2202,48 @@ export async function searchSupabaseRecipes({
 
     const duration = Number((now() - t0).toFixed(2));
 
-    if (import.meta.env.DEV) {
-      console.log('✅ [SEARCH API] Search complete', {
-        finalRecipeCount: mapped.length,
-        rawDataCount: data?.length || 0,
-        totalCount: count ?? 'unknown',
-        offset: validatedOffset,
-        limit: validatedLimit,
-        durationMs: duration,
-        firstRecipeId: mapped[0]?.id || null,
-        lastRecipeId: mapped[mapped.length - 1]?.id || null,
+    console.log('✅✅✅ [SEARCH COMPLETE] ============================================');
+    console.log('✅ [SEARCH COMPLETE] Search ID:', searchId);
+    console.log('✅ [SEARCH COMPLETE] Total duration:', duration, 'ms');
+    console.log('✅ [SEARCH COMPLETE] Final results:', {
+      finalRecipeCount: mapped.length,
+      rawDataCount: data?.length || 0,
+      totalCount: count ?? 'unknown',
+      offset: validatedOffset,
+      limit: validatedLimit,
+      firstRecipeId: mapped[0]?.id || null,
+      firstRecipeTitle: mapped[0]?.title || null,
+      lastRecipeId: mapped[mapped.length - 1]?.id || null,
+      hasMaxTime,
+      hasDifficulty,
+      maxTimeNumber: hasMaxTime ? maxTimeNumber : null,
+      difficultyValue: hasDifficulty ? normalizedDifficulty : null,
+      sampleRecipes: mapped.slice(0, 3).map(r => ({
+        id: r.id,
+        title: r.title?.substring(0, 30),
+        hasImage: !!(r.image || r.heroImageUrl)
+      }))
+    });
+    console.log('✅✅✅ [SEARCH COMPLETE] ============================================');
+      
+    // Log sample recipes to debug filtering
+    if (mapped.length === 0 && data && data.length > 0) {
+      const samples = data.slice(0, 3).map(r => ({
+        id: r.id,
+        title: r.title?.substring(0, 40),
+        prep_minutes: r.prep_minutes,
+        cook_minutes: r.cook_minutes,
+        difficulty: r.difficulty,
+        totalTime: (r.prep_minutes || 0) + (r.cook_minutes || 0),
+      }));
+      console.warn('⚠️ [SEARCH API] All recipes filtered out!');
+      console.warn('Sample recipes before filtering:', JSON.stringify(samples, null, 2));
+      console.warn('Filter criteria:', {
         hasMaxTime,
-        hasDifficulty,
         maxTimeNumber: hasMaxTime ? maxTimeNumber : null,
+        hasDifficulty,
         difficultyValue: hasDifficulty ? normalizedDifficulty : null,
       });
-      
-      // Log sample recipes to debug filtering
-      if (mapped.length === 0 && data && data.length > 0) {
-        const samples = data.slice(0, 3).map(r => ({
-          id: r.id,
-          title: r.title?.substring(0, 40),
-          prep_minutes: r.prep_minutes,
-          cook_minutes: r.cook_minutes,
-          difficulty: r.difficulty,
-          totalTime: (r.prep_minutes || 0) + (r.cook_minutes || 0),
-        }));
-        console.warn('⚠️ [SEARCH API] All recipes filtered out!');
-        console.warn('Sample recipes before filtering:', JSON.stringify(samples, null, 2));
-        console.warn('Filter criteria:', {
-          hasMaxTime,
-          maxTimeNumber: hasMaxTime ? maxTimeNumber : null,
-          hasDifficulty,
-          difficultyValue: hasDifficulty ? normalizedDifficulty : null,
-        });
-      }
     }
 
     supabaseLog('searchSupabaseRecipes:complete', {
@@ -2155,7 +2257,16 @@ export async function searchSupabaseRecipes({
     // Return both data and total count for proper pagination
     return { data: mapped, totalCount: count ?? null };
   } catch (error) {
-    console.error('[Supabase] searchSupabaseRecipes:error', error);
+    console.error('❌❌❌ [SEARCH FATAL ERROR] ============================================');
+    console.error('❌ [SEARCH FATAL ERROR] Search ID:', searchId);
+    console.error('❌ [SEARCH FATAL ERROR] Error type:', error?.constructor?.name || typeof error);
+    console.error('❌ [SEARCH FATAL ERROR] Error message:', error?.message || String(error));
+    console.error('❌ [SEARCH FATAL ERROR] Error stack:', error?.stack || 'NO STACK');
+    console.error('❌ [SEARCH FATAL ERROR] Full error object:', error);
+    console.error('❌ [SEARCH FATAL ERROR] Timestamp:', new Date().toISOString());
+    console.error('❌ [SEARCH FATAL ERROR] User Agent:', navigator.userAgent);
+    console.error('❌ [SEARCH FATAL ERROR] Network:', navigator.onLine ? 'ONLINE' : 'OFFLINE');
+    console.error('❌❌❌ [SEARCH FATAL ERROR] ============================================');
     throw error;
   }
 }

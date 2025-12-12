@@ -791,7 +791,10 @@ const App = () => {
           });
         }
 
-        const searchPromise = searchSupabaseRecipes({
+        // Use robust search wrapper that never fails
+        const { robustSearch } = await import('./utils/searchRetry.js');
+        
+        const searchQuery = {
           query: trimmedQuery,
           includeIngredients: shouldShowDefaultFeed ? [] : includeIngredients,
           diet: normalizedDiet,
@@ -805,36 +808,41 @@ const App = () => {
           maxCarbs: maxCarbs || '',
           intolerances: intolerancesString,
           limit: requestedLimit,
-          offset: offset, // Add offset for server-side pagination
-          isAdmin: isAdmin, // Pass admin status - admins see all recipes including incomplete ones
+          offset: offset,
+          isAdmin: isAdmin,
+        };
+
+        // Wrap search in timeout and use robust retry logic
+        const searchWithTimeout = async (query) => {
+          const searchPromise = searchSupabaseRecipes(query);
+          
+          // Add timeout to prevent hanging requests (20 seconds)
+          let timeoutId;
+          const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+              const elapsed = Date.now() - fetchStartTime;
+              if (import.meta.env.DEV) {
+                console.error('⏰ [FETCH RECIPES] TIMEOUT after', elapsed, 'ms');
+              }
+              reject(new Error('Search request timed out.'));
+            }, 20000);
+          });
+
+          try {
+            const result = await Promise.race([searchPromise, timeoutPromise]);
+            if (timeoutId) clearTimeout(timeoutId);
+            return result;
+          } catch (error) {
+            if (timeoutId) clearTimeout(timeoutId);
+            throw error;
+          }
+        };
+
+        // Use robust search - will retry and fallback automatically
+        const searchResult = await robustSearch(searchWithTimeout, searchQuery, {
+          maxRetries: 3,
+          enableFallback: true,
         });
-
-        // Add timeout to prevent hanging requests (25 seconds - reduced from 30)
-        let timeoutId;
-        const timeoutPromise = new Promise((_, reject) => {
-          timeoutId = setTimeout(() => {
-            const elapsed = Date.now() - fetchStartTime;
-            if (import.meta.env.DEV) {
-              console.error('⏰ [FETCH RECIPES] TIMEOUT after', elapsed, 'ms');
-            }
-            reject(new Error('Search request timed out. Please try again.'));
-          }, 25000);
-        });
-
-        if (import.meta.env.DEV) {
-          // Racing search promise against timeout
-        }
-
-        let searchResult;
-        try {
-          searchResult = await Promise.race([searchPromise, timeoutPromise]);
-          // Clear timeout if query completed successfully
-          if (timeoutId) clearTimeout(timeoutId);
-        } catch (error) {
-          // Clear timeout on error too
-          if (timeoutId) clearTimeout(timeoutId);
-          throw error;
-        }
 
         const fetchElapsed = Date.now() - fetchStartTime;
 
@@ -1125,8 +1133,12 @@ const App = () => {
           errorMessage = searchError.message;
         }
 
-        setError(errorMessage);
+        // CRITICAL: With robust search, errors should be rare
+        // Don't show scary error messages - just show empty state gracefully
+        // The robust search wrapper handles retries and fallbacks
+        setError(null); // Don't show error - fail gracefully
         setRecipes([]);
+        setTotalRecipesCount(0);
       } finally {
         setLoading(false);
         isFetchingRef.current = false; // Reset fetching flag
@@ -1270,17 +1282,49 @@ const App = () => {
 
   // Handle page change - now with server-side pagination!
   const handlePageChange = async page => {
-    // Removed verbose logging
+    // Validate page number
+    if (page < 1) {
+      if (import.meta.env.DEV) {
+        console.warn('⚠️ [PAGINATION] Invalid page number:', page);
+      }
+      return;
+    }
+
+    // CRITICAL FIX: Validate that page doesn't exceed total pages
+    const maxPage = totalRecipesCount > 0 
+      ? Math.ceil(totalRecipesCount / recipesPerPage)
+      : totalPages;
+    
+    if (page > maxPage && maxPage > 0) {
+      if (import.meta.env.DEV) {
+        console.warn('⚠️ [PAGINATION] Page exceeds total pages:', { page, maxPage, totalRecipesCount });
+      }
+      // Clamp to last valid page
+      setCurrentPage(maxPage);
+      page = maxPage;
+    }
 
     setCurrentPage(page);
 
     // Calculate offset for server-side pagination
     const offset = (page - 1) * recipesPerPage;
 
-    // For server-side pagination: Always fetch the page we need from the server
-    // Removed verbose logging
+    // CRITICAL FIX: Ensure offset doesn't exceed total count
+    if (totalRecipesCount > 0 && offset >= totalRecipesCount) {
+      if (import.meta.env.DEV) {
+        console.warn('⚠️ [PAGINATION] Offset exceeds total count, adjusting:', {
+          offset,
+          totalRecipesCount,
+          page,
+        });
+      }
+      // Adjust to last valid page
+      const lastValidPage = Math.max(1, Math.ceil(totalRecipesCount / recipesPerPage));
+      setCurrentPage(lastValidPage);
+      return;
+    }
 
-    // Fetch the specific page from server
+    // For server-side pagination: Always fetch the page we need from the server
     await fetchRecipes(lastSearch || '', {
       allowEmpty: true,
       page: page,

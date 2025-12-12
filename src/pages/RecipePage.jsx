@@ -176,14 +176,26 @@ export default function RecipePage() {
     let timeoutId = null;
 
     (async () => {
-      if (import.meta.env.DEV) {
-        console.warn('📄 [RECIPE PAGE] Loading recipe page:', { 
-          id, 
-          isUuid: isUuid(id),
-          hasPreloaded: !!preloaded,
-          preloadedHasIngredients: !!(preloaded?.extendedIngredients?.length)
-        });
-      }
+      const recipeLoadId = `recipe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      console.log('📄📄📄 [RECIPE PAGE LOAD START] ============================================');
+      console.log('📄 [RECIPE PAGE LOAD START] Load ID:', recipeLoadId);
+      console.log('📄 [RECIPE PAGE LOAD START] Timestamp:', new Date().toISOString());
+      console.log('📄 [RECIPE PAGE LOAD START] User Agent:', navigator.userAgent);
+      console.log('📄 [RECIPE PAGE LOAD START] Platform:', navigator.platform);
+      console.log('📄 [RECIPE PAGE LOAD START] Network:', navigator.onLine ? 'ONLINE' : 'OFFLINE');
+      console.log('📄 [RECIPE PAGE LOAD START] Recipe ID:', id);
+      console.log('📄 [RECIPE PAGE LOAD START] Is UUID:', isUuid(id));
+      console.log('📄 [RECIPE PAGE LOAD START] Has Preloaded:', !!preloaded);
+      console.log('📄 [RECIPE PAGE LOAD START] Preloaded Has Ingredients:', !!(preloaded?.extendedIngredients?.length));
+      console.log('📄 [RECIPE PAGE LOAD START] Preloaded Data:', preloaded ? {
+        id: preloaded.id,
+        title: preloaded.title,
+        hasImage: !!(preloaded.image || preloaded.heroImageUrl),
+        ingredientsCount: preloaded.extendedIngredients?.length || 0,
+        stepsCount: preloaded.analyzedInstructions?.[0]?.steps?.length || 0
+      } : 'NONE');
+      console.log('📄📄📄 [RECIPE PAGE LOAD START] ============================================');
       
       // Only show loading if we don't have preloaded data
       if (!preloaded || preloaded.id !== id) {
@@ -204,41 +216,59 @@ export default function RecipePage() {
         let full = null;
 
         if (isUuid(id)) {
-          if (import.meta.env.DEV) {
-            console.warn('🔍 [RECIPE PAGE] Attempting Supabase fetch for UUID:', id);
-          }
+          console.log('🔍 [RECIPE PAGE FETCH] Attempting Supabase fetch', {
+            loadId: recipeLoadId,
+            recipeId: id,
+            timestamp: new Date().toISOString()
+          });
+          
           try {
+            const fetchStartTime = Date.now();
             // Add timeout wrapper to prevent hanging
             const fetchPromise = getSupabaseRecipeById(id);
             const timeoutPromise = new Promise((_, reject) =>
               setTimeout(() => reject(new Error('Fetch timeout')), 12000)
             );
 
+            console.log('🔍 [RECIPE PAGE FETCH] Starting Promise.race', {
+              loadId: recipeLoadId,
+              timeout: 12000
+            });
+            
             full = await Promise.race([fetchPromise, timeoutPromise]);
+            
+            const fetchDuration = Date.now() - fetchStartTime;
+            console.log('🔍 [RECIPE PAGE FETCH] Fetch completed', {
+              loadId: recipeLoadId,
+              duration: fetchDuration,
+              hasResult: !!full
+            });
 
             if (full) {
               // Debug: Log nutrition data from the loaded recipe
               const caloriesNutrient = full.nutrition?.nutrients?.find(n => n.name === 'Calories');
-              if (import.meta.env.DEV) {
-                console.warn('✅ [RECIPE PAGE] Successfully loaded from Supabase:', {
-                  id: full.id,
-                  title: full.title,
-                  hasImage: !!(full.image || full.heroImageUrl),
-                  imageUrl: full.image || full.heroImageUrl || 'MISSING',
-                  servings: full.servings,
-                  readyInMinutes: full.readyInMinutes,
-                  ingredientsCount: full.extendedIngredients?.length || 0,
-                  stepsCount: full.analyzedInstructions?.[0]?.steps?.length || 0,
-                  hasNutrition: !!full.nutrition,
-                  nutritionCalories: caloriesNutrient?.amount,
-                  nutritionCaloriesUnit: caloriesNutrient?.unit,
-                  hasPairings: full.beveragePairings?.length > 0,
-                  // CRITICAL: Check if extendedIngredients exists
-                  extendedIngredientsExists: !!full.extendedIngredients,
-                  extendedIngredientsIsArray: Array.isArray(full.extendedIngredients),
-                  extendedIngredientsSample: full.extendedIngredients?.slice(0, 2) || 'NONE',
-                });
-              }
+              
+              console.log('✅✅✅ [RECIPE PAGE LOAD SUCCESS] ============================================');
+              console.log('✅ [RECIPE PAGE LOAD SUCCESS] Load ID:', recipeLoadId);
+              console.log('✅ [RECIPE PAGE LOAD SUCCESS] Recipe loaded successfully:', {
+                id: full.id,
+                title: full.title,
+                hasImage: !!(full.image || full.heroImageUrl),
+                imageUrl: full.image || full.heroImageUrl || 'MISSING',
+                servings: full.servings,
+                readyInMinutes: full.readyInMinutes,
+                ingredientsCount: full.extendedIngredients?.length || 0,
+                stepsCount: full.analyzedInstructions?.[0]?.steps?.length || 0,
+                hasNutrition: !!full.nutrition,
+                nutritionCalories: caloriesNutrient?.amount,
+                nutritionCaloriesUnit: caloriesNutrient?.unit,
+                hasPairings: full.beveragePairings?.length > 0,
+                // CRITICAL: Check if extendedIngredients exists
+                extendedIngredientsExists: !!full.extendedIngredients,
+                extendedIngredientsIsArray: Array.isArray(full.extendedIngredients),
+                extendedIngredientsSample: full.extendedIngredients?.slice(0, 2) || 'NONE',
+              });
+              console.log('✅✅✅ [RECIPE PAGE LOAD SUCCESS] ============================================');
 
               // CRITICAL: Warn if recipe has no ingredients
               if (!full.extendedIngredients || full.extendedIngredients.length === 0) {
@@ -255,11 +285,17 @@ export default function RecipePage() {
               }
             }
           } catch (supabaseError) {
-            console.error('❌ [RECIPE PAGE] Supabase fetch failed:', {
-              id,
-              error: supabaseError.message,
-              stack: supabaseError.stack,
-            });
+            console.error('❌❌❌ [RECIPE PAGE LOAD ERROR] ============================================');
+            console.error('❌ [RECIPE PAGE LOAD ERROR] Load ID:', recipeLoadId);
+            console.error('❌ [RECIPE PAGE LOAD ERROR] Recipe ID:', id);
+            console.error('❌ [RECIPE PAGE LOAD ERROR] Error type:', supabaseError?.constructor?.name || typeof supabaseError);
+            console.error('❌ [RECIPE PAGE LOAD ERROR] Error message:', supabaseError?.message || String(supabaseError));
+            console.error('❌ [RECIPE PAGE LOAD ERROR] Error stack:', supabaseError?.stack || 'NO STACK');
+            console.error('❌ [RECIPE PAGE LOAD ERROR] Full error:', supabaseError);
+            console.error('❌ [RECIPE PAGE LOAD ERROR] Timestamp:', new Date().toISOString());
+            console.error('❌ [RECIPE PAGE LOAD ERROR] Network:', navigator.onLine ? 'ONLINE' : 'OFFLINE');
+            console.error('❌❌❌ [RECIPE PAGE LOAD ERROR] ============================================');
+            
             // If it's a timeout, show specific error
             if (supabaseError.message === 'Fetch timeout') {
               throw new Error('Recipe load timeout. Please try again.');

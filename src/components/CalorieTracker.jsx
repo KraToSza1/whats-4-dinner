@@ -7,6 +7,7 @@ import { searchSupabaseRecipes } from '../api/supabaseRecipes.js';
 import { CompactRecipeLoader } from './FoodLoaders.jsx';
 import { useFilters } from '../context/FilterContext.jsx';
 import { trackFeatureUsage, FEATURES } from '../utils/featureTracking';
+import BMRTDEEModal from './BMRTDEEModal.jsx';
 import {
   Flame,
   TrendingUp,
@@ -23,6 +24,7 @@ import {
   UtensilsCrossed,
   Clock,
   Activity,
+  Info,
 } from 'lucide-react';
 
 const STORAGE_KEY = 'calorie:tracker:v1';
@@ -166,6 +168,8 @@ export default function CalorieTracker() {
   const [activeTab, setActiveTab] = useState('today'); // today, week, history, weight
   const [showAddWeight, setShowAddWeight] = useState(false);
   const [newWeight, setNewWeight] = useState('');
+  const [showBMRModal, setShowBMRModal] = useState(false);
+  const [showTDEEModal, setShowTDEEModal] = useState(false);
   const [profile, setProfile] = useState(
     readUserProfile() || {
       weight: '',
@@ -864,16 +868,34 @@ export default function CalorieTracker() {
 
       {/* Stats Cards - BMR, TDEE, etc */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-slate-900 rounded-xl p-4 text-center border border-slate-200 dark:border-slate-800 shadow-lg">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowBMRModal(true)}
+          className="bg-white dark:bg-slate-900 rounded-xl p-4 text-center border border-slate-200 dark:border-slate-800 shadow-lg hover:shadow-xl hover:border-blue-400 dark:hover:border-blue-600 transition-all cursor-pointer"
+          aria-label="Learn about BMR"
+        >
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
             {Math.round(bmr)}
           </div>
-          <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">BMR</div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 rounded-xl p-4 text-center border border-slate-200 dark:border-slate-800 shadow-lg">
+          <div className="text-xs text-slate-600 dark:text-slate-400 mt-1 flex items-center justify-center gap-1">
+            BMR
+            <Info className="w-3 h-3 text-blue-500" />
+          </div>
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowTDEEModal(true)}
+          className="bg-white dark:bg-slate-900 rounded-xl p-4 text-center border border-slate-200 dark:border-slate-800 shadow-lg hover:shadow-xl hover:border-purple-400 dark:hover:border-purple-600 transition-all cursor-pointer"
+          aria-label="Learn about TDEE"
+        >
           <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{tdee}</div>
-          <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">TDEE</div>
-        </div>
+          <div className="text-xs text-slate-600 dark:text-slate-400 mt-1 flex items-center justify-center gap-1">
+            TDEE
+            <Info className="w-3 h-3 text-purple-500" />
+          </div>
+        </motion.button>
         <div className="bg-white dark:bg-slate-900 rounded-xl p-4 text-center border border-slate-200 dark:border-slate-800 shadow-lg">
           <div className="text-2xl font-bold text-pink-600 dark:text-pink-400">{goalCalories}</div>
           <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Goal</div>
@@ -1677,6 +1699,18 @@ export default function CalorieTracker() {
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {/* BMR/TDEE Educational Modals */}
+      <BMRTDEEModal
+        isOpen={showBMRModal}
+        onClose={() => setShowBMRModal(false)}
+        type="BMR"
+      />
+      <BMRTDEEModal
+        isOpen={showTDEEModal}
+        onClose={() => setShowTDEEModal(false)}
+        type="TDEE"
+      />
     </motion.div>
   );
 }

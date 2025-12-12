@@ -112,7 +112,7 @@ export default function GamificationBubbles() {
               bg-white/25 dark:bg-white/20
               backdrop-blur-md
               border-2 ${bubble.borderColor} ${bubble.hoverColor}
-              text-white
+              text-slate-800 dark:text-white
               font-bold text-xs xs:text-sm
               shadow-lg shadow-white/10
               transition-all duration-300
