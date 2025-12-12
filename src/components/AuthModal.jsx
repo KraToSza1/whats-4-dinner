@@ -60,13 +60,29 @@ export default function AuthModal({ open, onClose }) {
       // Supabase automatically appends the auth callback path
       const fullRedirectTo = redirectTo;
 
+      // Check if we're in a WebView or iframe (Google blocks OAuth in these)
+      const isInWebView = 
+        /wv|WebView/i.test(navigator.userAgent) ||
+        window.self !== window.top; // In an iframe
+
+      if (isInWebView) {
+        setError(
+          `Google OAuth doesn't work in embedded browsers. Please open this page in your regular browser (Chrome, Firefox, Safari) instead of an in-app browser.`
+        );
+        setLoading(false);
+        return;
+      }
+
       const { data, error: err } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: fullRedirectTo,
+          skipBrowserRedirect: false, // Force full browser redirect (not popup)
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
+            // Add ux_mode to force redirect mode (helps Google recognize it's a real browser)
+            ux_mode: 'redirect',
           },
         },
       });
@@ -82,7 +98,7 @@ export default function AuthModal({ open, onClose }) {
           );
         } else if (err.message?.includes('disallowed_useragent') || err.message?.includes('403')) {
           setError(
-            `Google is blocking this sign-in. Please try using email magic link instead, or sign in directly from the website (not from an embedded browser).`
+            `Google is blocking this sign-in because it detected an embedded browser. Please try: 1) Using email magic link instead, 2) Opening this page in your regular browser (not an in-app browser), 3) Disabling any browser extensions that might be modifying your user agent, or 4) Clearing your browser cache and cookies.`
           );
         } else {
           setError(err.message || 'OAuth sign-in failed. Please try again.');
