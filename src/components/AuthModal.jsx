@@ -23,8 +23,15 @@ export default function AuthModal({ open, onClose }) {
   }, [open]);
 
   // Build redirect URL - Supabase needs the exact URL that will receive the callback
-  // Use window.location.origin to automatically get the correct port and protocol
-  const redirectTo = window.location.origin;
+  // IMPORTANT: Google OAuth doesn't work on Vercel preview URLs - use production domain
+  // Check if we're on a preview URL and use production domain instead
+  const isPreviewUrl = window.location.hostname.includes('vercel.app') && 
+                       !window.location.hostname.includes('whats4dinner.app');
+  
+  // Use production domain for OAuth redirects (Google blocks preview URLs)
+  const redirectTo = isPreviewUrl 
+    ? 'https://whats4dinner.app'  // Production domain
+    : window.location.origin;      // Current domain (if already production)
 
   const sendMagicLink = async e => {
     e?.preventDefault?.();
@@ -73,6 +80,13 @@ export default function AuthModal({ open, onClose }) {
         return;
       }
 
+      // Warn if on preview URL (Google often blocks OAuth on preview URLs)
+      if (isPreviewUrl) {
+        console.warn('🔐 [AUTH] Using production domain for OAuth redirect because we\'re on a preview URL');
+        // Show a warning to user that they'll be redirected to production
+        // But continue - we're using production domain for redirect which should work
+      }
+
       const { data, error: err } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -97,9 +111,16 @@ export default function AuthModal({ open, onClose }) {
             `Redirect URL mismatch. Add "${fullRedirectTo}" to your Supabase dashboard under Authentication > URL Configuration > Redirect URLs.`
           );
         } else if (err.message?.includes('disallowed_useragent') || err.message?.includes('403')) {
-          setError(
-            `Google is blocking this sign-in because it detected an embedded browser. Please try: 1) Using email magic link instead, 2) Opening this page in your regular browser (not an in-app browser), 3) Disabling any browser extensions that might be modifying your user agent, or 4) Clearing your browser cache and cookies.`
-          );
+          // Check if we're on a preview URL
+          if (isPreviewUrl) {
+            setError(
+              `Google OAuth doesn't work on Vercel preview URLs. Please visit the production site (whats4dinner.app) to sign in with Google, or use the email magic link instead.`
+            );
+          } else {
+            setError(
+              `Google is blocking this sign-in. This can happen if: 1) You're on a preview URL (use production site instead), 2) Browser extensions are interfering, or 3) Google detected an embedded browser. Please try: Using email magic link instead, or visit the production site (whats4dinner.app) to sign in.`
+            );
+          }
         } else {
           setError(err.message || 'OAuth sign-in failed. Please try again.');
         }
