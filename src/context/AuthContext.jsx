@@ -46,17 +46,103 @@ export function AuthProvider({ children }) {
     handleOAuthCallback();
 
     (async () => {
+      // URGENT: Log initial auth check
+      console.log('🔐 [AUTH INIT] Checking initial user state...');
       const { data, error } = await supabase.auth.getUser();
-      // Only log non-expected errors (AuthSessionMissingError is expected when not logged in)
-      if (error && error.name !== 'AuthSessionMissingError') {
-        console.error('🔐 [AUTH] getUser error:', error);
+      
+      // URGENT: Log all auth errors, not just non-expected ones
+      if (error) {
+        console.error('🔐 [AUTH INIT] getUser error:', {
+          name: error.name,
+          message: error.message,
+          status: error.status,
+          isSessionMissing: error.name === 'AuthSessionMissingError',
+        });
       }
+      
+      // Check session separately
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log('🔐 [AUTH INIT] Session check:', {
+        hasSession: !!session,
+        hasUser: !!data?.user,
+        userEmail: data?.user?.email || session?.user?.email || 'NO_USER',
+        sessionExpiresAt: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'NO_EXPIRY',
+        sessionError: sessionError?.message || 'NO_ERROR',
+      });
+      
       if (mounted) {
         setUser(data?.user || null);
       }
       setLoading(false);
     })();
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // URGENT: EXTENSIVE LOGGING FOR ADMIN LOGOUT ISSUE
+      const timestamp = new Date().toISOString();
+      const userEmail = session?.user?.email || 'NO_USER';
+      const userId = session?.user?.id || 'NO_ID';
+      const isAdmin = userEmail === 'Raymondvdw@gmail.com' || userEmail === 'Elanridp@gmail.com';
+      
+      console.log('🔐🔐🔐 [AUTH STATE CHANGE] ============================================');
+      console.log('🔐 [AUTH STATE CHANGE] Event:', event);
+      console.log('🔐 [AUTH STATE CHANGE] Timestamp:', timestamp);
+      console.log('🔐 [AUTH STATE CHANGE] User Email:', userEmail);
+      console.log('🔐 [AUTH STATE CHANGE] User ID:', userId);
+      console.log('🔐 [AUTH STATE CHANGE] Is Admin:', isAdmin);
+      console.log('🔐 [AUTH STATE CHANGE] Has Session:', !!session);
+      console.log('🔐 [AUTH STATE CHANGE] Session Expires At:', session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'NO_EXPIRY');
+      console.log('🔐 [AUTH STATE CHANGE] Session Expires In:', session?.expires_at ? `${Math.round((session.expires_at * 1000 - Date.now()) / 1000 / 60)} minutes` : 'NO_EXPIRY');
+      console.log('🔐 [AUTH STATE CHANGE] Access Token Present:', !!session?.access_token);
+      console.log('🔐 [AUTH STATE CHANGE] Refresh Token Present:', !!session?.refresh_token);
+      console.log('🔐 [AUTH STATE CHANGE] User Agent:', navigator.userAgent);
+      console.log('🔐 [AUTH STATE CHANGE] Current URL:', window.location.href);
+      console.log('🔐 [AUTH STATE CHANGE] LocalStorage Keys:', Object.keys(localStorage).filter(k => k.includes('auth') || k.includes('supabase')));
+      
+      // Check for localStorage clearing
+      try {
+        const supabaseAuthKey = Object.keys(localStorage).find(k => k.includes('supabase.auth'));
+        if (supabaseAuthKey) {
+          const authData = localStorage.getItem(supabaseAuthKey);
+          console.log('🔐 [AUTH STATE CHANGE] Supabase Auth Data Present:', !!authData);
+          console.log('🔐 [AUTH STATE CHANGE] Auth Data Length:', authData?.length || 0);
+        } else {
+          console.warn('⚠️ [AUTH STATE CHANGE] NO SUPABASE AUTH KEY FOUND IN LOCALSTORAGE!');
+        }
+      } catch (e) {
+        console.error('❌ [AUTH STATE CHANGE] Error checking localStorage:', e);
+      }
+      
+      // CRITICAL: Log SIGNED_OUT events in detail
+      if (event === 'SIGNED_OUT') {
+        console.error('🚨🚨🚨 [AUTH STATE CHANGE] SIGNED_OUT EVENT DETECTED! 🚨🚨🚨');
+        console.error('🚨 [AUTH STATE CHANGE] User was signed out:', userEmail);
+        console.error('🚨 [AUTH STATE CHANGE] Was Admin:', isAdmin);
+        console.error('🚨 [AUTH STATE CHANGE] Session before signout:', session);
+        console.error('🚨 [AUTH STATE CHANGE] Stack trace:', new Error().stack);
+        
+        // Check if session was cleared
+        setTimeout(async () => {
+          const { data: { session: checkSession } } = await supabase.auth.getSession();
+          console.error('🚨 [AUTH STATE CHANGE] Session check after SIGNED_OUT:', {
+            hasSession: !!checkSession,
+            hasUser: !!checkSession?.user,
+            userEmail: checkSession?.user?.email || 'NO_USER',
+          });
+        }, 1000);
+      }
+      
+      // CRITICAL: Log TOKEN_REFRESHED events
+      if (event === 'TOKEN_REFRESHED') {
+        console.log('🔄 [AUTH STATE CHANGE] Token refreshed successfully');
+        console.log('🔄 [AUTH STATE CHANGE] New expires at:', session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'NO_EXPIRY');
+      }
+      
+      // CRITICAL: Log any errors during token refresh
+      if (event === 'TOKEN_REFRESHED' && !session) {
+        console.error('❌ [AUTH STATE CHANGE] TOKEN_REFRESHED but NO SESSION! This will cause logout!');
+      }
+      
+      console.log('🔐🔐🔐 [AUTH STATE CHANGE] ============================================');
+      
       setUser(session?.user || null);
 
       // Start free trial on signup
@@ -92,7 +178,44 @@ export function AuthProvider({ children }) {
         }
       }
     });
-    return () => sub.subscription.unsubscribe();
+    // URGENT: Periodic session check to detect unexpected logouts
+    let currentUserRef = user; // Capture current user value
+    const sessionCheckInterval = setInterval(async () => {
+      try {
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+        const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+        
+        // Update ref to latest user value
+        currentUserRef = currentUser;
+        
+        const userEmail = currentUser?.email || 'NO_USER';
+        const isAdmin = userEmail === 'Raymondvdw@gmail.com' || userEmail === 'Elanridp@gmail.com';
+        
+        // Only log for admins to reduce noise
+        if (isAdmin) {
+          if (!currentSession && currentUserRef) {
+            console.error('🚨🚨🚨 [AUTH MONITOR] Admin session lost! User was logged in but session is gone!');
+            console.error('🚨 [AUTH MONITOR] Previous user:', currentUserRef?.email);
+            console.error('🚨 [AUTH MONITOR] Current session:', currentSession);
+            console.error('🚨 [AUTH MONITOR] Session error:', sessionError);
+            console.error('🚨 [AUTH MONITOR] User error:', userError);
+          } else if (currentSession && !currentUserRef) {
+            console.warn('⚠️ [AUTH MONITOR] Session exists but user state is null - possible state desync');
+          } else if (currentSession && currentUserRef && currentSession.user.id !== currentUserRef.id) {
+            console.error('🚨🚨🚨 [AUTH MONITOR] User ID mismatch! Session user:', currentSession.user.id, 'State user:', currentUserRef.id);
+          }
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error('❌ [AUTH MONITOR] Error checking session:', error);
+        }
+      }
+    }, 30000); // Check every 30 seconds
+    
+    return () => {
+      sub.subscription.unsubscribe();
+      clearInterval(sessionCheckInterval);
+    };
   }, []);
 
   const value = useMemo(() => ({ user, loading }), [user, loading]);
